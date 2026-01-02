@@ -1,261 +1,286 @@
-# KIE v3 - Project Instructions for Claude
+# KIE - Kearney Insight Engine v3.0
 
-**You are working on KIE v3** - a complete rewrite with modern architecture and 100% KDS compliance.
+## System Overview
 
----
+KIE (Kearney Insight Engine) is an AI-powered consulting delivery platform that transforms
+natural language requirements into polished, brand-compliant deliverables.
 
-## Critical Context
-
-### This is v3 - NOT v2
-
-- ✅ **Package name**: `kie` (NOT `core` or `core_v3`)
-- ✅ **No matplotlib** - Charts use Recharts (React) only
-- ✅ **JSON configs** - Python generates configs, React renders
-- ✅ **Modern architecture** - Clean separation of concerns
-
-### Never reference v2
-
-- ❌ Do NOT import from `core` package (doesn't exist here)
-- ❌ Do NOT mention `core_v3` (renamed to `kie`)
-- ❌ Do NOT use matplotlib (use chart builders → JSON → Recharts)
+**Core Philosophy: "LLM Reasons, Python Executes"**
+- Claude handles understanding, reasoning, and orchestration
+- Python engines handle deterministic, reproducible output generation
+- Brand compliance is programmatically enforced (cannot be bypassed)
 
 ---
 
-## Directory Structure
+## Bootstrap Detection (Auto-Setup)
 
-```
-kie/           # Python backend (was core_v3)
-web/           # React frontend (was web_v3)
-tests/         # Integration tests
-examples/      # Usage examples
-docs/          # Documentation
-```
+**IMPORTANT**: When you detect you're in a folder that needs KIE setup, automatically bootstrap it.
 
-## Development Rules
+### Detection Triggers
 
-### 1. KDS Compliance First
+Bootstrap a KIE project if ALL of these are true:
+1. Current working directory does NOT contain `CLAUDE.md` with "KIE Project" in it
+2. Current working directory does NOT contain `kie/` or `web/` folders (you're not in the KIE v3 repo)
+3. User requests indicate Kearney/KIE work with phrases like:
+   - "KIE project"
+   - "Kearney analysis"
+   - "consulting deliverable"
+   - "need a presentation/dashboard/analysis"
+   - Any mention of Acme, client work, or business analysis
+   - User types `/startkie`
 
-**ALL outputs must be KDS-compliant:**
-- No gridlines (`axisLine: false`, `tickLine: false`)
-- Kearney Purple #7823DC for primary elements
-- 10-color KDS palette in order
-- Inter font family
-- Responsive grids (4-col → 2-col → 1-col)
+### Bootstrap Process
 
-**Use validation pipeline**:
+When triggered, use the Python CommandHandler:
+
 ```python
-from kie.validation import validate_chart
-result = validate_chart(config)
+from pathlib import Path
+from kie.commands.handler import CommandHandler
+
+handler = CommandHandler(project_root=Path.cwd())
+result = handler.handle_startkie()
+
+if result['success']:
+    print(f"✅ {result['message']}")
+    print(f"Created: {', '.join(result['folders_created'])}")
+else:
+    print(f"❌ {result['message']}")
 ```
 
-### 2. Chart Generation Pattern
+This will create:
+- Folder structure (data/, outputs/, exports/, project_state/)
+- .gitignore
+- README.md
+- CLAUDE.md (project-specific instructions)
+
+After bootstrapping, begin conversational requirements gathering.
+
+---
+
+## Architecture
+
+KIE v3 uses modern separation of concerns:
+
+```
+Python Backend (kie/)    →  Generates JSON configs
+React Frontend (web/)    →  Renders charts from JSON
+Validation System        →  Ensures 100% KDS compliance
+```
+
+**Key Differences from v2:**
+- ✅ No matplotlib - Charts use Recharts (React) only
+- ✅ JSON configs - Python generates, React renders
+- ✅ Enhanced validation - Multi-level QC system
+- ✅ Theme support - Dark and light modes
+
+---
+
+## Conversational Requirements
+
+Use **natural conversation** to gather requirements - never rigid questionnaires:
+
+```
+User: "I need a sales dashboard for Acme Corp showing Q3 performance"
+
+You: "Got it - I've captured:
+     - Client: Acme Corp
+     - Deliverable: Dashboard
+     - Timeframe: Q3
+
+     What data do you have? (drop a file, or I can mock sample data)"
+```
+
+Extract structured requirements from natural language. Only ask targeted follow-ups for missing critical info.
+
+---
+
+## Brand Rules (Non-Negotiable)
+
+**ALWAYS enforce these - no exceptions:**
+
+| Rule | Requirement |
+|------|-------------|
+| Primary Color | Kearney Purple `#7823DC` |
+| Forbidden Colors | ALL greens (no #00FF00, #008000, #90EE90, etc.) |
+| Typography | Inter font (Arial fallback) |
+| Charts | No gridlines. Data labels outside bars/slices. |
+| Text on Dark | Use white `#FFFFFF` or light purple `#9B4DCA` - NEVER primary purple |
+| Dark Mode | Background `#1E1E1E` |
+| Accessibility | WCAG 2.1 AA contrast minimum |
+| No Emojis | Never in deliverables |
+
+**Kearney Color Palette (KDS 10-color chart palette):**
+```
+1. #D2D2D2  (Light Gray)
+2. #A5A6A5  (Medium Gray)
+3. #787878  (Dark Gray)
+4. #E0D2FA  (Light Purple)
+5. #C8A5F0  (Medium Light Purple)
+6. #AF7DEB  (Medium Purple)
+7. #4B4B4B  (Charcoal)
+8. #1E1E1E  (Kearney Black)
+9. #9150E1  (Bright Purple)
+10. #7823DC (Kearney Purple / primary brand color)
+```
+
+---
+
+## Project Types
+
+| Type | Description | Primary Outputs |
+|------|-------------|-----------------|
+| `analytics` | Data analysis & insights | Charts, insights catalog |
+| `presentation` | Executive slides | PowerPoint deck |
+| `dashboard` | Interactive visualization | HTML/Streamlit/React app |
+| `modeling` | ML/Statistical models | Model artifacts, reports |
+| `proposal` | RFP responses, pitches | Word document, slides |
+| `research` | Market/competitive analysis | Research report |
+
+---
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/startkie` | Bootstrap new KIE project in current folder |
+| `/interview` | Start conversational requirements gathering |
+| `/status` | Show current project state |
+| `/validate` | Run comprehensive quality checks |
+| `/build` | Execute full deliverable generation |
+| `/preview` | Generate preview of current outputs |
+
+---
+
+## Chart Generation (v3 Pattern)
 
 ```python
 from kie.charts import ChartFactory
+import pandas as pd
 
-# Generate chart config
-config = ChartFactory.bar(data, x="region", y=["revenue"])
+# Your data
+data = pd.DataFrame({
+    'region': ['North', 'South', 'East', 'West'],
+    'revenue': [1250000, 980000, 1450000, 1100000]
+})
 
-# Export to JSON for React
-config.to_json("web/public/charts/revenue.json")
+# Generate chart (creates JSON config)
+chart_config = ChartFactory.bar(
+    data=data,
+    x='region',
+    y=['revenue'],
+    title='Q3 Revenue by Region'
+)
+
+# Save for React rendering
+chart_config.to_json('outputs/charts/revenue_by_region.json')
 ```
 
-**React consumption**:
+**React consumption (automatic in dashboard)**:
 ```tsx
-import { ChartLoader } from './components/charts';
+import { ChartRenderer } from './components/charts';
 
-<ChartLoader configPath="/charts/revenue.json" />
-```
-
-### 3. Testing Requirements
-
-**Every feature needs tests**:
-```bash
-pytest tests/test_*.py -v
-```
-
-Current status: 11/11 tests passing ✅
-
-### 4. Type Hints Required
-
-Use Pydantic for schemas:
-```python
-from pydantic import BaseModel
-
-class ChartConfig(BaseModel):
-    type: str
-    data: List[Dict[str, Any]]
-    config: Dict[str, Any]
+<ChartRenderer configPath="/charts/revenue_by_region.json" />
 ```
 
 ---
 
-## Common Tasks
+## Validation (Critical Safety Layer)
 
-### Generate Chart
+**NEVER deliver outputs to consultants without validation!**
 
+```python
+from kie.validation import validate_chart_output
+
+# Validate before delivery
+report = validate_chart_output(
+    data=data,
+    chart_config=chart_config.to_dict(),
+    output_path=output_path,
+    strict=True  # Warnings also block output
+)
+
+if not report.passed:
+    print("❌ Validation failed - cannot deliver!")
+    print(report.format_text_report())
+```
+
+Validation prevents:
+- Synthetic/fake data (test names, sequential IDs)
+- Brand violations (green colors, gridlines)
+- Data quality issues (nulls, duplicates, errors)
+- Content problems (placeholders, profanity)
+- Calculation errors (infinity, overflow)
+- Accessibility violations (contrast, font size)
+
+---
+
+## State Management
+
+```
+project_state/
+  spec.yaml               # Requirements (source of truth)
+  interview_state.yaml    # Interview progress
+  status.json             # Build status
+  validation_reports/     # QC reports
+```
+
+---
+
+## Tool Usage Rules
+
+### Charts
 ```python
 from kie.charts import ChartFactory
 
-data = [{"x": 1, "y": 100}, {"x": 2, "y": 200}]
-config = ChartFactory.bar(data, x="x", y=["y"], title="My Chart")
-config.to_json("output.json")
+# Create chart
+config = ChartFactory.bar(data, x="region", y=["revenue"])
+config.to_json('outputs/charts/revenue.json')
 ```
 
-### Validate Output
+### Interview
+```python
+from kie.interview import InterviewEngine
+
+interview = InterviewEngine()
+response = interview.process_message("I need a sales dashboard")
+```
+
+### Validation
+```python
+from kie.validation import ValidationPipeline, ValidationConfig
+
+pipeline = ValidationPipeline(ValidationConfig(strict=True))
+summary = pipeline.get_pipeline_summary()
+```
+
+---
+
+## Package Information
+
+**Package name**: `kie` (version 3.0.0)
+**Installation**: `pip install -e ".[all]"`
+
+**Critical**: NEVER import from `core` or `core_v3` - those are v2 only. Always use `kie`:
 
 ```python
-from kie.validation import validate_chart
-
-result = validate_chart(config.to_dict())
-if not result.compliant:
-    print(f"Violations: {result.violations}")
-```
-
-### Run Tests
-
-```bash
-# All tests
-pytest tests/ -v
-
-# Specific test
-pytest tests/test_charts.py -v -k bar_chart
-```
-
-### Build Web Dashboard
-
-```bash
-cd web
-npm install
-npm run build
-```
-
----
-
-## Architecture Principles
-
-### Python Backend (kie/)
-
-**Responsibilities**:
-- Generate KDS-compliant chart configs (JSON)
-- Validate outputs against KDS rules
-- Provide CLI and API interfaces
-- Handle data processing and analysis
-
-**Does NOT**:
-- Render charts directly (React does that)
-- Use matplotlib (v2 only)
-- Mix concerns (clean separation)
-
-### React Frontend (web/)
-
-**Responsibilities**:
-- Consume JSON configs from Python
-- Render KDS-compliant dashboards
-- Provide interactive UI
-- Theme management (dark/light)
-
-**Does NOT**:
-- Generate chart data (Python does that)
-- Validate compliance (Python does that)
-- Make backend calls during render
-
----
-
-## File Locations
-
-### Core Systems
-
-| System | Location | Description |
-|--------|----------|-------------|
-| Chart builders | `kie/charts/builders/` | Generate chart configs |
-| Validation | `kie/validation/` | QC pipeline |
-| Brand system | `kie/brand/` | KDS colors & compliance |
-| Interview | `kie/interview/` | Requirements gathering |
-| Workflow | `kie/workflow/` | Orchestration |
-
-### React Components
-
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| Chart renderers | `web/src/components/charts/` | Render JSON configs |
-| Dashboard layouts | `web/src/components/dashboard/` | KDS grids |
-| Theme system | `web/src/contexts/ThemeContext.tsx` | Dark/light modes |
-
----
-
-## Testing Checklist
-
-Before committing:
-
-- [ ] All tests pass: `pytest tests/ -v`
-- [ ] Type checking: `mypy kie/`
-- [ ] Linting: `ruff check kie/`
-- [ ] Web builds: `cd web && npm run build`
-- [ ] Validation passes on generated outputs
-
----
-
-## Common Pitfalls
-
-### ❌ Wrong: Using matplotlib
-
-```python
-import matplotlib.pyplot as plt
-plt.bar(x, y)  # NO - v2 only
-```
-
-### ✅ Right: Using chart factory
-
-```python
+# ✅ Correct
 from kie.charts import ChartFactory
-config = ChartFactory.bar(data, x="x", y=["y"])
-```
+from kie.validation import validate_chart_output
 
-### ❌ Wrong: Importing from old package
-
-```python
-from core.charts import Chart  # NO - doesn't exist
-from core_v3.charts import Chart  # NO - renamed
-```
-
-### ✅ Right: Using new package name
-
-```python
-from kie.charts import ChartFactory  # YES
-```
-
-### ❌ Wrong: Hardcoding colors
-
-```python
-bar_config = {"fill": "#00FF00"}  # NO - green forbidden
-```
-
-### ✅ Right: Using KDS colors
-
-```python
-from kie.brand.colors import KDSColors
-colors = KDSColors.get_chart_colors(1)  # Returns KDS palette
+# ❌ Wrong
+from core.charts import Chart  # v2 only
+from core_v3.charts import ChartFactory  # old name
 ```
 
 ---
 
-## Documentation
+## Non-Goals
 
-- **README.md** - Quick start guide
-- **docs/KIE_V3_ARCHITECTURE.md** - System design
-- **docs/KDS_COMPLIANCE_REPORT_V3.md** - Full KDS audit
-- **docs/DASHBOARD_UI_COMPLETE.md** - React components
-- **docs/ROADMAP.md** - Development timeline
-
----
-
-## Getting Help
-
-1. **Check tests**: `tests/test_v3_integration.py` shows usage patterns
-2. **Check examples**: `examples/` has working code
-3. **Check docs**: `docs/` has detailed guides
-4. **Run validation**: Use `kie.validation` to check outputs
+- User authentication (uses Claude Code security)
+- Multi-tenant features
+- Arbitrary code execution outside kie/
+- Mobile layouts
+- External API integrations (unless specified)
 
 ---
 
