@@ -1,0 +1,184 @@
+"""
+Project Theme Configuration
+
+Manages theme preferences at the project level.
+Integrates with project spec and persists theme choice.
+"""
+
+from pathlib import Path
+from typing import Optional
+import yaml
+
+from kie.brand.theme import ThemeMode, set_theme, get_theme
+
+
+class ProjectThemeConfig:
+    """
+    Manage theme configuration for a KIE project.
+
+    Theme preference is stored in project_state/spec.yaml
+    """
+
+    def __init__(self, project_dir: Path = None):
+        """
+        Initialize project theme config.
+
+        Args:
+            project_dir: Project root directory (default: current directory)
+        """
+        self.project_dir = project_dir or Path.cwd()
+        self.spec_path = self.project_dir / "project_state" / "spec.yaml"
+
+    def load_theme(self) -> ThemeMode:
+        """
+        Load theme preference from project spec.
+
+        Returns:
+            ThemeMode (defaults to DARK if not found)
+        """
+        if not self.spec_path.exists():
+            return ThemeMode.DARK
+
+        try:
+            with open(self.spec_path) as f:
+                spec = yaml.safe_load(f) or {}
+
+            theme_str = spec.get("preferences", {}).get("theme", "dark")
+            return ThemeMode(theme_str)
+
+        except Exception as e:
+            print(f"Warning: Could not load theme from spec: {e}")
+            return ThemeMode.DARK
+
+    def save_theme(self, mode: ThemeMode):
+        """
+        Save theme preference to project spec.
+
+        Args:
+            mode: Theme mode to save
+        """
+        # Ensure directory exists
+        self.spec_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load existing spec
+        spec = {}
+        if self.spec_path.exists():
+            try:
+                with open(self.spec_path) as f:
+                    spec = yaml.safe_load(f) or {}
+            except Exception as e:
+                print(f"Warning: Could not load existing spec: {e}")
+
+        # Update theme preference
+        if "preferences" not in spec:
+            spec["preferences"] = {}
+
+        spec["preferences"]["theme"] = mode.value
+
+        # Save spec
+        try:
+            with open(self.spec_path, "w") as f:
+                yaml.dump(spec, f, default_flow_style=False, sort_keys=False)
+
+            print(f"✓ Theme set to: {mode.value}")
+
+        except Exception as e:
+            print(f"Error: Could not save theme to spec: {e}")
+
+    def apply_theme(self):
+        """
+        Load and apply theme preference from project spec.
+
+        Sets global theme based on project configuration.
+        """
+        mode = self.load_theme()
+        set_theme(mode)
+
+    def change_theme(self, mode: ThemeMode):
+        """
+        Change project theme preference.
+
+        Args:
+            mode: New theme mode
+        """
+        # Save to spec
+        self.save_theme(mode)
+
+        # Apply globally
+        set_theme(mode)
+
+
+def initialize_project_theme():
+    """
+    Initialize theme for current project.
+
+    Loads theme from project_state/spec.yaml and applies globally.
+    Should be called at project startup.
+    """
+    config = ProjectThemeConfig()
+    config.apply_theme()
+
+
+def prompt_theme_preference() -> ThemeMode:
+    """
+    Prompt user for theme preference (used in project interview).
+
+    Returns:
+        Selected ThemeMode
+    """
+    print("\n🎨 Theme Preference")
+    print("=" * 50)
+    print("KIE supports both dark and light themes.")
+    print("")
+    print("1. Dark theme (default)")
+    print("   • Dark backgrounds (#1E1E1E)")
+    print("   • White text on dark surfaces")
+    print("   • Reduces eye strain in low light")
+    print("")
+    print("2. Light theme")
+    print("   • Light backgrounds (#FFFFFF)")
+    print("   • Dark text on light surfaces")
+    print("   • Traditional document appearance")
+    print("")
+
+    while True:
+        choice = input("Choose theme (1 or 2) [1]: ").strip() or "1"
+
+        if choice == "1":
+            return ThemeMode.DARK
+        elif choice == "2":
+            return ThemeMode.LIGHT
+        else:
+            print("Invalid choice. Please enter 1 or 2.")
+
+
+def get_theme_display_name(mode: ThemeMode) -> str:
+    """
+    Get display name for theme mode.
+
+    Args:
+        mode: Theme mode
+
+    Returns:
+        Human-readable name
+    """
+    if mode == ThemeMode.DARK:
+        return "Dark Theme"
+    else:
+        return "Light Theme"
+
+
+def get_theme_description(mode: ThemeMode) -> str:
+    """
+    Get description for theme mode.
+
+    Args:
+        mode: Theme mode
+
+    Returns:
+        Theme description
+    """
+    if mode == ThemeMode.DARK:
+        return "Dark backgrounds with white text. Reduces eye strain."
+    else:
+        return "Light backgrounds with dark text. Traditional appearance."

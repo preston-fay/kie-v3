@@ -1,0 +1,283 @@
+"""
+KIE v3 Base Classes
+
+Abstract base classes for charts, geocoders, exporters, etc.
+"""
+
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any, Dict, Optional, List
+from dataclasses import dataclass
+import json
+
+
+@dataclass
+class RechartsConfig:
+    """Base configuration for Recharts visualizations."""
+
+    chart_type: str
+    data: List[Dict[str, Any]]
+    config: Dict[str, Any]
+    title: Optional[str] = None
+    subtitle: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "type": self.chart_type,
+            "data": self.data,
+            "config": self.config,
+            "title": self.title,
+            "subtitle": self.subtitle,
+        }
+
+    def to_json(self, path: Optional[Path] = None, indent: int = 2) -> str:
+        """
+        Convert to JSON string.
+
+        Args:
+            path: Optional path to save JSON file
+            indent: JSON indentation level
+
+        Returns:
+            JSON string
+        """
+        json_str = json.dumps(self.to_dict(), indent=indent)
+
+        if path:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json_str)
+
+        return json_str
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "RechartsConfig":
+        """Load from JSON string."""
+        data = json.loads(json_str)
+        return cls(
+            chart_type=data["type"],
+            data=data["data"],
+            config=data["config"],
+            title=data.get("title"),
+            subtitle=data.get("subtitle"),
+        )
+
+
+class ChartBuilder(ABC):
+    """
+    Abstract base class for chart builders.
+
+    Chart builders generate Recharts-compatible JSON configurations
+    from data. They do NOT render charts directly - that's the job
+    of React components.
+    """
+
+    @abstractmethod
+    def build(self, data: Any, **kwargs) -> RechartsConfig:
+        """
+        Build chart configuration from data.
+
+        Args:
+            data: Input data (pandas DataFrame, list of dicts, etc.)
+            **kwargs: Chart-specific configuration options
+
+        Returns:
+            RechartsConfig object ready for JSON serialization
+        """
+        pass
+
+    def save(self, data: Any, output_path: Path, **kwargs) -> Path:
+        """
+        Build chart and save JSON config to file.
+
+        Args:
+            data: Input data
+            output_path: Path to save JSON file
+            **kwargs: Chart-specific configuration options
+
+        Returns:
+            Path to saved JSON file
+        """
+        config = self.build(data, **kwargs)
+        config.to_json(output_path)
+        return output_path
+
+
+@dataclass
+class GeocodingResult:
+    """Result from a geocoding operation."""
+
+    address: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    fips_code: Optional[str] = None
+    confidence: float = 0.0
+    service: Optional[str] = None
+    error: Optional[str] = None
+
+    @property
+    def success(self) -> bool:
+        """Check if geocoding was successful."""
+        return self.latitude is not None and self.longitude is not None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "address": self.address,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "fips_code": self.fips_code,
+            "confidence": self.confidence,
+            "service": self.service,
+            "error": self.error,
+            "success": self.success,
+        }
+
+
+class Geocoder(ABC):
+    """
+    Abstract base class for geocoding services.
+
+    Geocoders convert addresses to lat/long coordinates and enrich
+    with FIPS codes.
+    """
+
+    def __init__(
+        self,
+        rate_limit: float = 1.0,
+        timeout: int = 10,
+        max_retries: int = 3,
+    ):
+        """
+        Initialize geocoder.
+
+        Args:
+            rate_limit: Requests per second
+            timeout: Request timeout in seconds
+            max_retries: Maximum number of retries
+        """
+        self.rate_limit = rate_limit
+        self.timeout = timeout
+        self.max_retries = max_retries
+
+    @abstractmethod
+    async def geocode(
+        self,
+        address: str,
+        city: Optional[str] = None,
+        state: Optional[str] = None,
+        zip_code: Optional[str] = None,
+        country: str = "US",
+    ) -> GeocodingResult:
+        """
+        Geocode a single address.
+
+        Args:
+            address: Street address
+            city: City name
+            state: State abbreviation
+            zip_code: ZIP/postal code
+            country: Country code (default: US)
+
+        Returns:
+            GeocodingResult with lat/long and metadata
+        """
+        pass
+
+    @abstractmethod
+    async def reverse_geocode(
+        self, latitude: float, longitude: float
+    ) -> GeocodingResult:
+        """
+        Reverse geocode from coordinates to address.
+
+        Args:
+            latitude: Latitude
+            longitude: Longitude
+
+        Returns:
+            GeocodingResult with address and metadata
+        """
+        pass
+
+    async def geocode_batch(
+        self, addresses: List[str], batch_size: int = 100
+    ) -> List[Optional[GeocodingResult]]:
+        """
+        Geocode multiple addresses in batches.
+
+        Args:
+            addresses: List of addresses to geocode
+            batch_size: Number of addresses per batch
+
+        Returns:
+            List of GeocodingResults (None for failures)
+        """
+        results: List[Optional[GeocodingResult]] = []
+
+        for i in range(0, len(addresses), batch_size):
+            batch = addresses[i : i + batch_size]
+            for address in batch:
+                try:
+                    result = await self.geocode(address)
+                    results.append(result if result.success else None)
+                except Exception as e:
+                    results.append(
+                        GeocodingResult(
+                            address=address, error=str(e), service=self.__class__.__name__
+                        )
+                    )
+
+        return results
+
+
+class Exporter(ABC):
+    """
+    Abstract base class for exporters.
+
+    Exporters take KIE outputs (charts, insights, data) and generate
+    final deliverables (PowerPoint, HTML, PDF, etc.).
+    """
+
+    @abstractmethod
+    def export(
+        self, inputs: Dict[str, Any], output_path: Path, **kwargs
+    ) -> Path:
+        """
+        Export deliverable.
+
+        Args:
+            inputs: Dictionary of input artifacts (charts, data, etc.)
+            output_path: Path for output file
+            **kwargs: Exporter-specific options
+
+        Returns:
+            Path to exported file
+        """
+        pass
+
+
+class BrandValidator(ABC):
+    """
+    Abstract base class for brand compliance validators.
+
+    Validators check outputs against KDS guidelines and flag violations.
+    """
+
+    @abstractmethod
+    def validate(self, artifact: Any) -> Dict[str, Any]:
+        """
+        Validate artifact against brand guidelines.
+
+        Args:
+            artifact: Artifact to validate (chart config, HTML, etc.)
+
+        Returns:
+            Dictionary with validation results:
+            {
+                "compliant": bool,
+                "violations": List[str],
+                "warnings": List[str]
+            }
+        """
+        pass
