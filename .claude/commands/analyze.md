@@ -26,11 +26,11 @@ Analyze data files and generate structured insights.
 4. **Extract**: Create structured insights
 5. **Visualize**: Generate supporting charts
 
-## Using Core Engines
+## Using KIE Engines
 
 ```python
-from core.insights import InsightEngine, StatisticalAnalyzer
-from core.charts import Chart, recommend_chart
+from kie.insights import InsightEngine, StatisticalAnalyzer
+from kie.charts import ChartFactory
 import pandas as pd
 
 # Load and analyze

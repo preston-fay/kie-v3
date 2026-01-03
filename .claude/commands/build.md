@@ -23,29 +23,31 @@ Build presentations, reports, or dashboards from analyzed insights.
 ### Presentation (`/build presentation`)
 
 ```python
-from core.slides import Presentation
-from core.insights import InsightCatalog
+from kie.powerpoint import SlideBuilder
+from kie.insights import InsightCatalog
 
 # Load insights
 catalog = InsightCatalog.load("outputs/insights.yaml")
 
 # Create presentation
-pres = Presentation()
-pres.add_title("Q4 Analysis", "Revenue Performance")
-pres.add_agenda("Agenda", ["Findings", "Analysis", "Recommendations"])
+builder = SlideBuilder()
+builder.add_title_slide("Q4 Analysis", "Revenue Performance")
 
 # Add findings
-pres.add_section("Key Findings", section_number=1)
 for insight in catalog.get_key_insights():
-    pres.add_content(insight.headline, [insight.supporting_text])
+    builder.add_content_slide(
+        title=insight.headline,
+        content=[insight.supporting_text]
+    )
 
 # Add recommendations
-pres.add_section("Recommendations", section_number=2)
 for rec in catalog.get_recommendations():
-    pres.add_key_takeaway(rec.headline, rec.supporting_text)
+    builder.add_content_slide(
+        title=rec.headline,
+        content=[rec.supporting_text]
+    )
 
-pres.add_closing("Questions?")
-pres.save("exports/analysis.pptx")
+builder.save("exports/analysis.pptx")
 ```
 
 ### Dashboard (`/build dashboard`)
@@ -75,14 +77,12 @@ Creates Word document with executive summary, findings, and appendix.
 
 ## Preview
 
-Use `--preview` flag to open live preview while building:
+Use `/preview` command to view outputs in React dashboard:
 
-```python
-from core.preview import PreviewEngine
-
-preview = PreviewEngine()
-preview.add_slide(spec)
-preview.open_in_browser()
+```bash
+# In project root
+/preview
+# Opens React dashboard at http://localhost:5173
 ```
 
 ## Next Steps

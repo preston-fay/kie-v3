@@ -12,6 +12,10 @@ from datetime import datetime
 
 from kie.interview import InterviewEngine
 from kie.validation import ValidationPipeline, ValidationConfig
+from kie.data import EDA, DataLoader, load_data
+from kie.insights import InsightEngine, InsightCatalog
+from kie.charts import ChartFactory
+from kie.powerpoint import SlideBuilder
 
 
 class CommandHandler:
@@ -357,18 +361,218 @@ When this project opens:
         with open(self.state_path, "w") as f:
             json.dump(status, f, indent=2)
 
-        return {
-            "success": True,
-            "message": f"Building {target}...",
-            "spec": spec,
-        }
+        try:
+            results = {}
 
-    def handle_preview(self) -> Dict[str, Any]:
+            # Build presentation (default)
+            if target in ["all", "presentation"]:
+                pres_path = self._build_presentation(spec)
+                results["presentation"] = str(pres_path)
+
+            # Update status
+            status["status"] = "completed"
+            status["completed_at"] = datetime.now().isoformat()
+            with open(self.state_path, "w") as f:
+                json.dump(status, f, indent=2)
+
+            return {
+                "success": True,
+                "message": f"Build completed successfully",
+                "outputs": results,
+            }
+
+        except Exception as e:
+            status["status"] = "failed"
+            status["error"] = str(e)
+            with open(self.state_path, "w") as f:
+                json.dump(status, f, indent=2)
+
+            return {
+                "success": False,
+                "message": f"Build failed: {str(e)}",
+            }
+
+    def _build_presentation(self, spec: Dict[str, Any]) -> Path:
         """
-        Handle /preview command.
+        Build PowerPoint presentation from spec and insights.
+
+        Args:
+            spec: Project specification
 
         Returns:
-            Preview information
+            Path to generated presentation
+        """
+        # Load insights if available
+        insights_path = self.project_root / "outputs" / "insights.yaml"
+        insights = []
+        if insights_path.exists():
+            catalog = InsightCatalog.load(str(insights_path))
+            insights = catalog.insights
+
+        # Create presentation
+        builder = SlideBuilder(title=spec.get("project_name", "Analysis"))
+
+        # Title slide
+        builder.add_title_slide(
+            title=spec.get("project_name", "Analysis"),
+            subtitle=spec.get("description", ""),
+            author=spec.get("client_name", ""),
+            date=datetime.now().strftime("%B %Y"),
+        )
+
+        # Add insights as content slides
+        if insights:
+            for insight in insights[:10]:  # Limit to top 10 insights
+                builder.add_content_slide(
+                    title=insight.headline,
+                    bullet_points=[
+                        insight.supporting_text or "",
+                        f"Significance: {insight.significance}",
+                    ],
+                    notes=insight.recommendation or "",
+                )
+        else:
+            # Add placeholder content
+            builder.add_content_slide(
+                title="Key Findings",
+                bullet_points=["Run /analyze to extract insights from your data"],
+            )
+
+        # Save presentation
+        exports_dir = self.project_root / "exports"
+        exports_dir.mkdir(parents=True, exist_ok=True)
+
+        output_path = exports_dir / f"{spec.get('project_name', 'presentation').replace(' ', '_')}.pptx"
+        builder.save(str(output_path))
+
+        return output_path
+
+    def handle_eda(self, data_file: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Handle /eda command - run exploratory data analysis.
+
+        Args:
+            data_file: Specific file to analyze (default: auto-detect from data/)
+
+        Returns:
+            EDA results
+        """
+        # Find data file
+        if not data_file:
+            data_dir = self.project_root / "data"
+            data_files = list(data_dir.glob("*.csv")) + list(data_dir.glob("*.xlsx"))
+            if not data_files:
+                return {
+                    "success": False,
+                    "message": "No data files found in data/ folder",
+                }
+            data_file = str(data_files[0])
+        else:
+            data_file = str(self.project_root / data_file)
+
+        # Run EDA
+        try:
+            eda = EDA()
+            profile = eda.analyze(data_file)
+
+            # Save profile
+            profile_path = self.project_root / "outputs" / "eda_profile.yaml"
+            profile_path.parent.mkdir(parents=True, exist_ok=True)
+
+            import yaml
+            with open(profile_path, "w") as f:
+                yaml.dump(profile.to_dict(), f, default_flow_style=False)
+
+            # Get suggestions
+            suggestions = eda.suggest_analysis()
+
+            return {
+                "success": True,
+                "profile": profile.to_dict(),
+                "suggestions": suggestions,
+                "profile_saved": str(profile_path),
+                "data_file": data_file,
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"EDA failed: {str(e)}",
+            }
+
+    def handle_analyze(self, data_file: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Handle /analyze command - extract insights from data.
+
+        Args:
+            data_file: Specific file to analyze (default: auto-detect from data/)
+
+        Returns:
+            Insights results
+        """
+        # Find data file
+        if not data_file:
+            data_dir = self.project_root / "data"
+            data_files = list(data_dir.glob("*.csv")) + list(data_dir.glob("*.xlsx"))
+            if not data_files:
+                return {
+                    "success": False,
+                    "message": "No data files found in data/ folder",
+                }
+            data_file = str(data_files[0])
+        else:
+            data_file = str(self.project_root / data_file)
+
+        # Load data
+        try:
+            import pandas as pd
+            df = pd.read_csv(data_file) if data_file.endswith('.csv') else pd.read_excel(data_file)
+
+            # Extract insights
+            engine = InsightEngine()
+            insights = engine.auto_extract(df)
+
+            # Build catalog
+            catalog = engine.build_catalog(
+                insights,
+                question="What are the key findings from this data?"
+            )
+
+            # Save catalog
+            catalog_path = self.project_root / "outputs" / "insights.yaml"
+            catalog_path.parent.mkdir(parents=True, exist_ok=True)
+            catalog.save(str(catalog_path))
+
+            return {
+                "success": True,
+                "insights_count": len(insights),
+                "catalog_saved": str(catalog_path),
+                "data_file": data_file,
+                "insights": [
+                    {
+                        "type": i.type,
+                        "headline": i.headline,
+                        "significance": i.significance,
+                    }
+                    for i in insights[:5]  # Return top 5
+                ],
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Analysis failed: {str(e)}",
+            }
+
+    def handle_preview(self, launch_server: bool = True) -> Dict[str, Any]:
+        """
+        Handle /preview command - preview outputs in React dashboard.
+
+        Args:
+            launch_server: Whether to launch React dev server (default True)
+
+        Returns:
+            Preview information with server status
         """
         status = self.handle_status()
 
@@ -395,4 +599,24 @@ When this project opens:
         if exports_dir.exists():
             previews["exports"] = [f.name for f in exports_dir.glob("*")]
 
-        return previews
+        # Launch React dashboard if requested
+        dashboard_url = None
+        if launch_server:
+            # Check if web_v3 exists (should be in kie-v3 repo)
+            web_dir = Path(__file__).parent.parent.parent / "web_v3"
+            if web_dir.exists():
+                dashboard_url = "http://localhost:5173"
+                previews["dashboard_instruction"] = f"Run 'cd {web_dir} && npm run dev' to launch React dashboard"
+            else:
+                previews["dashboard_instruction"] = "React dashboard not found (web_v3/ directory missing)"
+
+        return {
+            **previews,
+            "dashboard_url": dashboard_url,
+            "total_outputs": sum([
+                len(previews["charts"]),
+                len(previews["tables"]),
+                len(previews["maps"]),
+                len(previews["exports"]),
+            ]),
+        }
