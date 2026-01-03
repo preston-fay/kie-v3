@@ -423,13 +423,19 @@ When this project opens:
         # Add insights as content slides
         if insights:
             for insight in insights[:10]:  # Limit to top 10 insights
+                # Build bullet points from insight attributes
+                bullet_points = [insight.supporting_text or ""]
+
+                # Add confidence and severity info
+                if insight.confidence:
+                    bullet_points.append(f"Confidence: {insight.confidence:.0%}")
+                if insight.statistical_significance:
+                    bullet_points.append(f"Statistical Significance: p={insight.statistical_significance:.3f}")
+
                 builder.add_content_slide(
                     title=insight.headline,
-                    bullet_points=[
-                        insight.supporting_text or "",
-                        f"Significance: {insight.significance}",
-                    ],
-                    notes=insight.recommendation or "",
+                    bullet_points=bullet_points,
+                    notes=f"Insight Type: {insight.insight_type.value}, Severity: {insight.severity.value}",
                 )
         else:
             # Add placeholder content
@@ -528,14 +534,32 @@ When this project opens:
             import pandas as pd
             df = pd.read_csv(data_file) if data_file.endswith('.csv') else pd.read_excel(data_file)
 
+            # Auto-detect column types
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+            categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+
+            if not numeric_cols:
+                return {
+                    "success": False,
+                    "message": "No numeric columns found for analysis",
+                }
+
+            # Use first numeric column as value, first categorical as group
+            value_column = numeric_cols[0]
+            group_column = categorical_cols[0] if categorical_cols else None
+
             # Extract insights
             engine = InsightEngine()
-            insights = engine.auto_extract(df)
+            insights = engine.auto_extract(
+                df,
+                value_column=value_column,
+                group_column=group_column
+            )
 
             # Build catalog
             catalog = engine.build_catalog(
                 insights,
-                question="What are the key findings from this data?"
+                business_question="What are the key findings from this data?"
             )
 
             # Save catalog
@@ -550,9 +574,10 @@ When this project opens:
                 "data_file": data_file,
                 "insights": [
                     {
-                        "type": i.type,
+                        "type": i.insight_type.value,
                         "headline": i.headline,
-                        "significance": i.significance,
+                        "confidence": i.confidence,
+                        "severity": i.severity.value,
                     }
                     for i in insights[:5]  # Return top 5
                 ],

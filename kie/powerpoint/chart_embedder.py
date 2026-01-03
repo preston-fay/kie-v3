@@ -10,11 +10,11 @@ from pptx import Presentation
 from pptx.chart.data import CategoryChartData
 from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
 from pptx.util import Inches, Pt
-from pptx.dml.color import RgbColor
+from pptx.dml.color import RGBColor
 from pathlib import Path
 
 from kie.brand.theme import get_theme
-from kie.brand.kds import KDSColors
+from kie.brand.colors import KDSColors
 
 
 class PowerPointChartEmbedder:
@@ -264,7 +264,7 @@ class PowerPointChartEmbedder:
             title_para.font.size = Pt(18)
             title_para.font.bold = True
             title_para.font.name = "Inter"
-            title_para.font.color.rgb = RgbColor.from_string(
+            title_para.font.color.rgb = RGBColor.from_string(
                 self.theme.get_text().lstrip("#")
             )
 
@@ -277,7 +277,7 @@ class PowerPointChartEmbedder:
         legend_font = chart.legend.font
         legend_font.size = Pt(10)
         legend_font.name = "Inter"
-        legend_font.color.rgb = RgbColor.from_string(
+        legend_font.color.rgb = RGBColor.from_string(
             self.theme.get_text().lstrip("#")
         )
 
@@ -285,7 +285,7 @@ class PowerPointChartEmbedder:
         for i, series in enumerate(chart.series):
             # Get color from KDS palette
             color_hex = self.colors[i % len(self.colors)]
-            rgb = RgbColor.from_string(color_hex.lstrip("#"))
+            rgb = RGBColor.from_string(color_hex.lstrip("#"))
 
             # Apply to series
             try:
@@ -307,7 +307,7 @@ class PowerPointChartEmbedder:
             value_axis = chart.value_axis
             value_axis.tick_labels.font.size = Pt(10)
             value_axis.tick_labels.font.name = "Inter"
-            value_axis.tick_labels.font.color.rgb = RgbColor.from_string(
+            value_axis.tick_labels.font.color.rgb = RGBColor.from_string(
                 self.theme.get_text("secondary").lstrip("#")
             )
 
@@ -315,7 +315,7 @@ class PowerPointChartEmbedder:
             category_axis = chart.category_axis
             category_axis.tick_labels.font.size = Pt(10)
             category_axis.tick_labels.font.name = "Inter"
-            category_axis.tick_labels.font.color.rgb = RgbColor.from_string(
+            category_axis.tick_labels.font.color.rgb = RGBColor.from_string(
                 self.theme.get_text("secondary").lstrip("#")
             )
         except:
@@ -324,13 +324,13 @@ class PowerPointChartEmbedder:
         # Background
         try:
             chart.chart_area.fill.solid()
-            chart.chart_area.fill.fore_color.rgb = RgbColor.from_string(
+            chart.chart_area.fill.fore_color.rgb = RGBColor.from_string(
                 self.theme.get_background().lstrip("#")
             )
 
             # Plot area background
             chart.plot_area.fill.solid()
-            chart.plot_area.fill.fore_color.rgb = RgbColor.from_string(
+            chart.plot_area.fill.fore_color.rgb = RGBColor.from_string(
                 self.theme.get_background().lstrip("#")
             )
         except:
@@ -374,13 +374,13 @@ class PowerPointChartEmbedder:
 
             # Style header
             cell.fill.solid()
-            cell.fill.fore_color.rgb = RgbColor.from_string("7823DC")  # KDS purple
+            cell.fill.fore_color.rgb = RGBColor.from_string("7823DC")  # KDS purple
 
             para = cell.text_frame.paragraphs[0]
             para.font.bold = True
             para.font.size = Pt(12)
             para.font.name = "Inter"
-            para.font.color.rgb = RgbColor(255, 255, 255)  # White text
+            para.font.color.rgb = RGBColor(255, 255, 255)  # White text
 
         # Data rows
         for row_idx, item in enumerate(data, start=1):
@@ -393,14 +393,14 @@ class PowerPointChartEmbedder:
                 para = cell.text_frame.paragraphs[0]
                 para.font.size = Pt(10)
                 para.font.name = "Inter"
-                para.font.color.rgb = RgbColor.from_string(
+                para.font.color.rgb = RGBColor.from_string(
                     self.theme.get_text().lstrip("#")
                 )
 
                 # Alternating row colors
                 if row_idx % 2 == 0:
                     cell.fill.solid()
-                    cell.fill.fore_color.rgb = RgbColor.from_string(
+                    cell.fill.fore_color.rgb = RGBColor.from_string(
                         self.theme.get_background("secondary").lstrip("#")
                     )
 

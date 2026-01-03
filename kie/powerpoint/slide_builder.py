@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-from pptx.dml.color import RgbColor
+from pptx.dml.color import RGBColor
 from pathlib import Path
 
 from kie.brand.theme import get_theme
@@ -75,7 +75,7 @@ class SlideBuilder:
         p.font.size = Pt(44)
         p.font.bold = True
         p.font.name = "Inter"
-        p.font.color.rgb = RgbColor.from_string(self.theme.get_text().lstrip("#"))
+        p.font.color.rgb = RGBColor.from_string(self.theme.get_text().lstrip("#"))
 
         # Subtitle
         if subtitle:
@@ -89,7 +89,7 @@ class SlideBuilder:
             p.alignment = PP_ALIGN.CENTER
             p.font.size = Pt(24)
             p.font.name = "Inter"
-            p.font.color.rgb = RgbColor.from_string(
+            p.font.color.rgb = RGBColor.from_string(
                 self.theme.get_text("secondary").lstrip("#")
             )
 
@@ -111,7 +111,7 @@ class SlideBuilder:
             p.alignment = PP_ALIGN.RIGHT
             p.font.size = Pt(12)
             p.font.name = "Inter"
-            p.font.color.rgb = RgbColor.from_string(
+            p.font.color.rgb = RGBColor.from_string(
                 self.theme.get_text("tertiary").lstrip("#")
             )
 
@@ -147,7 +147,7 @@ class SlideBuilder:
         p.font.size = Pt(36)
         p.font.bold = True
         p.font.name = "Inter"
-        p.font.color.rgb = RgbColor.from_string(self.theme.colors.brand_primary.lstrip("#"))
+        p.font.color.rgb = RGBColor.from_string(self.theme.colors.brand_primary.lstrip("#"))
 
         # Accent line
         line = slide.shapes.add_shape(
@@ -157,7 +157,7 @@ class SlideBuilder:
             Inches(3),
             Inches(0),
         )
-        line.line.color.rgb = RgbColor.from_string(self.theme.colors.brand_primary.lstrip("#"))
+        line.line.color.rgb = RGBColor.from_string(self.theme.colors.brand_primary.lstrip("#"))
         line.line.width = Pt(3)
 
         self._add_branding(slide)
@@ -204,7 +204,7 @@ class SlideBuilder:
                 p.level = 0
                 p.font.size = Pt(18)
                 p.font.name = "Inter"
-                p.font.color.rgb = RgbColor.from_string(self.theme.get_text().lstrip("#"))
+                p.font.color.rgb = RGBColor.from_string(self.theme.get_text().lstrip("#"))
 
         # Speaker notes
         if notes:
@@ -355,7 +355,7 @@ class SlideBuilder:
         background = slide.background
         fill = background.fill
         fill.solid()
-        fill.fore_color.rgb = RgbColor.from_string(self.theme.get_background().lstrip("#"))
+        fill.fore_color.rgb = RGBColor.from_string(self.theme.get_background().lstrip("#"))
 
     def _add_slide_title(self, slide, title: str):
         """Add title to slide."""
@@ -370,7 +370,7 @@ class SlideBuilder:
         p.font.size = Pt(28)
         p.font.bold = True
         p.font.name = "Inter"
-        p.font.color.rgb = RgbColor.from_string(self.theme.get_text().lstrip("#"))
+        p.font.color.rgb = RGBColor.from_string(self.theme.get_text().lstrip("#"))
 
     def _add_branding(self, slide):
         """Add Kearney branding (logo placeholder)."""
@@ -385,7 +385,7 @@ class SlideBuilder:
         p.font.size = Pt(14)
         p.font.bold = True
         p.font.name = "Inter"
-        p.font.color.rgb = RgbColor.from_string(self.theme.colors.brand_primary.lstrip("#"))
+        p.font.color.rgb = RGBColor.from_string(self.theme.colors.brand_primary.lstrip("#"))
 
     def _add_slide_number(self, slide):
         """Add slide number (bottom right)."""
@@ -401,4 +401,4 @@ class SlideBuilder:
         p.alignment = PP_ALIGN.RIGHT
         p.font.size = Pt(10)
         p.font.name = "Inter"
-        p.font.color.rgb = RgbColor.from_string(self.theme.get_text("tertiary").lstrip("#"))
+        p.font.color.rgb = RGBColor.from_string(self.theme.get_text("tertiary").lstrip("#"))
