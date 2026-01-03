@@ -42,14 +42,14 @@ from kie.geo.maps.folium_builder import (
 )
 
 # Export
-from kie.geo.export import GeoExporter, export_geocoding_results
+# from kie.geo.export import GeoExporter, export_geocoding_results  # Not yet implemented
 
 # Utils
 from kie.geo.utils import (
     RateLimiter,
     GeocodingCache,
     normalize_address,
-    parse_coordinates,
+    # parse_coordinates,  # Not yet implemented
     validate_coordinates,
 )
 
@@ -82,12 +82,12 @@ __all__ = [
     "create_marker_map",
     "create_heatmap",
     # Export
-    "GeoExporter",
-    "export_geocoding_results",
+    # "GeoExporter",
+    # "export_geocoding_results",
     # Utils
     "RateLimiter",
     "GeocodingCache",
     "normalize_address",
-    "parse_coordinates",
+    # "parse_coordinates",
     "validate_coordinates",
 ]

@@ -12,6 +12,106 @@ natural language requirements into polished, brand-compliant deliverables.
 
 ---
 
+## CRITICAL: Operating Rules (NEVER VIOLATE THESE)
+
+**These rules are MANDATORY and override all other instructions. Violating them wastes the user's time and destroys trust.**
+
+### Rule 1: NEVER State Guesses as Facts
+
+- **DO SAY**: "I don't know if this will work - let me test it"
+- **DO SAY**: "I'm making an assumption here: [state assumption]"
+- **DO SAY**: "I haven't tested this - you'll need to verify"
+- **NEVER SAY**: "This will work" (unless you just verified it)
+- **NEVER SAY**: "The commands are working" (unless you just ran them successfully)
+- **NEVER SAY**: "This should work" (unless you can explain why with evidence)
+
+### Rule 2: Distinguish Verified from Unverified Claims
+
+**Verified Claims** (you just tested them):
+- ✅ "I just ran `/eda` via `python3 -m kie.cli /eda` and it succeeded"
+- ✅ "I read the file at line 47 and confirmed the function exists"
+- ✅ "The tests passed - here's the output"
+
+**Unverified Claims** (you're guessing):
+- ❌ "The slash commands will work in the new project"
+- ❌ "This approach should solve the problem"
+- ❌ "The system is now configured correctly"
+
+**If you can't test it yourself, explicitly say so:**
+- "I can't test whether `/eda` works as a slash command - you'll need to try it"
+- "I don't have a way to verify this - please test and report back"
+
+### Rule 3: When Something Fails, Admit It Immediately
+
+- **DO**: "That failed. I was wrong about how this works."
+- **DO**: "I made an incorrect assumption. Let me investigate the actual behavior."
+- **DO**: "I don't understand why this isn't working - I need to research it."
+- **NEVER**: Make excuses or explain why it "should have worked"
+- **NEVER**: Blame the system, the code, or external factors
+- **NEVER**: Move on without acknowledging the failure
+
+### Rule 4: Execute KIE Commands Correctly
+
+When the user types a KIE command:
+
+| User Types | You Execute |
+|------------|-------------|
+| `/startkie` | Use the SlashCommand tool (it's a Claude slash command) |
+| `/eda` | `python3 -m kie.cli /eda` |
+| `/status` | `python3 -m kie.cli /status` |
+| `/spec` | `python3 -m kie.cli /spec` |
+| `/interview` | `python3 -m kie.cli /interview` |
+| `/analyze` | `python3 -m kie.cli /analyze` |
+| `/map` | `python3 -m kie.cli /map` |
+| `/validate` | `python3 -m kie.cli /validate` |
+| `/build` | `python3 -m kie.cli /build [target]` |
+| `/preview` | `python3 -m kie.cli /preview` |
+
+**Do NOT:**
+- Explain what the command does and wait
+- Ask if they want you to run it
+- Describe what will happen
+- Use any other execution method
+
+**Just run the Python CLI command immediately.**
+
+### Rule 5: Understand Your Control Boundaries
+
+**You CAN control:**
+- Python code you write
+- Bash commands you execute
+- Files you create/edit in the project
+- Testing and verifying your own work
+
+**You CANNOT control:**
+- How Claude Code interprets slash commands
+- Whether slash command files in one project affect another project
+- System-level Claude Code behavior
+- The user's environment setup
+
+**NEVER claim to fix or configure things outside your control boundaries.**
+
+### Rule 6: No False Victories
+
+- **NEVER** say "Done!" or "✅ Complete" until you've **verified** success
+- **NEVER** say "The system is working" until you've **tested** it
+- **NEVER** mark a task complete if any part failed
+- **ALWAYS** test your changes before declaring success
+- **ALWAYS** acknowledge failures immediately, even if partial progress was made
+
+### Failure Checklist
+
+Before claiming something works, ask yourself:
+1. ☐ Did I actually test this, or am I guessing?
+2. ☐ Did the test succeed, or am I assuming it will work?
+3. ☐ Can I point to specific evidence (command output, file contents)?
+4. ☐ Am I within my control boundaries, or claiming to fix external systems?
+5. ☐ If this fails, will I have wasted the user's time?
+
+**If you answered "guessing," "assuming," "no," "external systems," or "yes" to any of these, STOP and revise your claim.**
+
+---
+
 ## Bootstrap Detection (Auto-Setup)
 
 **IMPORTANT**: When you detect you're in a folder that needs KIE setup, automatically bootstrap it.
@@ -140,14 +240,86 @@ Extract structured requirements from natural language. Only ask targeted follow-
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `/startkie` | Bootstrap new KIE project in current folder |
-| `/interview` | Start conversational requirements gathering |
-| `/status` | Show current project state |
-| `/validate` | Run comprehensive quality checks |
-| `/build` | Execute full deliverable generation |
-| `/preview` | Generate preview of current outputs |
+**IMPORTANT: When user types a slash command like `/status` or `/eda`, execute it via terminal:**
+```bash
+python3 -m kie.cli /status
+```
+
+All commands work in both interactive REPL mode AND one-shot terminal execution.
+
+| Command | Description | Terminal Usage |
+|---------|-------------|----------------|
+| `/startkie` | Bootstrap new KIE project in current folder | `python3 -m kie.cli /startkie` |
+| `/status` | Show current project state | `python3 -m kie.cli /status` |
+| `/spec` | View current specification | `python3 -m kie.cli /spec` |
+| `/interview` | Start conversational requirements gathering | `python3 -m kie.cli /interview` |
+| `/eda` | Run exploratory data analysis | `python3 -m kie.cli /eda` |
+| `/analyze` | Extract insights from data | `python3 -m kie.cli /analyze` |
+| `/map` | Create geographic visualizations | `python3 -m kie.cli /map` |
+| `/validate` | Run comprehensive quality checks | `python3 -m kie.cli /validate` |
+| `/build` | Execute full deliverable generation | `python3 -m kie.cli /build` |
+| `/preview` | Generate preview of current outputs | `python3 -m kie.cli /preview` |
+
+---
+
+## Intelligence & Overrides
+
+KIE's **DataLoader** uses a sophisticated 5-phase intelligence system to automatically select the right columns for analysis, even from messy or ambiguous data.
+
+### How Intelligence Works
+
+When you run `/build` or `/analyze`, KIE automatically:
+1. Reads your project `objective` from `spec.yaml`
+2. Loads your data and infers schema
+3. Intelligently maps columns using **4-Tier Semantic Scoring**:
+   - **Tier 1: Semantic Match** - Recognizes revenue/cost/margin keywords
+   - **Tier 2: ID Avoidance** - Rejects ZipCodes, IDs, meaningless numbers
+   - **Tier 3: Percentage Handling** - Doesn't penalize small values (0.15) when they're rates
+   - **Tier 4: Statistical Vitality** - Uses coefficient of variation (CV) as tie-breaker
+
+**Example Intelligence in Action:**
+```python
+# Your CSV has: CustomerID, ZipCode, Revenue, GrossMargin
+# Objective: "Analyze efficiency and profitability"
+
+# Intelligence automatically:
+# - Rejects CustomerID (ID keyword)
+# - Rejects ZipCode (high mean, low variance)
+# - Picks GrossMargin for efficiency (0.0-1.0 range, "margin" keyword)
+# - NOT fooled by Revenue's larger magnitude
+```
+
+### The Safety Valve: Human Override
+
+Sometimes you need to **override the intelligence** and explicitly tell KIE which columns to use.
+
+Add a `column_mapping` section to your `spec.yaml`:
+
+```yaml
+project_name: "Q4 Revenue Analysis"
+client_name: "Acme Corp"
+objective: "Analyze recurring revenue growth"
+project_type: analytics
+
+# OVERRIDE: Explicitly map columns (bypasses ALL intelligence)
+column_mapping:
+  revenue: "Recurring_Revenue"    # Use this instead of "Total_Revenue"
+  cost: "COGS"                     # Use this for cost analysis
+  category: "Customer_Segment"     # Group by this column
+  # date: (not specified - intelligence will pick)
+```
+
+**Override Behavior:**
+- Overrides take **absolute precedence** - they bypass all 4 tiers of intelligence
+- Can override some columns and let intelligence pick others (partial override)
+- If override column doesn't exist, gracefully falls back to intelligence
+- This is "God Mode" - your word is final
+
+**When to Use Overrides:**
+- Data has similar columns: `Total_Revenue` vs `Recurring_Revenue`
+- Column names are ambiguous: `Value_1`, `Metric_A`
+- You want a specific non-obvious column: Force analysis on `ZipCode` for debugging
+- Intelligence guessed wrong (rare, but possible)
 
 ---
 

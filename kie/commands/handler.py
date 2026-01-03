@@ -155,61 +155,44 @@ project_state/  - Project tracking
 
         (self.project_root / "README.md").write_text(readme_content)
 
-        # Create CLAUDE.md (project-specific instructions)
-        claude_md_content = """# KIE Project
+        # Copy CLAUDE.md from KIE repo (don't hardcode - keep it in sync!)
+        import shutil
+        kie_repo_root = Path(__file__).parent.parent.parent  # Go up to kie-v3/
+        source_claude_md = kie_repo_root / "CLAUDE.md"
+        target_claude_md = self.project_root / "CLAUDE.md"
 
-You are working in a **KIE (Kearney Insight Engine) v3 project**.
+        if source_claude_md.exists():
+            shutil.copy(source_claude_md, target_claude_md)
+        else:
+            # Fallback: create minimal CLAUDE.md if source doesn't exist
+            target_claude_md.write_text("# KIE Project\n\nKIE (Kearney Insight Engine) v3 project.")
 
-## Startup Behavior
+        # Copy slash commands from package (cross-platform compatible)
+        import shutil
+        kie_package_dir = Path(__file__).parent.parent  # kie/ package directory
+        source_commands = kie_package_dir / "commands" / "slash_commands"
+        target_commands = self.project_root / ".claude" / "commands"
 
-When this project opens:
-1. Check for data files in `data/`
-2. Check for existing `project_state/spec.yaml`
-3. Greet appropriately:
-   - **New project (no data)**: "Welcome! Drop a data file or describe what you're working on."
-   - **Has data, no spec**: "I see [filename]. What would you like to analyze?"
-   - **Has spec**: "Welcome back! Here's where we left off: [summary]"
-
-## KIE v3 Capabilities
-
-- **Charts**: 25+ chart types including maps, waterfalls, bullets
-- **Tables**: Smart tables with auto-formatting and sparklines
-- **PowerPoint**: Native, editable charts in slides
-- **Dashboards**: React components with Recharts
-- **Validation**: Comprehensive QC system prevents bad outputs
-- **Themes**: Dark and light modes
-
-## Commands Available
-
-- `/status` - Show project status
-- `/interview` - Requirements gathering
-- `/validate` - Run QC checks
-- `/build` - Build deliverables
-
-## Workflow
-
-1. **Understand**: Gather requirements through `/interview`
-2. **Analyze**: Load data, find insights
-3. **Visualize**: Create brand-compliant charts/tables/maps
-4. **Validate**: Run QC to ensure safety
-5. **Deliver**: Package into final deliverable format
-
-## Critical Rules
-
-- ALWAYS use `kie` modules (not old `core`)
-- ALWAYS validate outputs before delivery
-- NEVER use forbidden green colors
-- ALWAYS enforce KDS brand compliance
-- NEVER deliver synthetic/test data to consultants
-"""
-
-        (self.project_root / "CLAUDE.md").write_text(claude_md_content)
+        commands_copied = False
+        if source_commands.exists():
+            target_commands.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(source_commands, target_commands, dirs_exist_ok=True)
+            commands_copied = True
+        else:
+            # Fallback: try repo location (for development)
+            kie_repo_root = Path(__file__).parent.parent.parent  # Go up to kie-v3/
+            source_commands_fallback = kie_repo_root / ".claude" / "commands"
+            if source_commands_fallback.exists():
+                target_commands.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(source_commands_fallback, target_commands, dirs_exist_ok=True)
+                commands_copied = True
 
         return {
             "success": True,
             "message": "KIE project structure created successfully",
             "folders_created": folders,
             "files_created": ["README.md", "CLAUDE.md", ".gitignore"],
+            "commands_copied": commands_copied,
         }
 
     def handle_status(self, brief: bool = False) -> Dict[str, Any]:
@@ -335,7 +318,7 @@ When this project opens:
         Handle /build command.
 
         Args:
-            target: What to build ('all', 'charts', 'presentation', etc.)
+            target: What to build ('all', 'charts', 'presentation', 'dashboard')
 
         Returns:
             Build results
@@ -364,7 +347,14 @@ When this project opens:
         try:
             results = {}
 
-            # Build presentation (default)
+            # Build dashboard FIRST (generates Recharts HTML)
+            # This is what users actually want to see!
+            if target in ["all", "dashboard", "charts"]:
+                dashboard_path = self._build_dashboard(spec)
+                results["dashboard"] = str(dashboard_path)
+                results["message"] = f"Dashboard built at {dashboard_path}. Open index.html in browser or run 'npm install && npm run dev'"
+
+            # Build presentation if requested
             if target in ["all", "presentation"]:
                 pres_path = self._build_presentation(spec)
                 results["presentation"] = str(pres_path)
@@ -453,6 +443,83 @@ When this project opens:
 
         return output_path
 
+    def _build_dashboard(self, spec: Dict[str, Any]) -> Path:
+        """
+        Build Streamlit dashboard from spec and data.
+
+        Args:
+            spec: Project specification
+
+        Returns:
+            Path to generated dashboard
+        """
+        from kie.export.react_builder import ReactDashboardBuilder
+
+        # Find data file
+        data_dir = self.project_root / "data"
+        data_files = list(data_dir.glob("*.csv"))
+
+        if not data_files:
+            raise ValueError("No CSV data files found in data/ directory")
+
+        data_path = data_files[0]
+
+        # PHASE 3+4+5: Apply FULL INTELLIGENCE (same as handle_analyze)
+        loader = DataLoader()
+        loader.load(data_path)  # Auto-infers schema
+        schema = loader.schema
+
+        # Read spec for overrides and objective
+        objective = ''
+        column_overrides = {}
+        if self.spec_path.exists():
+            import yaml
+            with open(self.spec_path) as f:
+                spec_yaml = yaml.safe_load(f)
+                if spec_yaml:
+                    objective = spec_yaml.get('objective', '')
+                    column_overrides = spec_yaml.get('column_mapping', {})
+
+        # Apply objective-driven intelligence
+        objective_lower = objective.lower()
+        if any(term in objective_lower for term in ['revenue growth', 'sales growth', 'profit growth', 'growth', 'revenue', 'sales', 'income']):
+            metric_request = 'revenue'
+        elif any(term in objective_lower for term in ['spend', 'cost', 'expense', 'budget', 'overhead']):
+            metric_request = 'spend'
+        elif any(term in objective_lower for term in ['efficiency', 'margin', 'rate', 'ratio', 'profitability']):
+            metric_request = 'efficiency'
+        else:
+            metric_request = 'revenue'
+
+        # Get intelligent column mapping (with overrides!)
+        required_cols = [metric_request, 'category', 'date']
+        column_mapping = loader.suggest_column_mapping(required_cols, overrides=column_overrides)
+
+        # Build dashboard with INTELLIGENT column selection (Phase 5!)
+        builder = ReactDashboardBuilder(
+            project_name=spec.get("project_name", "Dashboard"),
+            client_name=spec.get("client_name", "Client"),
+            objective=spec.get("objective", "Analysis"),
+            data_schema=schema,
+            column_mapping=column_mapping  # Phase 5: Pass intelligent selections + overrides
+        )
+
+        # Output directory
+        exports_dir = self.project_root / "exports" / "dashboard"
+
+        # Charts directory
+        charts_dir = self.project_root / "outputs" / "charts"
+
+        # Build React dashboard (KDS COMPLIANT)
+        dashboard_path = builder.build_dashboard(
+            data_path=data_path,
+            charts_dir=charts_dir,
+            output_dir=exports_dir,
+            theme_mode=spec.get("preferences", {}).get("theme", {}).get("mode", "dark")
+        )
+
+        return dashboard_path
+
     def handle_eda(self, data_file: Optional[str] = None) -> Dict[str, Any]:
         """
         Handle /eda command - run exploratory data analysis.
@@ -529,31 +596,84 @@ When this project opens:
         else:
             data_file = str(self.project_root / data_file)
 
-        # Load data
         try:
-            import pandas as pd
-            df = pd.read_csv(data_file) if data_file.endswith('.csv') else pd.read_excel(data_file)
+            # CENTRALIZED INTELLIGENCE: Use DataLoader as the single source of truth
+            from pathlib import Path
+            loader = DataLoader()
+            df = loader.load(Path(data_file))  # This auto-infers schema
 
-            # Auto-detect column types
-            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-            categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+            # Get schema from loader (already inferred during load)
+            schema = loader.schema
+            if not schema:
+                return {
+                    "success": False,
+                    "message": "Could not infer schema from data",
+                }
 
-            if not numeric_cols:
+            # Use intelligent column mapping to find key metrics
+            # Phase 3+4: DYNAMIC semantic hints based on project objective
+            # Phase 5: HUMAN OVERRIDE - read explicit column_mapping from spec
+            objective = ''
+            column_overrides = {}
+            if self.spec_path.exists():
+                import yaml
+                with open(self.spec_path) as f:
+                    spec = yaml.safe_load(f)
+                    if spec:
+                        objective = spec.get('objective', '')
+                        # Phase 5: Read explicit column mappings (God Mode)
+                        column_overrides = spec.get('column_mapping', {})
+
+            # OBJECTIVE-DRIVEN INTELLIGENCE:
+            # Pass a semantic request that matches the objective
+            objective_lower = objective.lower()
+
+            # Determine what type of metric to request based on objective
+            # Check growth/revenue terms first (most specific)
+            if any(term in objective_lower for term in ['revenue growth', 'sales growth', 'profit growth', 'growth', 'revenue', 'sales', 'income']):
+                # Request growth/revenue metrics
+                metric_request = 'revenue'
+            # Then check spend/cost terms
+            elif any(term in objective_lower for term in ['spend', 'cost', 'expense', 'budget', 'overhead']):
+                # Request spend metrics - triggers prefer_spend in loader
+                metric_request = 'spend'
+            # Then check efficiency/margin terms
+            elif any(term in objective_lower for term in ['efficiency', 'margin', 'rate', 'ratio', 'profitability']):
+                # Request efficiency metrics - triggers prefer_percentage in loader
+                metric_request = 'efficiency'
+            else:
+                # Default to growth/revenue metrics
+                metric_request = 'revenue'
+
+            # Request the appropriate metric type + supporting columns
+            required_cols = [metric_request, 'category', 'date']
+            # Phase 5: Pass overrides to loader - they take absolute precedence
+            mapping = loader.suggest_column_mapping(required_cols, overrides=column_overrides)
+
+            # Extract mapped columns
+            value_column = mapping.get(metric_request)
+            group_column = mapping.get('category')
+            time_column = mapping.get('date')
+
+            # Fallback: if no mapping found, use first available columns
+            if not value_column and schema.numeric_columns:
+                value_column = schema.numeric_columns[0]
+            if not group_column and schema.categorical_columns:
+                group_column = schema.categorical_columns[0]
+
+            if not value_column:
                 return {
                     "success": False,
                     "message": "No numeric columns found for analysis",
                 }
 
-            # Use first numeric column as value, first categorical as group
-            value_column = numeric_cols[0]
-            group_column = categorical_cols[0] if categorical_cols else None
-
-            # Extract insights
+            # Extract insights using the intelligently mapped columns
             engine = InsightEngine()
             insights = engine.auto_extract(
                 df,
                 value_column=value_column,
-                group_column=group_column
+                group_column=group_column,
+                time_column=time_column
             )
 
             # Build catalog
@@ -567,7 +687,97 @@ When this project opens:
             catalog_path.parent.mkdir(parents=True, exist_ok=True)
             catalog.save(str(catalog_path))
 
-            return {
+            # PHASE 6: AUTO-MAP GENERATION
+            # Detect geospatial columns and automatically generate maps
+            from kie.geo.maps.folium_builder import create_us_choropleth, create_marker_map
+            from datetime import datetime
+
+            map_path = None
+            map_type = None
+
+            try:
+                # Detect geo columns explicitly (name-based matching)
+                geo_mapping = {}
+
+                # State detection
+                state_keywords = ['state', 'st', 'state_abbr', 'state_code']
+                for col in loader.schema.columns:
+                    col_lower = col.lower()
+                    if any(kw == col_lower or kw in col_lower for kw in state_keywords):
+                        geo_mapping['state'] = col
+                        break
+
+                # Lat/Lon detection (must be numeric with coordinate-like names)
+                lat_keywords = ['latitude', 'lat', 'lat_deg', 'y']
+                lon_keywords = ['longitude', 'lon', 'lng', 'long', 'lon_deg', 'x']
+
+                for col in loader.schema.numeric_columns:
+                    col_lower = col.lower()
+                    if not geo_mapping.get('latitude') and any(kw in col_lower for kw in lat_keywords):
+                        geo_mapping['latitude'] = col
+                    if not geo_mapping.get('longitude') and any(kw in col_lower for kw in lon_keywords):
+                        geo_mapping['longitude'] = col
+
+                # Generate map ONLY if geo data found (don't generate garbage!)
+                has_latlon = geo_mapping.get('latitude') and geo_mapping.get('longitude')
+                has_state = geo_mapping.get('state')
+
+                if has_latlon or has_state:
+                    # Validate that coordinates look reasonable if lat/lon
+                    if has_latlon:
+                        lat_values = df[geo_mapping['latitude']].dropna()
+                        lon_values = df[geo_mapping['longitude']].dropna()
+                        # Skip if coordinates are clearly invalid (all zeros, out of range, etc.)
+                        if len(lat_values) == 0 or len(lon_values) == 0:
+                            raise ValueError("Latitude/longitude columns are empty")
+                        if lat_values.abs().max() > 90 or lon_values.abs().max() > 180:
+                            raise ValueError("Latitude/longitude values out of valid range")
+                        if lat_values.std() < 0.01 and lon_values.std() < 0.01:
+                            raise ValueError("Coordinates have no variance (all same location)")
+
+                    # Only proceed if validation passed
+                    maps_dir = self.project_root / "outputs" / "maps"
+                    maps_dir.mkdir(parents=True, exist_ok=True)
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+                    if has_latlon:
+                        # Create marker map
+                        popup_cols = [col for col in loader.schema.columns
+                                     if col not in [geo_mapping['latitude'], geo_mapping['longitude']]][:3]
+
+                        map_builder = create_marker_map(
+                            data=df,
+                            latitude_col=geo_mapping['latitude'],
+                            longitude_col=geo_mapping['longitude'],
+                            popup_cols=popup_cols,
+                            cluster=True
+                        )
+
+                        map_path = maps_dir / f"auto_map_{timestamp}.html"
+                        map_builder.save(str(map_path))
+                        map_type = "marker"
+
+                    elif has_state:
+                        # Create US choropleth
+                        # Use intelligent value selection (prefer the metric we already found)
+                        value_col = value_column  # Already intelligently selected above
+
+                        map_builder = create_us_choropleth(
+                            data=df,
+                            value_column=value_col,
+                            key_column=geo_mapping['state'],
+                            title=f"{value_col} by State"
+                        )
+
+                        map_path = maps_dir / f"auto_map_{timestamp}.html"
+                        map_builder.save(str(map_path))
+                        map_type = "choropleth"
+
+            except Exception as map_error:
+                # Map generation is optional - don't fail the whole analysis
+                pass
+
+            result = {
                 "success": True,
                 "insights_count": len(insights),
                 "catalog_saved": str(catalog_path),
@@ -582,6 +792,13 @@ When this project opens:
                     for i in insights[:5]  # Return top 5
                 ],
             }
+
+            # Add map info if generated
+            if map_path:
+                result["map_generated"] = str(map_path)
+                result["map_type"] = map_type
+
+            return result
 
         except Exception as e:
             return {
@@ -627,13 +844,13 @@ When this project opens:
         # Launch React dashboard if requested
         dashboard_url = None
         if launch_server:
-            # Check if web_v3 exists (should be in kie-v3 repo)
-            web_dir = Path(__file__).parent.parent.parent / "web_v3"
+            # Check if web exists (should be in kie-v3 repo)
+            web_dir = Path(__file__).parent.parent.parent / "web"
             if web_dir.exists():
                 dashboard_url = "http://localhost:5173"
                 previews["dashboard_instruction"] = f"Run 'cd {web_dir} && npm run dev' to launch React dashboard"
             else:
-                previews["dashboard_instruction"] = "React dashboard not found (web_v3/ directory missing)"
+                previews["dashboard_instruction"] = "React dashboard not found (web/ directory missing)"
 
         return {
             **previews,
@@ -645,3 +862,179 @@ When this project opens:
                 len(previews["exports"]),
             ]),
         }
+
+    def handle_spec(self) -> Dict[str, Any]:
+        """
+        Handle /spec command - show current specification.
+
+        Returns:
+            Specification dict
+        """
+        if not self.spec_path.exists():
+            return {
+                "success": False,
+                "message": "No spec.yaml found. Run /interview to create one.",
+            }
+
+        with open(self.spec_path) as f:
+            spec = yaml.safe_load(f)
+
+        return {
+            "success": True,
+            "spec": spec,
+        }
+
+    def handle_map(self, data_file: Optional[str] = None, map_type: str = 'auto') -> Dict[str, Any]:
+        """
+        Handle /map command - create geographic visualizations.
+
+        Args:
+            data_file: Specific file to visualize (default: auto-detect from data/)
+            map_type: Type of map ('auto', 'choropleth', 'marker', 'heatmap')
+
+        Returns:
+            Map generation results with file path
+        """
+        from kie.geo.maps.folium_builder import create_us_choropleth, create_marker_map
+        from datetime import datetime
+
+        # Find data file
+        if not data_file:
+            data_dir = self.project_root / "data"
+            data_files = list(data_dir.glob("*.csv")) + list(data_dir.glob("*.xlsx"))
+            if not data_files:
+                return {
+                    "success": False,
+                    "message": "No data files found in data/ folder",
+                }
+            data_file = str(data_files[0])
+        else:
+            data_file = str(self.project_root / data_file)
+
+        try:
+            # Load data with intelligence
+            loader = DataLoader()
+            df = loader.load(Path(data_file))
+
+            # Detect geo columns explicitly (don't use suggest_column_mapping for geo!)
+            # For geo columns, we need exact/fuzzy name matches, not semantic intelligence
+            mapping = {}
+
+            # State detection (case-insensitive, exact/fuzzy match)
+            state_keywords = ['state', 'st', 'state_abbr', 'state_code']
+            for col in loader.schema.columns:
+                col_lower = col.lower()
+                if any(kw == col_lower or kw in col_lower for kw in state_keywords):
+                    mapping['state'] = col
+                    break
+
+            # Lat/Lon detection (must be numeric AND have coordinate-like names)
+            lat_keywords = ['latitude', 'lat', 'lat_deg', 'y']
+            lon_keywords = ['longitude', 'lon', 'lng', 'long', 'lon_deg', 'x']
+
+            for col in loader.schema.numeric_columns:
+                col_lower = col.lower()
+                if not mapping.get('latitude') and any(kw in col_lower for kw in lat_keywords):
+                    mapping['latitude'] = col
+                if not mapping.get('longitude') and any(kw in col_lower for kw in lon_keywords):
+                    mapping['longitude'] = col
+
+            # Determine map type based on available columns
+            has_latlon = mapping.get('latitude') and mapping.get('longitude')
+            has_state = mapping.get('state')
+
+            if map_type == 'auto':
+                if has_latlon:
+                    map_type = 'marker'
+                elif has_state:
+                    map_type = 'choropleth'
+                else:
+                    return {
+                        "success": False,
+                        "message": "⚠️  No geospatial data found. Cannot generate map.",
+                        "hint": "Your data needs either:\n  • 'state' column (for US choropleth)\n  • 'latitude' and 'longitude' columns (for marker map)\n\nColumn names detected: " + ", ".join(loader.schema.columns[:20]) + ("..." if len(loader.schema.columns) > 20 else ""),
+                        "skip_map": True
+                    }
+
+            # Create output directory
+            maps_dir = self.project_root / "outputs" / "maps"
+            maps_dir.mkdir(parents=True, exist_ok=True)
+
+            # Generate map based on type
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            if map_type == 'choropleth' and has_state:
+                # Find a value column (prefer revenue/value metrics)
+                value_candidates = ['revenue', 'value', 'amount', 'total', 'count']
+                value_mapping = loader.suggest_column_mapping(value_candidates)
+                value_col = value_mapping.get('revenue') or value_mapping.get('value')
+
+                if not value_col and loader.schema.numeric_columns:
+                    value_col = loader.schema.numeric_columns[0]
+
+                if not value_col:
+                    return {
+                        "success": False,
+                        "message": "No value column found for choropleth",
+                    }
+
+                # Create choropleth
+                map_builder = create_us_choropleth(
+                    data=df,
+                    value_column=value_col,
+                    key_column=mapping['state'],
+                    title=f"{value_col} by State"
+                )
+
+                output_path = maps_dir / f"choropleth_{timestamp}.html"
+                map_builder.save(str(output_path))
+
+                return {
+                    "success": True,
+                    "message": f"US Choropleth map created",
+                    "map_path": str(output_path),
+                    "map_type": "choropleth",
+                    "columns_used": {
+                        "state": mapping['state'],
+                        "value": value_col
+                    }
+                }
+
+            elif map_type == 'marker' and has_latlon:
+                # Create marker map
+                popup_cols = [col for col in loader.schema.columns if col not in [mapping['latitude'], mapping['longitude']]][:3]
+
+                map_builder = create_marker_map(
+                    data=df,
+                    latitude_col=mapping['latitude'],
+                    longitude_col=mapping['longitude'],
+                    popup_cols=popup_cols,
+                    cluster=True
+                )
+
+                output_path = maps_dir / f"markers_{timestamp}.html"
+                map_builder.save(str(output_path))
+
+                return {
+                    "success": True,
+                    "message": f"Marker map created with {len(df)} points",
+                    "map_path": str(output_path),
+                    "map_type": "marker",
+                    "columns_used": {
+                        "latitude": mapping['latitude'],
+                        "longitude": mapping['longitude']
+                    }
+                }
+
+            else:
+                return {
+                    "success": False,
+                    "message": f"Cannot create {map_type} map with available data",
+                    "available_columns": loader.schema.columns
+                }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Map creation failed: {str(e)}",
+            }

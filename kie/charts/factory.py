@@ -298,9 +298,12 @@ class ChartFactory:
             if df[x].dtype == 'datetime64[ns]':
                 # Time series → line chart
                 return ChartFactory.line(df, x=x, y=y_col, **kwargs)
-            elif df[x].dtype == 'object' and len(df) <= 10:
-                # Few categories → pie chart
+            elif df[x].dtype == 'object' and len(df) <= 4:
+                # Few categories (KDS: max 4 slices) → pie chart
                 return ChartFactory.pie(df, name=x, value=y_col, **kwargs)
+            elif df[x].dtype == 'object' and len(df) <= 10:
+                # 5-10 categories → horizontal bar (better than pie)
+                return ChartFactory.horizontal_bar(df, x=x, y=y_col, **kwargs)
             else:
                 # Default to bar chart
                 return ChartFactory.bar(df, x=x, y=y_col, **kwargs)

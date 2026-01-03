@@ -12,7 +12,7 @@ from folium import plugins
 import json
 from pathlib import Path
 
-from kie.brand.kds import KDSColors
+from kie.brand.colors import KDSColors
 from kie.brand.theme import get_theme, ThemeMode
 
 
