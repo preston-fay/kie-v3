@@ -139,6 +139,9 @@ class InterviewState(BaseModel):
     Tracks what has been gathered and what's still needed.
     """
 
+    # Interview mode selection
+    interview_mode: Optional[str] = None  # "express" or "full"
+
     # Completion status
     has_project_name: bool = False
     has_project_type: bool = False
@@ -146,6 +149,11 @@ class InterviewState(BaseModel):
     has_data_source: bool = False
     has_deliverables: bool = False
     has_theme_preference: bool = False
+    has_client_name: bool = False
+    has_audience: bool = False
+    has_deadline: bool = False
+    has_success_criteria: bool = False
+    has_constraints: bool = False
 
     # Current spec (partially filled)
     spec: ProjectSpec = Field(
@@ -166,42 +174,58 @@ class InterviewState(BaseModel):
     conversation: List[Dict[str, str]] = Field(default_factory=list)
 
     def is_complete(self) -> bool:
-        """Check if interview is complete (minimum required fields)."""
-        return (
+        """Check if interview is complete (minimum required fields including theme)."""
+        required = (
             self.has_project_name
             and self.has_project_type
             and self.has_objective
             and self.has_data_source
             and self.has_deliverables
+            and self.has_theme_preference  # Theme is now REQUIRED
         )
+
+        if self.interview_mode == "full":
+            # Full mode requires additional fields
+            required = required and (
+                self.has_client_name
+                and self.has_audience
+                and self.has_deadline
+                and self.has_success_criteria
+                and self.has_constraints
+            )
+
+        return required
 
     def get_completion_percentage(self) -> float:
         """Get completion percentage."""
-        required_fields = [
-            self.has_project_name,
-            self.has_project_type,
-            self.has_objective,
-            self.has_data_source,
-            self.has_deliverables,
-        ]
-
-        optional_fields = [
-            self.has_theme_preference,
-            self.spec.client_name is not None,
-            self.spec.audience is not None,
-        ]
-
-        required_count = sum(required_fields)
-        optional_count = sum(optional_fields)
-
-        # Weight required fields more heavily (80% of total)
-        required_weight = 0.8
-        optional_weight = 0.2
-
-        required_pct = required_count / len(required_fields) * required_weight
-        optional_pct = optional_count / len(optional_fields) * optional_weight
-
-        return (required_pct + optional_pct) * 100
+        if self.interview_mode == "express":
+            required_fields = [
+                self.has_project_name,
+                self.has_project_type,
+                self.has_objective,
+                self.has_data_source,
+                self.has_deliverables,
+                self.has_theme_preference,
+            ]
+            return (sum(required_fields) / len(required_fields)) * 100
+        elif self.interview_mode == "full":
+            required_fields = [
+                self.has_project_name,
+                self.has_project_type,
+                self.has_objective,
+                self.has_data_source,
+                self.has_deliverables,
+                self.has_theme_preference,
+                self.has_client_name,
+                self.has_audience,
+                self.has_deadline,
+                self.has_success_criteria,
+                self.has_constraints,
+            ]
+            return (sum(required_fields) / len(required_fields)) * 100
+        else:
+            # No mode selected yet
+            return 0.0
 
     def get_missing_required_fields(self) -> List[str]:
         """Get list of missing required fields."""
@@ -217,5 +241,19 @@ class InterviewState(BaseModel):
             missing.append("data_source")
         if not self.has_deliverables:
             missing.append("deliverables")
+        if not self.has_theme_preference:
+            missing.append("theme")
+
+        if self.interview_mode == "full":
+            if not self.has_client_name:
+                missing.append("client_name")
+            if not self.has_audience:
+                missing.append("audience")
+            if not self.has_deadline:
+                missing.append("deadline")
+            if not self.has_success_criteria:
+                missing.append("success_criteria")
+            if not self.has_constraints:
+                missing.append("constraints")
 
         return missing

@@ -3,38 +3,33 @@ name: interview
 description: Start conversational requirements gathering
 ---
 
-I'll gather your project requirements through natural conversation.
+I'll gather your project requirements through a guided interview. First, choose an interview path:
 
-Let me ask you some questions:
+- **Express**: quick, 6 questions (type "express")
+- **Full**: detailed, asks for audience, success criteria, constraints (type "full")
 
-**1. What are you building?**
-- Analytics/insights from data?
-- A presentation for executives?
-- An interactive dashboard?
-- A predictive model?
-- Something else?
+We'll go one question at a time. The required questions include:
 
-**2. Who is this for?**
-- Client executives?
-- Internal team?
-- Trading desk?
-- Analysts?
+1) What are you building? (analytics/presentation/dashboard/model/etc.)
+2) What's your objective?
+3) What data do you have? (CSV/Excel/DB/mock)
+4) What deliverables do you need? (PPT, dashboard, PDF, Excel, etc.)
+5) **Theme preference (required):** dark or light? (no defaults)
+6) Project name
 
-**3. What's your objective?**
-What question are you trying to answer, or what decision are you trying to support?
+In **full mode**, I'll also ask:
+7) Client name
+8) Audience (who will see the deliverables?)
+9) Deadline
+10) Success criteria (what does success look like?)
+11) Constraints (budget, tech restrictions, data limitations?)
 
-**4. What data do you have?**
-(If you haven't already, drop your data file or tell me where it is)
+I will not guess or make assumptions. I will ask each question in sequence and wait for your answer before moving to the next one.
 
-**5. Theme preference?**
-- Dark mode (default - Kearney standard)
-- Light mode
+Once all required fields are captured, I'll save the spec to `project_state/spec.yaml`.
 
-**6. What deliverables do you need?**
-- Charts and insights (analytics)
-- PowerPoint presentation
-- Interactive dashboard (HTML/React)
-- Excel export
-- All of the above?
+Execute this command to start:
 
-Answer these questions naturally - you don't need to follow the format exactly. Just tell me about your project and I'll extract the requirements and save them to `project_state/spec.yaml`.
+```bash
+python3 -m kie.cli /interview
+```

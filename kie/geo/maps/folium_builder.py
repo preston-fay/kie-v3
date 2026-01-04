@@ -75,8 +75,9 @@ class ChoroplethConfig(LayerConfig):
     columns: Optional[List[str]] = None  # [key_column, value_column]
     key_on: str = "feature.properties.id"
 
-    # Color scheme
-    fill_color: str = "PuRd"  # Purple-Red gradient (KDS-friendly)
+    # Color scheme - Official KDS palette
+    color_scale: List[str] = None  # Will be set to KDS palette in __post_init__
+    fill_color: str = "PuRd"  # Purple-Red gradient (KDS-friendly) - kept for fallback
     fill_opacity: float = 0.7
     line_opacity: float = 0.3
     line_color: str = "#7823DC"
@@ -90,6 +91,11 @@ class ChoroplethConfig(LayerConfig):
     # Bins
     threshold_scale: Optional[List[float]] = None
     bins: int = 5
+
+    def __post_init__(self):
+        """Set default color_scale to official KDS palette."""
+        if self.color_scale is None:
+            self.color_scale = list(KDSColors.CHART_PALETTE)
 
 
 @dataclass

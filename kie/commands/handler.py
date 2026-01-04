@@ -42,6 +42,11 @@ class CommandHandler:
         self.spec_path = self.project_root / "project_state" / "spec.yaml"
         self.state_path = self.project_root / "project_state" / "status.json"
 
+        # Apply saved theme if available (Codex requirement)
+        from kie.config.theme_config import ProjectThemeConfig
+        theme_config = ProjectThemeConfig(self.project_root)
+        theme_config.apply_theme()  # Applies theme if set, does nothing if not
+
     def handle_startkie(self) -> Dict[str, Any]:
         """
         Handle /startkie command.
@@ -332,6 +337,17 @@ project_state/  - Project tracking
         # Load spec
         with open(self.spec_path) as f:
             spec = yaml.safe_load(f)
+
+        # CRITICAL: Check theme is set before building (Codex requirement)
+        from kie.config.theme_config import ProjectThemeConfig
+        theme_config = ProjectThemeConfig(self.project_root)
+        theme_mode = theme_config.load_theme()
+
+        if theme_mode is None:
+            return {
+                "success": False,
+                "message": "❌ Theme preference required. Run /interview and select dark or light mode.",
+            }
 
         # Update status
         status = {

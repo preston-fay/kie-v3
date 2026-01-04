@@ -29,26 +29,37 @@ class ProjectThemeConfig:
         self.project_dir = project_dir or Path.cwd()
         self.spec_path = self.project_dir / "project_state" / "spec.yaml"
 
-    def load_theme(self) -> ThemeMode:
+    def load_theme(self) -> Optional[ThemeMode]:
         """
         Load theme preference from project spec.
 
         Returns:
-            ThemeMode (defaults to DARK if not found)
+            ThemeMode if set, None if unset (no silent defaults)
         """
         if not self.spec_path.exists():
-            return ThemeMode.DARK
+            return None  # No spec = no theme set
 
         try:
             with open(self.spec_path) as f:
                 spec = yaml.safe_load(f) or {}
 
-            theme_str = spec.get("preferences", {}).get("theme", "dark")
-            return ThemeMode(theme_str)
+            # Handle both old format (string) and new format (dict with mode key)
+            raw_theme = spec.get("preferences", {}).get("theme", None)
+
+            if isinstance(raw_theme, dict):
+                theme_value = raw_theme.get("mode", None)
+            else:
+                theme_value = raw_theme
+
+            # Explicit check: only "dark" or "light" are valid
+            if theme_value not in {"dark", "light"}:
+                return None  # Explicit: no theme means no theme
+
+            return ThemeMode(theme_value)
 
         except Exception as e:
             print(f"Warning: Could not load theme from spec: {e}")
-            return ThemeMode.DARK
+            return None  # On error, return None instead of defaulting
 
     def save_theme(self, mode: ThemeMode):
         """
@@ -90,9 +101,11 @@ class ProjectThemeConfig:
         Load and apply theme preference from project spec.
 
         Sets global theme based on project configuration.
+        If no theme is set, does nothing (caller should handle this).
         """
         mode = self.load_theme()
-        set_theme(mode)
+        if mode is not None:
+            set_theme(mode)
 
     def change_theme(self, mode: ThemeMode):
         """

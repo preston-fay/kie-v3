@@ -355,17 +355,17 @@ export default {
     --ring: #9150E1;
     --radius: 0.5rem;
 
-    /* Chart colors - Official KDS 10-color palette */
+    /* Chart colors - Official KDS 10-color palette (exact sequence) */
     --chart-1: #D2D2D2;  /* Light Gray */
     --chart-2: #A5A6A5;  /* Medium Gray */
     --chart-3: #787878;  /* Dark Gray */
     --chart-4: #E0D2FA;  /* Light Purple */
-    --chart-5: #C8A5F0;  /* Medium Purple */
-    --chart-6: #AF7DEB;  /* Purple */
-    --chart-7: #9150E1;  /* Kearney Purple */
-    --chart-8: #7823DC;  /* Primary Purple */
-    --chart-9: #5B1BA9;  /* Dark Purple */
-    --chart-10: #3D1275; /* Darkest Purple */
+    --chart-5: #C8A5F0;  /* Medium Light Purple */
+    --chart-6: #AF7DEB;  /* Medium Purple */
+    --chart-7: #4B4B4B;  /* Charcoal */
+    --chart-8: #1E1E1E;  /* Kearney Black */
+    --chart-9: #9150E1;  /* Bright Purple */
+    --chart-10: #7823DC; /* Kearney Purple (primary brand) */
   }
 }
 
@@ -809,7 +809,7 @@ export function Dashboard() {{
                       borderRadius: '8px'
                     }}}}
                   />
-                  <Bar dataKey="value" fill="#7823DC" radius={{[4, 4, 0, 0]}}>
+                  <Bar dataKey="value" fill="var(--chart-10)" radius={{[4, 4, 0, 0]}}>
                     <LabelList
                       dataKey="value"
                       position="top"
@@ -888,7 +888,7 @@ export function Dashboard() {{
                   }}}}
                   formatter={{(value: number) => value.toFixed(0)}}
                 />
-                <Bar dataKey="value" fill="#7823DC" radius={{[0, 4, 4, 0]}}>
+                <Bar dataKey="value" fill="var(--chart-10)" radius={{[0, 4, 4, 0]}}>
                   <LabelList
                     dataKey="value"
                     position="right"
