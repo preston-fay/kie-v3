@@ -79,6 +79,18 @@ class InterviewEngine:
               - next_question: Next question to ask (if any)
               - complete: Whether interview is complete
         """
+        # Handle empty/whitespace messages - return next question without extraction
+        if not message or not message.strip():
+            next_q = self._get_next_question()
+            response = {
+                "acknowledgment": [],
+                "slots_filled": [],
+                "next_question": next_q,
+                "complete": self.state.is_complete(),
+                "completion_percentage": self.state.get_completion_percentage(),
+            }
+            return response
+
         # Add to conversation history
         self.state.conversation.append({"role": "user", "content": message})
 
@@ -330,7 +342,7 @@ class InterviewEngine:
             extracted["constraints"] = message
 
         # Project name (if it looks like a title)
-        if len(message.split()) <= 5 and message[0].isupper() and not self.state.has_project_name:
+        if len(message) > 0 and len(message.split()) <= 5 and message[0].isupper() and not self.state.has_project_name:
             extracted["project_name"] = message
 
         # Type-specific field extraction (flexible - captures any response)
