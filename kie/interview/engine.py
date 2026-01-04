@@ -342,7 +342,7 @@ class InterviewEngine:
             extracted["constraints"] = message
 
         # Project name (if it looks like a title)
-        if len(message) > 0 and len(message.split()) <= 5 and message[0].isupper() and not self.state.has_project_name:
+        if message and len(message.split()) <= 5 and message[0].isupper() and not self.state.has_project_name:
             extracted["project_name"] = message
 
         # Type-specific field extraction (flexible - captures any response)
