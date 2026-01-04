@@ -250,7 +250,8 @@ All commands work in both interactive REPL mode AND one-shot terminal execution.
 
 | Command | Description | Terminal Usage |
 |---------|-------------|----------------|
-| `/startkie` | Bootstrap new KIE project in current folder | `python3 -m kie.cli startkie` |
+| `/kie_setup` | Check workspace health (primary command) | `python3 -m kie.cli doctor` |
+| `/startkie` | Alias for /kie_setup (deprecated) | `python3 -m kie.cli doctor` |
 | `/status` | Show current project state | `python3 -m kie.cli status` |
 | `/spec` | View current specification | `python3 -m kie.cli spec` |
 | `/interview` | Start conversational requirements gathering | `python3 -m kie.cli interview` |
@@ -261,6 +262,7 @@ All commands work in both interactive REPL mode AND one-shot terminal execution.
 | `/build` | Execute full deliverable generation | `python3 -m kie.cli build` |
 | `/preview` | Generate preview of current outputs | `python3 -m kie.cli preview` |
 | `/doctor` | Check workspace health and detect package collisions | `python3 -m kie.cli doctor` |
+| `/template` | Generate workspace starter ZIP | `python3 -m kie.cli template` |
 
 ---
 
