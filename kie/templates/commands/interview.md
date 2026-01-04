@@ -132,3 +132,18 @@ Then run `/interview` again.
 ---
 
 Let me start the interview now.
+
+```python
+from pathlib import Path
+from kie.interview.engine import InterviewEngine
+
+# Initialize engine (auto-loads existing state if present)
+interview = InterviewEngine(state_path=Path("project_state/interview_state.yaml"))
+
+# Get first/next question (safe on empty message)
+response = interview.process_message("")
+
+# Display next question
+if response.get("next_question"):
+    print(response["next_question"])
+```
