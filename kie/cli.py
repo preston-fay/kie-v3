@@ -59,6 +59,7 @@ class KIEClient:
 - `/validate` - Run quality checks
 - `/build [target]` - Build deliverables (all, presentation, dashboard)
 - `/preview` - Preview outputs
+- `/doctor` - Check workspace health and detect package collisions
 - `/help` - Show this help
 - `/quit` or `/exit` - Exit KIE
 
@@ -81,6 +82,7 @@ Type a command to get started!
             print("  /validate      - Run quality checks")
             print("  /build [target]- Build deliverables")
             print("  /preview       - Preview outputs")
+            print("  /doctor        - Check workspace health")
             print("  /help          - Show this help")
             print("  /quit or /exit - Exit KIE")
             print()
@@ -198,6 +200,8 @@ Type a command to get started!
                 result = self.handler.handle_build(target=target)
             elif cmd == "/preview":
                 result = self.handler.handle_preview()
+            elif cmd == "/doctor":
+                result = self.handler.handle_doctor()
             else:
                 result = {
                     "success": False,
@@ -283,7 +287,7 @@ def main():
             # Ambiguous: could be a command or a Unix absolute path
             # Check if it's a known command first
             known_commands = ["/startkie", "/status", "/spec", "/interview", "/eda",
-                            "/analyze", "/map", "/validate", "/build", "/preview", "/help"]
+                            "/analyze", "/map", "/validate", "/build", "/preview", "/doctor", "/help"]
 
             if any(arg.startswith(cmd) for cmd in known_commands):
                 # It's a command - execute and exit
