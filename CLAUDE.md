@@ -57,15 +57,16 @@ When the user types a KIE command:
 | User Types | You Execute |
 |------------|-------------|
 | `/startkie` | Use the SlashCommand tool (it's a Claude slash command) |
-| `/eda` | `python3 -m kie.cli /eda` |
-| `/status` | `python3 -m kie.cli /status` |
-| `/spec` | `python3 -m kie.cli /spec` |
-| `/interview` | Claude-orchestrated conversation (see slash command) |
-| `/analyze` | `python3 -m kie.cli /analyze` |
-| `/map` | `python3 -m kie.cli /map` |
-| `/validate` | `python3 -m kie.cli /validate` |
-| `/build` | `python3 -m kie.cli /build [target]` |
-| `/preview` | `python3 -m kie.cli /preview` |
+| `/eda` | `python3 -m kie.cli eda` |
+| `/status` | `python3 -m kie.cli status` |
+| `/spec` | `python3 -m kie.cli spec` |
+| `/interview` | `python3 -m kie.cli interview` |
+| `/analyze` | `python3 -m kie.cli analyze` |
+| `/map` | `python3 -m kie.cli map` |
+| `/validate` | `python3 -m kie.cli validate` |
+| `/build` | `python3 -m kie.cli build [target]` |
+| `/preview` | `python3 -m kie.cli preview` |
+| `/doctor` | `python3 -m kie.cli doctor` |
 
 **Do NOT:**
 - Explain what the command does and wait
@@ -242,23 +243,24 @@ Extract structured requirements from natural language. Only ask targeted follow-
 
 **IMPORTANT: When user types a slash command like `/status` or `/eda`, execute it via terminal:**
 ```bash
-python3 -m kie.cli /status
+python3 -m kie.cli status
 ```
 
 All commands work in both interactive REPL mode AND one-shot terminal execution.
 
 | Command | Description | Terminal Usage |
 |---------|-------------|----------------|
-| `/startkie` | Bootstrap new KIE project in current folder | `python3 -m kie.cli /startkie` |
-| `/status` | Show current project state | `python3 -m kie.cli /status` |
-| `/spec` | View current specification | `python3 -m kie.cli /spec` |
-| `/interview` | Start conversational requirements gathering | Claude-orchestrated (slash command only) |
-| `/eda` | Run exploratory data analysis | `python3 -m kie.cli /eda` |
-| `/analyze` | Extract insights from data | `python3 -m kie.cli /analyze` |
-| `/map` | Create geographic visualizations | `python3 -m kie.cli /map` |
-| `/validate` | Run comprehensive quality checks | `python3 -m kie.cli /validate` |
-| `/build` | Execute full deliverable generation | `python3 -m kie.cli /build` |
-| `/preview` | Generate preview of current outputs | `python3 -m kie.cli /preview` |
+| `/startkie` | Bootstrap new KIE project in current folder | `python3 -m kie.cli startkie` |
+| `/status` | Show current project state | `python3 -m kie.cli status` |
+| `/spec` | View current specification | `python3 -m kie.cli spec` |
+| `/interview` | Start conversational requirements gathering | `python3 -m kie.cli interview` |
+| `/eda` | Run exploratory data analysis | `python3 -m kie.cli eda` |
+| `/analyze` | Extract insights from data | `python3 -m kie.cli analyze` |
+| `/map` | Create geographic visualizations | `python3 -m kie.cli map` |
+| `/validate` | Run comprehensive quality checks | `python3 -m kie.cli validate` |
+| `/build` | Execute full deliverable generation | `python3 -m kie.cli build` |
+| `/preview` | Generate preview of current outputs | `python3 -m kie.cli preview` |
+| `/doctor` | Check workspace health and detect package collisions | `python3 -m kie.cli doctor` |
 
 ---
 

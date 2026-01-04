@@ -269,11 +269,12 @@ def main():
 
         # Handle help/version flags
         if arg in ["-h", "--help"]:
-            print("Usage: kie [/command | project_directory]")
+            print("Usage: kie [command | project_directory]")
             print("\nOne-shot command execution:")
-            print("  kie /status      - Show project status and exit")
-            print("  kie /eda         - Run EDA and exit")
-            print("  kie /analyze     - Run analysis and exit")
+            print("  kie status       - Show project status and exit")
+            print("  kie eda          - Run EDA and exit")
+            print("  kie analyze      - Run analysis and exit")
+            print("  kie doctor       - Check workspace health and exit")
             print("  ... (any KIE command)")
             print("\nInteractive mode:")
             print("  kie              - Start REPL in current directory")
@@ -283,26 +284,26 @@ def main():
             from kie import __version__
             print(f"KIE v{__version__}")
             sys.exit(0)
-        elif arg.startswith("/"):
-            # Ambiguous: could be a command or a Unix absolute path
-            # Check if it's a known command first
-            known_commands = ["/startkie", "/status", "/spec", "/interview", "/eda",
-                            "/analyze", "/map", "/validate", "/build", "/preview", "/doctor", "/help"]
 
-            if any(arg.startswith(cmd) for cmd in known_commands):
-                # It's a command - execute and exit
-                client = KIEClient(project_root=Path.cwd())
-                client.process_command(arg)
-                sys.exit(0)
-            else:
-                # Might be a directory path - try to use it
-                project_root = Path(arg).resolve()
-                if not project_root.exists():
-                    print(f"Error: Directory does not exist: {project_root}")
-                    sys.exit(1)
-                client = KIEClient(project_root=project_root)
+        # Check if it's a known command (without slash prefix for CLI)
+        known_commands = ["startkie", "status", "spec", "interview", "eda",
+                        "analyze", "map", "validate", "build", "preview", "doctor", "help"]
+
+        if arg in known_commands:
+            # It's a command - execute and exit
+            client = KIEClient(project_root=Path.cwd())
+            # Add slash prefix for internal process_command (REPL compatibility)
+            client.process_command(f"/{arg}")
+            sys.exit(0)
+        elif arg.startswith("/"):
+            # Reject slash-prefixed commands in CLI
+            print(f"Error: Invalid command format '{arg}'")
+            print(f"Use 'kie {arg[1:]}' instead (without the slash)")
+            print("Slash commands (/command) are only for Claude Code slash commands,")
+            print("not terminal CLI usage.")
+            sys.exit(1)
         else:
-            # Use specified directory for interactive mode
+            # Treat as directory path for interactive mode
             project_root = Path(arg).resolve()
             if not project_root.exists():
                 print(f"Error: Directory does not exist: {project_root}")
