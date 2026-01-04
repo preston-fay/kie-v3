@@ -13,7 +13,7 @@
 ### Problems with Current Mixed Approach
 
 1. **Namespace Collision**: `core/` vs `core_v3/` is confusing
-2. **Dependency Conflicts**: v2 uses matplotlib, v3 uses Recharts (different paradigms)
+2. **Dependency Conflicts**: v2 and v3 use different visualization libraries
 3. **Testing Complexity**: `pytest` runs tests for both versions (slower, harder to isolate failures)
 4. **Documentation Confusion**: Which CLAUDE.md applies? Which architecture?
 5. **Git History Pollution**: v3 commits mixed with v2 maintenance
@@ -304,7 +304,7 @@ You are working on **KIE v3** - a complete rewrite with modern architecture.
 
 ## Key Differences from v2
 
-- **NO matplotlib** - Use Recharts (React) for charts
+- Use React + Recharts for charts
 - **JSON configs** - Python generates configs, React renders
 - **Validation enforced** - KDS compliance cannot be bypassed
 - **Modular architecture** - Clear separation of concerns

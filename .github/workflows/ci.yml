@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  # REQUIRED checks - must pass for merge
+  required-checks:
+    name: Required Checks (Blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+
+      - name: Check invariants (BLOCKING)
+        run: |
+          python scripts/check_invariants.py
+
+      - name: Run stable tests (BLOCKING)
+        run: |
+          python -m pytest tests/test_interview_routing.py -v
+
+  # NON-BLOCKING checks - allowed to fail for now
+  full-test-suite:
+    name: Full Test Suite (Non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+
+      - name: Run all tests
+        run: |
+          python -m pytest -v

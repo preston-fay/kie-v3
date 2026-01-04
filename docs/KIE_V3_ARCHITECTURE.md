@@ -14,8 +14,8 @@ KIE v3 represents a fundamental architectural shift from v2, aligning fully with
 
 **KIE v2** (Deprecated):
 ```
-Python → matplotlib → PNG images → Embed in slides/docs
-❌ Not KDS-compliant (can't customize Recharts patterns)
+Python → legacy visualization → PNG images → Embed in slides/docs
+❌ Not KDS-compliant
 ❌ Static images (not interactive)
 ❌ Manual color management
 ```

@@ -1,0 +1,15 @@
+repo_name: kie-v3
+purpose: product repo marker - prevents accidental workspace initialization in product code
+created_at: 2026-01-04T22:00:00Z
+warning: |
+  This is the KIE v3 PRODUCT REPOSITORY.
+  Do NOT run client work or workspace commands here.
+  Create a separate folder for client projects and run /startkie there.
+
+  Product repo path: /Users/pfay01/Projects/kie-v3
+
+  If you need to work on a client project:
+  1. mkdir ~/client-project-name
+  2. cd ~/client-project-name
+  3. Open in Claude Code
+  4. Run /startkie

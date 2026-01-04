@@ -268,30 +268,6 @@ class ThemeManager:
         # Dark if luminance < 0.5
         return luminance < 0.5
 
-    def get_matplotlib_style(self) -> Dict[str, any]:
-        """
-        Get matplotlib rcParams for current theme.
-
-        Returns:
-            Dictionary of matplotlib style parameters
-        """
-        return {
-            "figure.facecolor": self.get_background(),
-            "axes.facecolor": self.get_background(),
-            "axes.edgecolor": self.get_border("secondary"),
-            "axes.labelcolor": self.get_text(),
-            "axes.grid": False,  # No gridlines (KDS rule)
-            "text.color": self.get_text(),
-            "xtick.color": self.get_text(),
-            "ytick.color": self.get_text(),
-            "font.family": "sans-serif",
-            "font.sans-serif": ["Inter", "Arial", "Helvetica", "sans-serif"],
-            "axes.spines.top": False,
-            "axes.spines.right": False,
-            "axes.spines.left": True,
-            "axes.spines.bottom": True,
-        }
-
     def get_folium_tiles(self) -> str:
         """
         Get Folium map tiles for current theme.
