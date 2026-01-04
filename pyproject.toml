@@ -83,7 +83,7 @@ all = [
 ]
 
 [project.scripts]
-kie = "kie.cli:main"
+kie = "kie.cli.workspace:main"
 
 [project.urls]
 Homepage = "https://github.com/kearney/kie"
@@ -96,6 +96,9 @@ include = ["kie*"]
 [tool.setuptools.package-data]
 kie = [
     "commands/slash_commands/*.md",
+    "templates/commands/*.md",
+    "templates/project_template/*.md",
+    "templates/project_template/*.txt",
 ]
 
 [tool.pytest.ini_options]
