@@ -156,8 +156,8 @@ theme.get_semantic_color("error")    # Red
 theme.get_semantic_color("info")     # Blue
 
 # Matplotlib integration
-import matplotlib.pyplot as plt
-plt.rcParams.update(theme.get_matplotlib_style())
+# KIE v3 uses React + Recharts (not matplotlib)
+# Theme is applied via CSS-in-JS
 
 # Folium integration
 tiles = theme.get_folium_tiles()  # "CartoDB dark_matter" or "CartoDB positron"
@@ -277,20 +277,20 @@ chart = ChartFactory.bar(
 ### Matplotlib Charts
 
 ```python
-import matplotlib.pyplot as plt
+# KIE v3 uses React + Recharts (not matplotlib)
+# Charts are created as React components with themed CSS-in-JS
+
 from core_v3.brand.theme import get_theme
 
 theme = get_theme()
 
-# Apply theme to matplotlib
-plt.rcParams.update(theme.get_matplotlib_style())
-
-# Create chart
-fig, ax = plt.subplots()
-ax.bar(labels, values, color=theme.get_chart_colors(1)[0])
-ax.set_title("My Chart", color=theme.get_text())
-
-plt.savefig("chart.png", facecolor=theme.get_background())
+# Example: Create themed Recharts component
+chart_config = {
+    "colors": theme.get_chart_colors(1),
+    "backgroundColor": theme.get_background(),
+    "textColor": theme.get_text(),
+    "primaryColor": theme.get_primary_color()
+}
 ```
 
 ---
@@ -584,7 +584,6 @@ get_theme_mode() -> ThemeMode
 .get_chart_colors(count: int = None) -> List[str]
 .get_semantic_color(type: "success" | "warning" | "error" | "info") -> str
 .get_accent_color(for_background: str = None) -> str
-.get_matplotlib_style() -> Dict
 .get_folium_tiles() -> str
 .get_css_variables() -> Dict
 .to_dict() -> Dict

@@ -40,10 +40,8 @@ FORBIDDEN_PATH_PATTERNS = [
     '/Projects/kie-v3',
 ]
 
-# Exception: matplotlib method in theme.py (legacy, scheduled for removal)
-ALLOWED_MATPLOTLIB_LOCATIONS = [
-    'kie/brand/theme.py:get_matplotlib_style',
-]
+# No exceptions - matplotlib completely removed
+ALLOWED_MATPLOTLIB_LOCATIONS = []
 
 
 def check_dependencies():
