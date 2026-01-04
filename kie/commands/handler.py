@@ -457,7 +457,7 @@ project_state/  - Project tracking
 
     def _build_dashboard(self, spec: Dict[str, Any]) -> Path:
         """
-        Build Streamlit dashboard from spec and data.
+        Build React dashboard from spec and data.
 
         Args:
             spec: Project specification

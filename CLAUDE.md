@@ -231,7 +231,7 @@ Extract structured requirements from natural language. Only ask targeted follow-
 |------|-------------|-----------------|
 | `analytics` | Data analysis & insights | Charts, insights catalog |
 | `presentation` | Executive slides | PowerPoint deck |
-| `dashboard` | Interactive visualization | HTML/Streamlit/React app |
+| `dashboard` | Interactive visualization | React app |
 | `modeling` | ML/Statistical models | Model artifacts, reports |
 | `proposal` | RFP responses, pitches | Word document, slides |
 | `research` | Market/competitive analysis | Research report |

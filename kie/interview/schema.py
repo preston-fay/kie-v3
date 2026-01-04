@@ -32,7 +32,6 @@ class DeliverableType(str, Enum):
     HTML = "html"
     EXCEL = "excel"
     CSV = "csv"
-    STREAMLIT = "streamlit"
     REACT_APP = "react_app"
     JUPYTER = "jupyter"
 
@@ -170,18 +169,33 @@ class InterviewState(BaseModel):
     slots_filled: List[str] = Field(default_factory=list)
     slots_remaining: List[str] = Field(default_factory=list)
 
+    # NEW: Type-specific question routing (Phase 1)
+    active_question_sequence: List[str] = Field(default_factory=list)
+    current_question_index: int = 0
+
     # Conversation history
     conversation: List[Dict[str, str]] = Field(default_factory=list)
 
     def is_complete(self) -> bool:
-        """Check if interview is complete (minimum required fields including theme)."""
+        """
+        Check if interview is complete.
+
+        Uses BOTH sequence completion AND required field checks to ensure theme is enforced.
+        """
+        # Sequence completion (if sequence is active)
+        sequence_complete = (
+            len(self.active_question_sequence) > 0
+            and self.current_question_index >= len(self.active_question_sequence)
+        )
+
+        # Required fields (explicit check including theme)
         required = (
             self.has_project_name
             and self.has_project_type
             and self.has_objective
             and self.has_data_source
             and self.has_deliverables
-            and self.has_theme_preference  # Theme is now REQUIRED
+            and self.has_theme_preference  # Theme is REQUIRED - cannot be bypassed
         )
 
         if self.interview_mode == "full":
@@ -194,7 +208,12 @@ class InterviewState(BaseModel):
                 and self.has_constraints
             )
 
-        return required
+        # Must satisfy BOTH conditions (or fall back to required-only if no sequence)
+        if len(self.active_question_sequence) > 0:
+            return sequence_complete and required
+        else:
+            # Legacy/backward compat: if no sequence, use required fields only
+            return required
 
     def get_completion_percentage(self) -> float:
         """Get completion percentage."""

@@ -20,6 +20,7 @@ from kie.interview.schema import (
     ChartSpec,
     ThemePreferences,
 )
+from kie.interview.question_bank import QuestionBank
 
 
 class InterviewEngine:
@@ -96,7 +97,12 @@ class InterviewEngine:
         return response
 
     def _is_field_missing(self, field: str) -> bool:
-        """Check if a specific field is missing."""
+        """
+        Check if a specific field is missing.
+
+        For type-specific fields, checks spec.context dict.
+        """
+        # Core completion flags
         field_status = {
             "project_type": self.state.has_project_type,
             "objective": self.state.has_objective,
@@ -110,37 +116,70 @@ class InterviewEngine:
             "success_criteria": self.state.has_success_criteria,
             "constraints": self.state.has_constraints,
         }
-        return not field_status.get(field, False)
+
+        # Check core fields first
+        if field in field_status:
+            return not field_status[field]
+
+        # Type-specific fields stored in context
+        type_specific_fields = [
+            "dashboard_views",
+            "dashboard_filters",
+            "update_frequency",
+            "slide_count",
+            "key_message",
+            "presentation_style",
+        ]
+
+        if field in type_specific_fields:
+            # Check if field exists in context
+            if not self.state.spec.context:
+                return True
+            return field not in self.state.spec.context
+
+        # Unknown field - assume missing
+        return True
 
     def _get_next_question(self) -> Optional[str]:
-        """Return single focused question based on interview mode and remaining fields."""
+        """
+        Return single focused question based on interview mode and project type.
 
-        question_bank = {
-            "mode": "Do you want the express interview (fast, 6 questions) or the full interview (more detail)?\n\nType 'express' or 'full':",
-            "project_type": "What type of deliverable do you need?\n\nOptions: presentation, dashboard, analytics, modeling, research, proposal",
-            "objective": "What's the main goal or decision this needs to support?\n\n(Be specific about what question you're trying to answer or what action you want to enable)",
-            "data_source": "What data do you have?\n\nOptions:\n- CSV file (provide path)\n- Excel file (provide path)\n- Database (I'll ask for connection details)\n- Mock data (I'll generate sample data)",
-            "deliverables": "What output formats do you need?\n\nOptions: PowerPoint, PDF, Excel, interactive dashboard (HTML/React), Jupyter notebook\n\n(You can choose multiple - separate with commas)",
-            "project_name": "What would you like to call this project?",
-            "theme": "Do you prefer dark mode or light mode for visuals?\n\nType 'dark' or 'light' (no default - I need your explicit choice):",
-            "client_name": "What is the client name?",
-            "audience": "Who will see these deliverables?\n\n(e.g., C-suite executives, analysts, trading desk, internal team)",
-            "deadline": "When do you need this delivered?\n\n(e.g., 'December 15', 'end of week', '2 days')",
-            "success_criteria": "What does success look like for this project?\n\n(How will you know if this deliverable achieved its goal?)",
-            "constraints": "Are there any constraints or limitations I should know about?\n\n(e.g., budget limits, technology restrictions, data quality issues, compliance requirements)\n\n(Type 'none' if no constraints)",
-        }
-
+        Uses QuestionBank for type-specific routing.
+        """
         # If mode not selected, ask for mode first
         if not self.state.interview_mode:
-            return question_bank["mode"]
+            return QuestionBank.get_question_text("mode")
 
-        # Determine sequence based on mode
-        sequence = self.EXPRESS_SEQUENCE if self.state.interview_mode == "express" else self.FULL_SEQUENCE
+        # If project_type not selected or not in sequence, ask for it
+        if not self.state.has_project_type:
+            return QuestionBank.get_question_text("project_type")
 
-        # Find next missing field in sequence
-        for field in sequence:
-            if self._is_field_missing(field):
-                return question_bank.get(field)
+        # Build or use active question sequence
+        if not self.state.active_question_sequence:
+            # First time: build the sequence based on type and mode
+            try:
+                self.state.active_question_sequence = QuestionBank.get_question_sequence(
+                    self.state.spec.project_type,
+                    self.state.interview_mode
+                )
+                self.state.current_question_index = 0
+            except ValueError:
+                # Unsupported type - should have been caught earlier
+                return QuestionBank.get_question_text("project_type")
+
+        # Get next question from sequence
+        while self.state.current_question_index < len(self.state.active_question_sequence):
+            question_key = self.state.active_question_sequence[self.state.current_question_index]
+
+            # Check if this field is already filled
+            if self._is_field_missing(question_key):
+                return QuestionBank.get_question_text(
+                    question_key,
+                    self.state.spec.project_type
+                )
+
+            # Field already filled, advance to next
+            self.state.current_question_index += 1
 
         return None  # All questions answered
 
@@ -185,11 +224,18 @@ class InterviewEngine:
             ProjectType.MODELING: ["model", "predict", "forecast", "machine learning", "ml", "modeling"],
             ProjectType.PROPOSAL: ["proposal", "rfp", "pitch", "bid"],
             ProjectType.RESEARCH: ["research", "market", "competitive", "landscape"],
+            ProjectType.DATA_ENGINEERING: ["data engineering", "pipeline", "etl", "data_engineering"],
+            ProjectType.WEBAPP: ["webapp", "web app", "application"],
         }
 
         for proj_type, patterns in project_type_patterns.items():
             if any(pattern in message_lower for pattern in patterns):
-                extracted["project_type"] = proj_type
+                # Check if type is supported
+                if not QuestionBank.is_type_supported(proj_type):
+                    # Record attempted unsupported type
+                    extracted["attempted_unsupported_type"] = proj_type
+                else:
+                    extracted["project_type"] = proj_type
                 break
 
         # Client name detection (proper nouns, capitalized words)
@@ -214,7 +260,6 @@ class InterviewEngine:
         # Deliverable type detection
         deliverable_patterns = {
             DeliverableType.POWERPOINT: ["powerpoint", "pptx", "slides", "deck", "presentation"],
-            DeliverableType.STREAMLIT: ["streamlit"],
             DeliverableType.REACT_APP: ["dashboard", "interactive", "react", "html"],
             DeliverableType.HTML: ["html", "webpage", "web"],
             DeliverableType.PDF: ["pdf", "report"],
@@ -288,6 +333,24 @@ class InterviewEngine:
         if len(message.split()) <= 5 and message[0].isupper() and not self.state.has_project_name:
             extracted["project_name"] = message
 
+        # Type-specific field extraction (flexible - captures any response)
+        # Check which question we're currently on
+        if self.state.active_question_sequence and self.state.current_question_index < len(self.state.active_question_sequence):
+            current_question_key = self.state.active_question_sequence[self.state.current_question_index]
+
+            type_specific_fields = [
+                "dashboard_views",
+                "dashboard_filters",
+                "update_frequency",
+                "slide_count",
+                "key_message",
+                "presentation_style",
+            ]
+
+            if current_question_key in type_specific_fields:
+                # Capture the response for this type-specific field
+                extracted[current_question_key] = message.strip()
+
         return extracted
 
     def _update_state(self, extracted: Dict[str, Any]) -> List[str]:
@@ -307,11 +370,19 @@ class InterviewEngine:
             self.state.interview_mode = extracted["interview_mode"]
             slots_filled.append("interview_mode")
 
-        # Project type
+        # Project type (only set if supported)
         if "project_type" in extracted and not self.state.has_project_type:
             self.state.spec.project_type = extracted["project_type"]
             self.state.has_project_type = True
             slots_filled.append("project_type")
+
+        # Unsupported project type (audit trail - blocks completion)
+        if "attempted_unsupported_type" in extracted:
+            if not self.state.spec.context:
+                self.state.spec.context = {}
+            self.state.spec.context["attempted_project_type"] = extracted["attempted_unsupported_type"].value
+            slots_filled.append("attempted_unsupported_type")
+            # has_project_type stays False - blocks completion until supported type selected
 
         # Objective
         if "objective_candidate" in extracted and not self.state.has_objective:
@@ -387,6 +458,22 @@ class InterviewEngine:
             self.state.has_constraints = True
             slots_filled.append("constraints")
 
+        # Type-specific fields (stored in spec.context)
+        type_specific_fields = [
+            "dashboard_views", "dashboard_filters", "update_frequency",
+            "slide_count", "key_message", "presentation_style",
+        ]
+
+        for field in type_specific_fields:
+            if field in extracted:
+                if not self.state.spec.context:
+                    self.state.spec.context = {}
+                self.state.spec.context[field] = extracted[field]
+                slots_filled.append(field)
+                # Advance question index for type-specific questions
+                if self.state.active_question_sequence and self.state.current_question_index < len(self.state.active_question_sequence):
+                    self.state.current_question_index += 1
+
         # Auto-generate project name if we have enough info and it's missing
         if not self.state.has_project_name and self.state.has_project_type:
             client = self.state.spec.client_name or "Project"
@@ -433,6 +520,13 @@ class InterviewEngine:
         if "project_type" in extracted:
             acknowledgments.append(f"Type: {extracted['project_type'].value.title()}")
 
+        # Unsupported type redirect
+        if "attempted_unsupported_type" in extracted:
+            unsupported_type = extracted["attempted_unsupported_type"]
+            redirect_msg = QuestionBank.get_redirect_message(unsupported_type)
+            if redirect_msg:
+                acknowledgments.append(f"⚠️ {redirect_msg}")
+
         if "objective_candidate" in extracted and "objective" in slots_filled:
             obj_preview = extracted['objective_candidate'][:60] + "..." if len(extracted['objective_candidate']) > 60 else extracted['objective_candidate']
             acknowledgments.append(f"Objective: {obj_preview}")
@@ -452,6 +546,21 @@ class InterviewEngine:
 
         if "project_name" in extracted:
             acknowledgments.append(f"Project: {extracted['project_name']}")
+
+        # Type-specific field acknowledgments
+        if "dashboard_views" in extracted:
+            acknowledgments.append(f"Dashboard views: {extracted['dashboard_views']}")
+        if "dashboard_filters" in extracted:
+            acknowledgments.append(f"Filters: {extracted['dashboard_filters']}")
+        if "update_frequency" in extracted:
+            acknowledgments.append(f"Update frequency: {extracted['update_frequency']}")
+        if "slide_count" in extracted:
+            acknowledgments.append(f"Target slides: {extracted['slide_count']}")
+        if "key_message" in extracted:
+            msg_preview = extracted['key_message'][:60] + "..." if len(extracted['key_message']) > 60 else extracted['key_message']
+            acknowledgments.append(f"Key message: {msg_preview}")
+        if "presentation_style" in extracted:
+            acknowledgments.append(f"Style: {extracted['presentation_style']}")
 
         response["acknowledgment"] = acknowledgments
 

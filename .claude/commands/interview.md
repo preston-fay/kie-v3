@@ -26,20 +26,49 @@ I'll check if `project_state/interview_state.yaml` exists:
 
 ### Questions Asked
 
-**Express mode (6 questions):**
-1. Project type (analytics/presentation/dashboard/model/etc.)
+**Supported Project Types:**
+- **dashboard**: Interactive data visualizations (React/Recharts)
+- **presentation**: Executive slide decks (PowerPoint with KDS branding)
+
+**Unsupported Types (will redirect):**
+- analytics, modeling, proposal, research, data_engineering, webapp
+
+**Express mode (6 base questions + 2 type-specific):**
+1. Project type (dashboard/presentation only)
 2. Objective (what decision/goal does this support?)
 3. Data source (CSV/Excel/database/mock)
-4. Deliverables (PPT/PDF/Excel/dashboard/etc.)
+4. **Type-specific questions** (see below)
 5. **Theme preference (REQUIRED):** dark or light
 6. Project name
 
-**Full mode (11 questions - adds 5 more):**
+**Full mode (11 base questions + 3 type-specific):**
 7. Client name
 8. Audience (who will see the deliverables?)
 9. Deadline
 10. Success criteria (what does success look like?)
 11. Constraints (budget/tech restrictions/data limitations)
+
+**Type-Specific Questions:**
+
+*Dashboard (express):*
+- How many dashboard views/tabs? (overview, detail, comparison)
+- What filters/controls? (date range, region, product line)
+
+*Dashboard (full mode adds):*
+- Update frequency? (static, daily refresh, real-time)
+
+*Presentation (express):*
+- Target slide count? (8-12 recommended)
+- Key message or recommendation?
+
+*Presentation (full mode adds):*
+- Presentation style? (data-heavy, narrative-driven, visual)
+
+**Deliverables are auto-set by type:**
+- dashboard → react_app
+- presentation → powerpoint
+
+Type-specific answers are stored in `spec.context` dict.
 
 ### Processing Each Response
 
