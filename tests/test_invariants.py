@@ -22,10 +22,24 @@ from check_invariants import (
 
 @pytest.fixture
 def mock_repo_root(tmp_path, monkeypatch):
-    """Mock REPO_ROOT to use a temporary directory."""
+    """Mock REPO_ROOT to use a temporary directory with git initialized."""
+    import subprocess
     import check_invariants
+
+    # Initialize git repo in tmp_path
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=tmp_path, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "Test User"], cwd=tmp_path, capture_output=True, check=True)
+
     monkeypatch.setattr(check_invariants, "REPO_ROOT", tmp_path)
     return tmp_path
+
+
+def git_add_and_commit(repo_root, path_pattern):
+    """Helper to add files to git tracking."""
+    import subprocess
+    subprocess.run(["git", "add", path_pattern], cwd=repo_root, capture_output=True, check=True)
+    subprocess.run(["git", "commit", "-m", "test commit"], cwd=repo_root, capture_output=True, check=True)
 
 
 def test_check_package_name_passes_with_correct_name(mock_repo_root):
@@ -119,8 +133,11 @@ def test_check_no_generated_artifacts_passes_clean_repo(mock_repo_root):
 
 
 def test_check_no_generated_artifacts_detects_pycache(mock_repo_root):
-    """Test that generated artifacts check detects __pycache__ directories."""
-    (mock_repo_root / "__pycache__").mkdir()
+    """Test that generated artifacts check detects tracked __pycache__ files."""
+    pycache_dir = mock_repo_root / "__pycache__"
+    pycache_dir.mkdir()
+    (pycache_dir / "test.pyc").write_text("fake pyc")
+    git_add_and_commit(mock_repo_root, "__pycache__/test.pyc")
 
     violations = check_no_generated_artifacts()
     assert len(violations) > 0
@@ -128,8 +145,11 @@ def test_check_no_generated_artifacts_detects_pycache(mock_repo_root):
 
 
 def test_check_no_generated_artifacts_detects_egg_info(mock_repo_root):
-    """Test that generated artifacts check detects .egg-info directories."""
-    (mock_repo_root / "kie.egg-info").mkdir()
+    """Test that generated artifacts check detects tracked .egg-info files."""
+    egg_info_dir = mock_repo_root / "kie.egg-info"
+    egg_info_dir.mkdir()
+    (egg_info_dir / "PKG-INFO").write_text("fake pkg info")
+    git_add_and_commit(mock_repo_root, "kie.egg-info/PKG-INFO")
 
     violations = check_no_generated_artifacts()
     assert len(violations) > 0
@@ -137,8 +157,9 @@ def test_check_no_generated_artifacts_detects_egg_info(mock_repo_root):
 
 
 def test_check_no_generated_artifacts_detects_ds_store(mock_repo_root):
-    """Test that generated artifacts check detects .DS_Store files."""
-    (mock_repo_root / ".DS_Store").touch()
+    """Test that generated artifacts check detects tracked .DS_Store files."""
+    (mock_repo_root / ".DS_Store").write_text("fake ds store")
+    git_add_and_commit(mock_repo_root, ".DS_Store")
 
     violations = check_no_generated_artifacts()
     assert len(violations) > 0
@@ -146,9 +167,13 @@ def test_check_no_generated_artifacts_detects_ds_store(mock_repo_root):
 
 
 def test_check_no_generated_artifacts_detects_build_dirs(mock_repo_root):
-    """Test that generated artifacts check detects build/dist directories."""
+    """Test that generated artifacts check detects tracked build/dist files."""
     (mock_repo_root / "build").mkdir()
+    (mock_repo_root / "build" / "lib.so").write_text("fake lib")
     (mock_repo_root / "dist").mkdir()
+    (mock_repo_root / "dist" / "package.whl").write_text("fake wheel")
+    git_add_and_commit(mock_repo_root, "build/lib.so")
+    git_add_and_commit(mock_repo_root, "dist/package.whl")
 
     violations = check_no_generated_artifacts()
     assert len(violations) >= 2
@@ -213,7 +238,14 @@ def test_run_all_checks_aggregates_all_violations(mock_repo_root):
     """Test that run_all_checks aggregates violations from all checks."""
     # Create multiple types of violations
     (mock_repo_root / "project_state").mkdir()
-    (mock_repo_root / "__pycache__").mkdir()
+
+    # Create and track __pycache__ file
+    pycache_dir = mock_repo_root / "__pycache__"
+    pycache_dir.mkdir()
+    (pycache_dir / "test.pyc").write_text("fake pyc")
+    git_add_and_commit(mock_repo_root, "__pycache__/test.pyc")
+
+    # Create parallel implementation
     kie_dir = mock_repo_root / "kie"
     kie_dir.mkdir()
     (kie_dir / "slides").mkdir()

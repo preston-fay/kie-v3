@@ -102,40 +102,64 @@ def check_no_generated_artifacts() -> List[str]:
     INVARIANT 3: No generated artifacts committed
 
     Checks:
-    - No __pycache__/ directories
-    - No *.egg-info directories
-    - No .DS_Store files
-    - No build/ or dist/ directories
+    - No __pycache__/ directories (git-tracked)
+    - No *.egg-info directories (git-tracked)
+    - No .DS_Store files (git-tracked)
+    - No build/ or dist/ directories (git-tracked)
+
+    Only fails if artifacts are tracked by git. Untracked local caches are allowed.
 
     Returns:
         List of violation messages (empty if no violations)
     """
+    import subprocess
+
     violations = []
 
-    # Find __pycache__ directories
-    pycache_dirs = list(REPO_ROOT.rglob("__pycache__"))
-    if pycache_dirs:
-        for d in pycache_dirs[:3]:  # Show first 3
-            violations.append(f"❌ Generated artifact: {d.relative_to(REPO_ROOT)}")
-        if len(pycache_dirs) > 3:
-            violations.append(f"   ... and {len(pycache_dirs) - 3} more __pycache__ dirs")
+    # Get list of all git-tracked files
+    try:
+        result = subprocess.run(
+            ["git", "ls-files"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        tracked_files = set(result.stdout.strip().split('\n')) if result.stdout.strip() else set()
+    except subprocess.CalledProcessError:
+        # If git command fails, fall back to filesystem checks with warning
+        violations.append("⚠️  WARNING: Could not check git-tracked files (not a git repo?)")
+        return violations
 
-    # Find .egg-info directories
-    egg_info_dirs = list(REPO_ROOT.glob("*.egg-info"))
-    if egg_info_dirs:
-        for d in egg_info_dirs:
-            violations.append(f"❌ Generated artifact: {d.relative_to(REPO_ROOT)}")
+    # Check for tracked __pycache__ files
+    pycache_tracked = [f for f in tracked_files if "__pycache__" in f]
+    if pycache_tracked:
+        for f in pycache_tracked[:3]:
+            violations.append(f"❌ Tracked generated artifact: {f}")
+        if len(pycache_tracked) > 3:
+            violations.append(f"   ... and {len(pycache_tracked) - 3} more __pycache__ files")
 
-    # Find .DS_Store files
-    ds_store_files = list(REPO_ROOT.rglob(".DS_Store"))
-    if ds_store_files:
-        violations.append(f"❌ Found {len(ds_store_files)} .DS_Store file(s)")
+    # Check for tracked .egg-info files
+    egg_info_tracked = [f for f in tracked_files if ".egg-info" in f]
+    if egg_info_tracked:
+        for f in egg_info_tracked[:3]:
+            violations.append(f"❌ Tracked generated artifact: {f}")
+        if len(egg_info_tracked) > 3:
+            violations.append(f"   ... and {len(egg_info_tracked) - 3} more .egg-info files")
 
-    # Check for build/dist directories
-    for folder in ["build", "dist"]:
-        folder_path = REPO_ROOT / folder
-        if folder_path.exists():
-            violations.append(f"❌ Generated artifact: {folder}/")
+    # Check for tracked .DS_Store files
+    ds_store_tracked = [f for f in tracked_files if ".DS_Store" in f]
+    if ds_store_tracked:
+        for f in ds_store_tracked:
+            violations.append(f"❌ Tracked generated artifact: {f}")
+
+    # Check for tracked build/dist files
+    build_dist_tracked = [f for f in tracked_files if f.startswith("build/") or f.startswith("dist/")]
+    if build_dist_tracked:
+        for f in build_dist_tracked[:3]:
+            violations.append(f"❌ Tracked generated artifact: {f}")
+        if len(build_dist_tracked) > 3:
+            violations.append(f"   ... and {len(build_dist_tracked) - 3} more build/dist files")
 
     return violations
 

@@ -146,6 +146,12 @@ pre-commit install
 
 # Run tests
 pytest tests/ -v --cov=kie
+
+# Check repo invariants
+python3 scripts/check_invariants.py
+
+# Clean untracked local artifacts (if needed)
+./scripts/clean_junk.sh
 ```
 
 ## Examples
