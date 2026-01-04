@@ -2,6 +2,20 @@
 
 You are running the KIE build process. Create brand-compliant deliverables based on the project specification.
 
+## Workspace Health Check
+
+**FIRST**, verify workspace is ready:
+
+```bash
+python3 -m kie.cli doctor
+```
+
+If doctor FAILS:
+- STOP immediately
+- Print doctor output
+- Tell user: "Workspace not initialized. Run /startkie first."
+- DO NOT proceed
+
 ## Pre-flight Checks
 
 1. Verify `project_state/spec.yaml` exists

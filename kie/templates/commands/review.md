@@ -2,6 +2,20 @@
 
 You are running the KIE review process. Validate brand compliance of all outputs.
 
+## Workspace Health Check
+
+**FIRST**, verify workspace is ready:
+
+```bash
+python3 -m kie.cli doctor
+```
+
+If doctor FAILS:
+- STOP immediately
+- Print doctor output
+- Tell user: "Workspace not initialized. Run /startkie first."
+- DO NOT proceed
+
 ## Review Process
 
 1. **Scan outputs folder**

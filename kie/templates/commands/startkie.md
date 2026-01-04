@@ -1,60 +1,142 @@
 # Bootstrap KIE Project
 
-Transform this folder into a KIE (Kearney Insight Engine) project with one command.
+Transform this empty folder into a fully-functional KIE workspace - zero terminal commands required.
 
 ## Instructions
 
-You are about to bootstrap a KIE project in the current directory.
+**ZERO-TERMINAL WORKFLOW**: The user only types `/startkie`. You handle everything else.
 
-**First, check if bootstrap is needed:**
+### Step 1: Detect Context
 
-1. Check if `CLAUDE.md` exists and contains "KIE Project" → If yes, say "This is already a KIE project. Ready to start working!"
-2. Check if `kie/` exists (Python package) → If yes, say "You're in the KIE repo. Use this folder for client projects instead."
-3. Otherwise, proceed with bootstrap
+Check if this folder needs initialization:
 
-**Bootstrap Process:**
+1. **Is this the product repo?**
+   ```bash
+   test -f .kie_product_repo && echo "PRODUCT_REPO" || echo "NOT_PRODUCT_REPO"
+   ```
+   If PRODUCT_REPO detected:
+   ```
+   ❌ STOP: You are in the KIE v3 product repository.
 
-Call the KIE initializer using Python:
+   Do NOT initialize a workspace here. This is for KIE development only.
 
-```python
-import sys
-from pathlib import Path
+   To start a client project:
+   1. Create a new folder: mkdir ~/my-project
+   2. Open it in Claude Code
+   3. Run /startkie again
+   ```
+   STOP. Do not proceed.
 
-# Try to import and use the installed KIE package
-try:
-    from kie.cli.workspace import initialize_workspace
+2. **Is this already initialized?**
+   ```bash
+   test -f project_state/.kie_workspace && echo "INITIALIZED" || echo "NOT_INITIALIZED"
+   ```
+   If INITIALIZED:
+   - Run doctor to verify health
+   - Report status
+   - Ready to work
 
-    # Initialize in current directory
-    success, message = initialize_workspace(Path.cwd())
+3. **Otherwise**: Proceed with initialization
 
-    if success:
-        print(message)
-        print("\n✓ KIE workspace initialized!")
-    else:
-        print(f"✗ Initialization failed: {message}")
-        sys.exit(1)
+### Step 2: Initialize Workspace (Automatic)
 
-except ImportError:
-    print("✗ KIE package not found. Install with: pip install -e /path/to/kie-v3")
-    sys.exit(1)
+Run the KIE initializer:
+
+```bash
+python3 -m kie.cli init
 ```
 
-**Verify initialization:**
+This command:
+- Creates folders: data/, outputs/, exports/, project_state/
+- Copies templates: README.md, CLAUDE.md, .gitignore
+- Provisions slash commands into .claude/commands/
+- Writes workspace marker: project_state/.kie_workspace
+- Verifies all critical files
 
-After running init, verify:
-- `.claude/commands/interview.md` exists
-- `project_state/` exists
-- `data/` exists
-- At least 3 slash commands present
+**IMPORTANT**: You run this command via the Bash tool. The user does NOT need to run it manually.
 
-If verification fails:
-"KIE workspace initialization failed. Missing: <items>. Run 'python -m kie.cli init' or reinstall KIE."
+### Step 3: Verify Health
 
-**After successful init, say:**
+After init completes, run doctor:
 
-"I've set up KIE in this folder! Let's get started.
+```bash
+python3 -m kie.cli doctor
+```
 
-What are you working on? Tell me about:
-- Your client or project
+Expected output: "KIE Workspace Diagnostic - PASS"
+
+If doctor FAILS:
+- Print the full doctor output
+- Explain what's wrong
+- Provide remediation steps
+
+### Step 4: Confirm Success
+
+If doctor passes, tell the user:
+
+```
+✅ KIE workspace initialized successfully!
+
+You now have:
+- data/ folder (drop your files here)
+- outputs/ folder (charts appear here)
+- exports/ folder (final deliverables)
+- project_state/ folder (project tracking)
+- Slash commands: /interview, /build, /review
+
+Ready to start! What are you working on?
+- Your client or project name
 - What deliverable you need (presentation, dashboard, analysis, etc.)
-- What data you have (or if you need sample data)"
+- What data you have (or if you need sample data)
+```
+
+## Error Handling
+
+**If init fails:**
+```
+✗ Workspace initialization failed.
+
+Error: [paste error message]
+
+This usually means:
+1. KIE package is not installed
+2. Python environment issue
+3. Permission problem
+
+Try:
+- Ensure KIE is installed: pip list | grep kie
+- Check Python version: python3 --version (need 3.8+)
+- Verify folder permissions
+
+Contact support if the issue persists.
+```
+
+**If doctor fails after init:**
+```
+⚠️ Workspace initialized but doctor found issues:
+
+[paste doctor output]
+
+Remediation:
+- If slash commands missing: re-run /startkie
+- If folders missing: check file permissions
+- If marker missing: workspace may be corrupted
+```
+
+## Implementation Notes
+
+- This command is designed for EMPTY folders that consultants open in Claude Code
+- The user should NEVER need to open a terminal
+- All initialization happens via your Bash tool calls
+- You are responsible for running init + doctor and reporting results
+- Zero terminal commands from the user's perspective
+
+## Testing
+
+To test this flow:
+1. Create empty folder: mkdir /tmp/test-startkie
+2. cd /tmp/test-startkie
+3. Simulate /startkie by running:
+   - python3 -m kie.cli init
+   - python3 -m kie.cli doctor
+4. Verify slash commands exist: ls .claude/commands/

@@ -2,6 +2,22 @@
 
 You are running the KIE interview process. Your goal is to gather requirements through natural conversation.
 
+## Pre-flight Check
+
+**BEFORE starting the interview**, verify workspace health:
+
+```bash
+python3 -m kie.cli doctor
+```
+
+If doctor FAILS:
+- STOP immediately
+- Print the doctor output
+- Tell user: "Workspace not ready. Run /startkie to initialize."
+- DO NOT proceed with interview
+
+If doctor PASSES: Continue with interview process.
+
 ## Process
 
 1. **Greet and understand the high-level need**

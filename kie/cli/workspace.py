@@ -2,8 +2,10 @@
 KIE workspace initialization and management.
 """
 
+import json
 import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Tuple
 
@@ -30,6 +32,33 @@ def initialize_workspace(target_dir: Path) -> Tuple[bool, str]:
     """
     try:
         target_dir = target_dir.resolve()
+
+        # Check if this is the product repo (FORBIDDEN)
+        if (target_dir / '.kie_product_repo').exists():
+            return False, """
+❌ CANNOT INITIALIZE: This is the KIE v3 product repository.
+
+Do NOT run client work or workspace commands here.
+
+To start a client project:
+1. Create a new folder: mkdir ~/my-project
+2. Open it in Claude Code
+3. Run /startkie
+
+The product repo is for KIE development only.
+"""
+
+        # Check for other product repo indicators
+        if ((target_dir / 'pyproject.toml').exists() and
+            (target_dir / 'kie' / '__init__.py').exists() and
+            not (target_dir / 'project_state').exists()):
+            return False, """
+❌ CANNOT INITIALIZE: This appears to be the KIE v3 product repository.
+
+Workspace initialization is not allowed in the product codebase.
+
+Create a separate folder for client projects and run /startkie there.
+"""
 
         # Create workspace folders
         folders = ['data', 'outputs', 'exports', 'project_state']
@@ -65,6 +94,18 @@ def initialize_workspace(target_dir: Path) -> Tuple[bool, str]:
         for cmd_file in command_files:
             cmd_content = commands_source.joinpath(cmd_file).read_text()
             (commands_dir / cmd_file).write_text(cmd_content)
+
+        # Write workspace marker
+        import kie
+        workspace_marker = {
+            "workspace_version": 1,
+            "kie_version": kie.__version__,
+            "created_at": datetime.utcnow().isoformat() + "Z",
+            "workspace_type": "kie_project"
+        }
+        marker_path = target_dir / 'project_state' / '.kie_workspace'
+        with open(marker_path, 'w') as f:
+            json.dump(workspace_marker, f, indent=2)
 
         # Verify critical files exist
         verification_failures = []
@@ -128,6 +169,39 @@ def diagnose_workspace(target_dir: Path) -> Tuple[bool, str]:
 
     checks = []
     all_passed = True
+
+    # CRITICAL: Check if this is the product repo
+    if (target_dir / '.kie_product_repo').exists():
+        return False, """
+❌ PRODUCT REPO DETECTED
+
+You are in the KIE v3 product repository.
+Do NOT run workspace commands or client work here.
+
+This is for KIE development only.
+
+To work on a client project:
+1. Create a new folder outside this repo
+2. Open it in Claude Code
+3. Run /startkie
+
+Current directory: {target_dir}
+""".format(target_dir=target_dir)
+
+    # Check for workspace marker
+    workspace_marker = target_dir / 'project_state' / '.kie_workspace'
+    if not workspace_marker.exists():
+        checks.append("✗ Workspace marker missing (not initialized)")
+        all_passed = False
+    else:
+        checks.append("✓ Workspace marker present")
+        try:
+            with open(workspace_marker) as f:
+                marker_data = json.load(f)
+                checks.append(f"  Version: {marker_data.get('workspace_version', 'unknown')}")
+                checks.append(f"  KIE version: {marker_data.get('kie_version', 'unknown')}")
+        except Exception:
+            checks.append("  ⚠ Warning: Could not read marker file")
 
     # Check required folders
     required_folders = ['data', 'outputs', 'exports', 'project_state']
