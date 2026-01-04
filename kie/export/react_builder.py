@@ -594,6 +594,9 @@ export { Tabs, TabsList, TabsTrigger, TabsContent };
         assert self.data_schema is not None, "Schema should have been inferred in build_dashboard"
 
         # PHASE 5: Use intelligent column mapping if provided, otherwise fallback to naive selection
+        # Define categorical_cols early to avoid NameError on line 628
+        categorical_cols = self.data_schema.categorical_columns[:2] if self.data_schema.categorical_columns else []
+
         if self.column_mapping:
             # Intelligently selected columns from DataLoader
             metric1_col = self.column_mapping.get('revenue') or self.column_mapping.get('cost') or self.column_mapping.get('profit')
@@ -610,7 +613,6 @@ export { Tabs, TabsList, TabsTrigger, TabsContent };
         else:
             # FALLBACK: Naive selection (original behavior)
             numeric_cols = self.data_schema.numeric_columns[:3] if self.data_schema.numeric_columns else []
-            categorical_cols = self.data_schema.categorical_columns[:2] if self.data_schema.categorical_columns else []
 
             entity_col = categorical_cols[0] if len(categorical_cols) > 0 else 'entity'
             category_col = categorical_cols[1] if len(categorical_cols) > 1 else categorical_cols[0] if len(categorical_cols) > 0 else 'category'
