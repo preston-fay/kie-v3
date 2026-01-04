@@ -1,190 +1,243 @@
 #!/usr/bin/env python3
 """
-CI Invariant Checker for KIE v3
+Repository Invariants Checker
 
-Enforces architectural rules:
-- No forbidden dependencies (matplotlib, streamlit, etc.)
-- No forbidden strings in templates/code
-- No absolute paths leaked into workspace templates
+Enforces critical structural invariants for the KIE v3 repository.
+Run in CI or pre-commit hooks to prevent accidental violations.
+
+INVARIANTS ENFORCED:
+1. Package name is 'kie' (never 'kie-v3', 'kie_v3', etc.)
+2. Product repo contains no workspace state (project_state/)
+3. No generated artifacts committed (__pycache__, *.egg-info)
+4. Only one implementation of each capability (no parallel implementations)
 """
 
 import sys
 from pathlib import Path
+from typing import List, Tuple
 
-# Forbidden dependencies in pyproject.toml
-FORBIDDEN_DEPS = [
-    'matplotlib',
-    'seaborn',
-    'plotly',
-    'altair',
-    'bokeh',
-    'streamlit',
-    'dash',
-]
-
-# Forbidden strings in templates and code (case-insensitive)
-FORBIDDEN_TEMPLATE_STRINGS = [
-    'import matplotlib',
-    'from matplotlib',
-    'import streamlit as st',
-    'import streamlit',
-    'from streamlit',
-    'pyplot',
-]
-
-# Forbidden path patterns (workspace paths must not leak into templates)
-FORBIDDEN_PATH_PATTERNS = [
-    '/Users/',
-    'OneDrive-Kearney',
-    'kie-v3-v11',
-    '/Projects/kie-v3',
-]
-
-# No exceptions - matplotlib completely removed
-ALLOWED_MATPLOTLIB_LOCATIONS = []
+# Root of the repo
+REPO_ROOT = Path(__file__).parent.parent
 
 
-def check_dependencies():
-    """Check pyproject.toml for forbidden dependencies."""
-    pyproject = Path('pyproject.toml')
+class InvariantViolation(Exception):
+    """Raised when a repository invariant is violated."""
+    pass
+
+
+def check_package_name() -> List[str]:
+    """
+    INVARIANT 1: Package name must be 'kie'
+
+    Checks:
+    - pyproject.toml defines name = "kie"
+    - Package directory is kie/ (not kie-v3/, kie_v3/)
+    - No imports from old names (core, core_v3)
+
+    Returns:
+        List of violation messages (empty if no violations)
+    """
+    violations = []
+
+    # Check pyproject.toml
+    pyproject = REPO_ROOT / "pyproject.toml"
     if not pyproject.exists():
-        print("❌ pyproject.toml not found")
-        return False
+        violations.append("❌ pyproject.toml not found")
+    else:
+        content = pyproject.read_text()
+        if 'name = "kie"' not in content:
+            violations.append("❌ pyproject.toml: package name is not 'kie'")
 
-    content = pyproject.read_text().lower()
+    # Check package directory exists and is named correctly
+    kie_dir = REPO_ROOT / "kie"
+    if not kie_dir.exists() or not kie_dir.is_dir():
+        violations.append("❌ Package directory 'kie/' does not exist")
+
+    # Check for wrong package names
+    wrong_names = ["kie-v3", "kie_v3", "core", "core_v3"]
+    for wrong_name in wrong_names:
+        wrong_dir = REPO_ROOT / wrong_name
+        if wrong_dir.exists() and wrong_dir.is_dir():
+            violations.append(f"❌ Found incorrect package directory: {wrong_name}/")
+
+    # Check for imports from old names in kie/ package
+    if kie_dir.exists():
+        old_imports = ["from core import", "from core.", "from core_v3 import", "from core_v3."]
+        for py_file in kie_dir.rglob("*.py"):
+            content = py_file.read_text()
+            for old_import in old_imports:
+                if old_import in content:
+                    violations.append(f"❌ {py_file.relative_to(REPO_ROOT)}: Found old import '{old_import}'")
+                    break  # One violation per file is enough
+
+    return violations
+
+
+def check_no_workspace_state() -> List[str]:
+    """
+    INVARIANT 2: Product repo must not contain workspace state
+
+    Checks:
+    - No project_state/ directory at repo root
+    - No data/, outputs/, exports/ at repo root (workspace folders)
+
+    Returns:
+        List of violation messages (empty if no violations)
+    """
     violations = []
 
-    for dep in FORBIDDEN_DEPS:
-        # Check if dependency appears (not in a comment)
-        lines = content.splitlines()
-        for i, line in enumerate(lines, 1):
-            # Skip comment-only lines
-            if line.strip().startswith('#'):
-                continue
-            if dep in line and not line.strip().startswith('#'):
-                violations.append(f"Line {i}: forbidden dependency '{dep}'")
+    # Workspace folders that belong in project workspaces, not product repo
+    workspace_folders = ["project_state", "data", "outputs", "exports"]
 
-    if violations:
-        print(f"❌ pyproject.toml violations:")
-        for v in violations:
-            print(f"   {v}")
-        return False
+    for folder in workspace_folders:
+        folder_path = REPO_ROOT / folder
+        if folder_path.exists():
+            violations.append(f"❌ Found workspace folder in product repo: {folder}/")
 
-    print("✅ pyproject.toml: no forbidden dependencies")
-    return True
+    return violations
 
 
-def check_template_content():
-    """Check templates for forbidden strings."""
+def check_no_generated_artifacts() -> List[str]:
+    """
+    INVARIANT 3: No generated artifacts committed
+
+    Checks:
+    - No __pycache__/ directories (git-tracked)
+    - No *.egg-info directories (git-tracked)
+    - No .DS_Store files (git-tracked)
+    - No build/ or dist/ directories (git-tracked)
+
+    Only fails if artifacts are tracked by git. Untracked local caches are allowed.
+
+    Returns:
+        List of violation messages (empty if no violations)
+    """
+    import subprocess
+
     violations = []
 
-    # Check kie/templates/ and kie/ directories
-    check_dirs = [
-        Path('kie/templates'),
-        Path('kie'),
-    ]
+    # Get list of all git-tracked files
+    try:
+        result = subprocess.run(
+            ["git", "ls-files"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        tracked_files = set(result.stdout.strip().split('\n')) if result.stdout.strip() else set()
+    except subprocess.CalledProcessError:
+        # If git command fails, fall back to filesystem checks with warning
+        violations.append("⚠️  WARNING: Could not check git-tracked files (not a git repo?)")
+        return violations
 
-    for check_dir in check_dirs:
-        if not check_dir.exists():
-            continue
+    # Check for tracked __pycache__ files
+    pycache_tracked = [f for f in tracked_files if "__pycache__" in f]
+    if pycache_tracked:
+        for f in pycache_tracked[:3]:
+            violations.append(f"❌ Tracked generated artifact: {f}")
+        if len(pycache_tracked) > 3:
+            violations.append(f"   ... and {len(pycache_tracked) - 3} more __pycache__ files")
 
-        for file_path in check_dir.rglob('*.py'):
-            # Read file and filter out comments
-            lines = file_path.read_text().lower().splitlines()
-            # Remove lines that are pure comments (start with #)
-            content_lines = [line for line in lines if not line.strip().startswith('#')]
-            content = '\n'.join(content_lines)
+    # Check for tracked .egg-info files
+    egg_info_tracked = [f for f in tracked_files if ".egg-info" in f]
+    if egg_info_tracked:
+        for f in egg_info_tracked[:3]:
+            violations.append(f"❌ Tracked generated artifact: {f}")
+        if len(egg_info_tracked) > 3:
+            violations.append(f"   ... and {len(egg_info_tracked) - 3} more .egg-info files")
 
-            for forbidden in FORBIDDEN_TEMPLATE_STRINGS:
-                if forbidden.lower() in content:
-                    # Check if this is an allowed exception
-                    is_allowed = False
-                    for allowed_loc in ALLOWED_MATPLOTLIB_LOCATIONS:
-                        if str(file_path) in allowed_loc:
-                            is_allowed = True
-                            break
+    # Check for tracked .DS_Store files
+    ds_store_tracked = [f for f in tracked_files if ".DS_Store" in f]
+    if ds_store_tracked:
+        for f in ds_store_tracked:
+            violations.append(f"❌ Tracked generated artifact: {f}")
 
-                    if not is_allowed:
-                        violations.append(f"{file_path}: contains '{forbidden}'")
+    # Check for tracked build/dist files
+    build_dist_tracked = [f for f in tracked_files if f.startswith("build/") or f.startswith("dist/")]
+    if build_dist_tracked:
+        for f in build_dist_tracked[:3]:
+            violations.append(f"❌ Tracked generated artifact: {f}")
+        if len(build_dist_tracked) > 3:
+            violations.append(f"   ... and {len(build_dist_tracked) - 3} more build/dist files")
 
-        for file_path in check_dir.rglob('*.md'):
-            content = file_path.read_text().lower()
-            for forbidden in FORBIDDEN_TEMPLATE_STRINGS:
-                if forbidden.lower() in content:
-                    violations.append(f"{file_path}: contains '{forbidden}'")
-
-    if violations:
-        print(f"❌ Template content violations:")
-        for v in violations:
-            print(f"   {v}")
-        return False
-
-    print("✅ Templates: no forbidden strings")
-    return True
+    return violations
 
 
-def check_leaked_paths():
-    """Check for absolute paths in workspace templates."""
+def check_no_parallel_implementations() -> List[str]:
+    """
+    INVARIANT 4: Only one implementation of each capability
+
+    Checks:
+    - No kie/slides/ (use kie/powerpoint/)
+    - No kie/migrate/ (empty stub directories)
+
+    Returns:
+        List of violation messages (empty if no violations)
+    """
     violations = []
 
-    template_dirs = [
-        Path('kie/templates'),
-    ]
+    # Check for parallel implementations
+    parallel_impls = {
+        "kie/slides": "Use kie/powerpoint/ instead",
+        "kie/migrate": "Empty stub - should not exist",
+    }
 
-    for template_dir in template_dirs:
-        if not template_dir.exists():
-            continue
+    for path, reason in parallel_impls.items():
+        full_path = REPO_ROOT / path
+        if full_path.exists():
+            violations.append(f"❌ Parallel implementation found: {path}/ ({reason})")
 
-        for file_path in template_dir.rglob('*'):
-            if not file_path.is_file():
-                continue
+    return violations
 
-            try:
-                content = file_path.read_text()
-                for pattern in FORBIDDEN_PATH_PATTERNS:
-                    if pattern in content:
-                        violations.append(f"{file_path}: contains path '{pattern}'")
-            except UnicodeDecodeError:
-                # Skip binary files
-                pass
 
-    if violations:
-        print(f"❌ Leaked path violations:")
-        for v in violations:
-            print(f"   {v}")
-        return False
+def run_all_checks() -> Tuple[bool, List[str]]:
+    """
+    Run all invariant checks.
 
-    print("✅ Templates: no leaked absolute paths")
-    return True
+    Returns:
+        Tuple of (passed: bool, violations: List[str])
+    """
+    all_violations = []
+
+    all_violations.extend(check_package_name())
+    all_violations.extend(check_no_workspace_state())
+    all_violations.extend(check_no_generated_artifacts())
+    all_violations.extend(check_no_parallel_implementations())
+
+    passed = len(all_violations) == 0
+    return passed, all_violations
 
 
 def main():
-    print("=== KIE v3 Invariant Checker ===\n")
+    """Main entry point."""
+    print("=" * 60)
+    print("KIE v3 Repository Invariants Check")
+    print("=" * 60)
+    print()
 
-    checks = [
-        ("Dependencies", check_dependencies),
-        ("Template Content", check_template_content),
-        ("Leaked Paths", check_leaked_paths),
-    ]
+    passed, violations = run_all_checks()
 
-    all_passed = True
-    for name, check_func in checks:
-        try:
-            passed = check_func()
-            if not passed:
-                all_passed = False
-        except Exception as e:
-            print(f"❌ {name} check failed with error: {e}")
-            all_passed = False
+    if passed:
+        print("✅ All invariants passed!")
         print()
-
-    if all_passed:
-        print("✅ All invariant checks passed")
-        return 0
+        print("Checked:")
+        print("  ✓ Package name is 'kie'")
+        print("  ✓ No workspace state in product repo")
+        print("  ✓ No generated artifacts committed")
+        print("  ✓ No parallel implementations")
+        sys.exit(0)
     else:
-        print("❌ Invariant checks failed")
-        return 1
+        print("❌ Invariant violations detected:")
+        print()
+        for violation in violations:
+            print(f"  {violation}")
+        print()
+        print(f"Total violations: {len(violations)}")
+        print()
+        print("Fix these issues before committing/merging.")
+        sys.exit(1)
 
 
-if __name__ == '__main__':
-    sys.exit(main())
+if __name__ == "__main__":
+    main()

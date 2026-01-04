@@ -269,6 +269,95 @@ project_state/  - Project tracking
 
         return " | ".join(parts)
 
+    def handle_doctor(self) -> Dict[str, Any]:
+        """
+        Handle /doctor command.
+
+        Checks workspace health and detects package name collision risks.
+
+        Returns:
+            Status dict with warnings
+        """
+        import kie
+        import sys
+        from importlib.util import find_spec
+
+        warnings = []
+        errors = []
+        checks = []
+
+        # 1. Check resolved kie module path
+        kie_file = Path(kie.__file__).resolve()
+        kie_package_root = kie_file.parent
+        checks.append(f"✓ Resolved kie module: {kie_package_root}")
+
+        # 2. Check if we're in the right kie package
+        # Expected: either editable install from this repo or site-packages
+        expected_repo_root = Path("/Users/pfay01/Projects/kie-v3")
+        is_editable_from_this_repo = expected_repo_root in kie_package_root.parents
+
+        # Get site-packages location
+        site_packages = None
+        for path in sys.path:
+            if "site-packages" in path:
+                site_packages = Path(path)
+                break
+
+        is_from_site_packages = site_packages and site_packages in kie_package_root.parents
+
+        if not (is_editable_from_this_repo or is_from_site_packages):
+            warnings.append(
+                "⚠️  WARNING: The 'kie' module is being imported from an unexpected location. "
+                f"Found at: {kie_package_root}. "
+                "This may indicate a naming collision with another 'kie' package. "
+                "Ensure only one 'kie' package is installed and KIE v3 is properly installed."
+            )
+
+        # 3. Check for CLI entrypoint to verify it's the right package
+        cli_spec = find_spec("kie.cli")
+        if cli_spec is None:
+            errors.append("❌ ERROR: kie.cli module not found - wrong package installed")
+        else:
+            checks.append(f"✓ CLI entrypoint: {cli_spec.origin}")
+
+        # 4. Check workspace structure
+        required_dirs = ["data", "outputs", "exports", "project_state"]
+        missing_dirs = [d for d in required_dirs if not (self.project_root / d).exists()]
+
+        if missing_dirs:
+            warnings.append(
+                f"⚠️  Missing workspace directories: {', '.join(missing_dirs)}. "
+                "Run /startkie to initialize."
+            )
+        else:
+            checks.append("✓ Workspace structure valid")
+
+        # 5. Check for commands
+        commands_dir = self.project_root / ".claude" / "commands"
+        if not commands_dir.exists() or not list(commands_dir.glob("*.md")):
+            warnings.append(
+                "⚠️  Slash commands not found in .claude/commands/. "
+                "Run /startkie to provision commands."
+            )
+        else:
+            checks.append(f"✓ Slash commands provisioned ({len(list(commands_dir.glob('*.md')))} commands)")
+
+        # 6. Check for spec.yaml
+        if self.spec_path.exists():
+            checks.append("✓ Project spec found (project_state/spec.yaml)")
+        else:
+            warnings.append(
+                "⚠️  No project spec found. Run /interview to create spec.yaml."
+            )
+
+        return {
+            "success": len(errors) == 0,
+            "checks": checks,
+            "warnings": warnings,
+            "errors": errors,
+            "kie_package_location": str(kie_package_root),
+        }
+
     def handle_interview(self) -> Dict[str, Any]:
         """
         Handle /interview command.
