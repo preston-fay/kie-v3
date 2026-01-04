@@ -273,8 +273,10 @@ project_state/  - Project tracking
         """
         Handle /interview command.
 
+        Returns next question or completion status.
+
         Returns:
-            Interview state
+            Interview state with next question
         """
         interview = InterviewEngine(
             state_path=self.project_root / "project_state" / "interview_state.yaml"
@@ -282,11 +284,26 @@ project_state/  - Project tracking
 
         state = interview.state
 
+        # Check if complete
+        if state.is_complete():
+            # Save spec
+            interview.export_spec_yaml(self.spec_path)
+            return {
+                "success": True,
+                "complete": True,
+                "message": "✅ Interview complete! Spec saved to project_state/spec.yaml",
+                "completion_percentage": 100.0,
+            }
+
+        # Get next question
+        next_question = interview._get_next_question()
+
         return {
-            "complete": state.is_complete(),
+            "success": True,
+            "complete": False,
             "completion_percentage": state.get_completion_percentage(),
-            "missing_fields": state.get_missing_required_fields(),
-            "spec": state.spec.model_dump() if state.spec else None,
+            "next_question": next_question,
+            "message": next_question if next_question else "Interview in progress...",
         }
 
     def handle_validate(self, target: Optional[str] = None) -> Dict[str, Any]:
