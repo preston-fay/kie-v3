@@ -273,37 +273,16 @@ project_state/  - Project tracking
         """
         Handle /interview command.
 
-        Returns next question or completion status.
+        NOTE: /interview is now Claude-orchestrated (not CLI-driven).
+        This method is deprecated - Claude conducts the interview directly.
 
         Returns:
-            Interview state with next question
+            Informational message
         """
-        interview = InterviewEngine(
-            state_path=self.project_root / "project_state" / "interview_state.yaml"
-        )
-
-        state = interview.state
-
-        # Check if complete
-        if state.is_complete():
-            # Save spec
-            interview.export_spec_yaml(self.spec_path)
-            return {
-                "success": True,
-                "complete": True,
-                "message": "✅ Interview complete! Spec saved to project_state/spec.yaml",
-                "completion_percentage": 100.0,
-            }
-
-        # Get next question
-        next_question = interview._get_next_question()
-
         return {
             "success": True,
-            "complete": False,
-            "completion_percentage": state.get_completion_percentage(),
-            "next_question": next_question,
-            "message": next_question if next_question else "Interview in progress...",
+            "message": "The /interview command is Claude-orchestrated. Claude will conduct the interview by asking questions one at a time in chat. Just respond normally - no CLI interaction needed.",
+            "hint": "If you're seeing this from CLI, use the /interview slash command in Claude Code instead.",
         }
 
     def handle_validate(self, target: Optional[str] = None) -> Dict[str, Any]:

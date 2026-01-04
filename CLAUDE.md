@@ -60,7 +60,7 @@ When the user types a KIE command:
 | `/eda` | `python3 -m kie.cli /eda` |
 | `/status` | `python3 -m kie.cli /status` |
 | `/spec` | `python3 -m kie.cli /spec` |
-| `/interview` | `python3 -m kie.cli /interview` |
+| `/interview` | Claude-orchestrated conversation (see slash command) |
 | `/analyze` | `python3 -m kie.cli /analyze` |
 | `/map` | `python3 -m kie.cli /map` |
 | `/validate` | `python3 -m kie.cli /validate` |
@@ -252,7 +252,7 @@ All commands work in both interactive REPL mode AND one-shot terminal execution.
 | `/startkie` | Bootstrap new KIE project in current folder | `python3 -m kie.cli /startkie` |
 | `/status` | Show current project state | `python3 -m kie.cli /status` |
 | `/spec` | View current specification | `python3 -m kie.cli /spec` |
-| `/interview` | Start conversational requirements gathering | `python3 -m kie.cli /interview` |
+| `/interview` | Start conversational requirements gathering | Claude-orchestrated (slash command only) |
 | `/eda` | Run exploratory data analysis | `python3 -m kie.cli /eda` |
 | `/analyze` | Extract insights from data | `python3 -m kie.cli /analyze` |
 | `/map` | Create geographic visualizations | `python3 -m kie.cli /map` |

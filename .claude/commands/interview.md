@@ -3,33 +3,103 @@ name: interview
 description: Start conversational requirements gathering
 ---
 
-I'll gather your project requirements through a guided interview. First, choose an interview path:
+I will conduct a structured interview to gather your project requirements.
 
-- **Express**: quick, 6 questions (type "express")
-- **Full**: detailed, asks for audience, success criteria, constraints (type "full")
+## How This Works
 
-We'll go one question at a time. The required questions include:
+**You and I have a conversation.** I ask questions one at a time, you answer in normal chat. No special commands needed.
 
-1) What are you building? (analytics/presentation/dashboard/model/etc.)
-2) What's your objective?
-3) What data do you have? (CSV/Excel/DB/mock)
-4) What deliverables do you need? (PPT, dashboard, PDF, Excel, etc.)
-5) **Theme preference (required):** dark or light? (no defaults)
-6) Project name
+**State persists automatically.** Your answers are saved to `project_state/interview_state.yaml` after each response, so you can pause and resume anytime.
 
-In **full mode**, I'll also ask:
-7) Client name
-8) Audience (who will see the deliverables?)
-9) Deadline
-10) Success criteria (what does success look like?)
-11) Constraints (budget, tech restrictions, data limitations?)
+**Two modes available:**
+- **Express**: 6 required questions (fast)
+- **Full**: 11 questions (includes client, audience, deadline, success criteria, constraints)
 
-I will not guess or make assumptions. I will ask each question in sequence and wait for your answer before moving to the next one.
+## Interview Flow
 
-Once all required fields are captured, I'll save the spec to `project_state/spec.yaml`.
+### Starting or Resuming
 
-Execute this command to start:
+I'll check if `project_state/interview_state.yaml` exists:
+
+- **If exists:** Resume from where we left off
+- **If new:** Start fresh by asking for interview mode (express or full)
+
+### Questions Asked
+
+**Express mode (6 questions):**
+1. Project type (analytics/presentation/dashboard/model/etc.)
+2. Objective (what decision/goal does this support?)
+3. Data source (CSV/Excel/database/mock)
+4. Deliverables (PPT/PDF/Excel/dashboard/etc.)
+5. **Theme preference (REQUIRED):** dark or light
+6. Project name
+
+**Full mode (11 questions - adds 5 more):**
+7. Client name
+8. Audience (who will see the deliverables?)
+9. Deadline
+10. Success criteria (what does success look like?)
+11. Constraints (budget/tech restrictions/data limitations)
+
+### Processing Each Response
+
+After you answer each question, I will:
+
+```python
+from pathlib import Path
+from kie.interview.engine import InterviewEngine
+
+# Initialize engine (auto-loads state if exists)
+interview = InterviewEngine(
+    state_path=Path("project_state/interview_state.yaml")
+)
+
+# Process your message
+response = interview.process_message("""YOUR_ANSWER_HERE""")
+
+# Show what I understood
+if response.get("acknowledgment"):
+    for ack in response["acknowledgment"]:
+        print(f"✓ {ack}")
+
+# Check completion
+if response["complete"]:
+    # Save final spec
+    interview.export_spec_yaml(Path("project_state/spec.yaml"))
+    print("✅ Interview complete! Spec saved to project_state/spec.yaml")
+    # Show summary
+    print(interview.get_interview_summary())
+else:
+    # Ask next question
+    next_q = response.get("next_question")
+    if next_q:
+        print(f"\n{next_q}")
+```
+
+### Completion
+
+When all required fields are gathered:
+- Final spec saved to `project_state/spec.yaml`
+- You'll see a structured summary with all captured requirements
+- Interview state file remains for reference
+
+## Reset/Start Over
+
+To start a fresh interview (discard current state):
 
 ```bash
-python3 -m kie.cli /interview
+rm project_state/interview_state.yaml
 ```
+
+Then run `/interview` again.
+
+## Technical Details
+
+**State file location:** `project_state/interview_state.yaml`
+**Spec output:** `project_state/spec.yaml`
+**Resume:** Automatic - just run `/interview` again
+**Engine:** `kie.interview.engine.InterviewEngine`
+
+---
+
+Let me start the interview now.
