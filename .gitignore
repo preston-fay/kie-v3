@@ -76,3 +76,6 @@ web/*.local
 # Documentation builds
 docs/_build/
 docs/.doctrees/
+
+# Generated workspace template artifacts
+kie_workspace_starter.zip
