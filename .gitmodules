@@ -1,0 +1,3 @@
+[submodule "kds"]
+	path = kds
+	url = https://github.com/preston-fay/Kearneydesignsystem.git
