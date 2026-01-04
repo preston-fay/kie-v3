@@ -96,6 +96,7 @@ include = ["kie*"]
 [tool.setuptools.package-data]
 kie = [
     "commands/slash_commands/*.md",
+    "templates/commands/*.md",
 ]
 
 [tool.pytest.ini_options]

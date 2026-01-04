@@ -202,6 +202,8 @@ Type a command to get started!
                 result = self.handler.handle_preview()
             elif cmd == "/doctor":
                 result = self.handler.handle_doctor()
+            elif cmd == "/template":
+                result = self.handler.handle_template()
             else:
                 result = {
                     "success": False,
@@ -287,11 +289,20 @@ def main():
 
         # Check if it's a known command (without slash prefix for CLI)
         known_commands = ["startkie", "status", "spec", "interview", "eda",
-                        "analyze", "map", "validate", "build", "preview", "doctor", "help"]
+                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help"]
 
         if arg in known_commands:
             # It's a command - execute and exit
             client = KIEClient(project_root=Path.cwd())
+
+            # Special handling for template command with --out flag
+            if arg == "template" and len(sys.argv) > 2:
+                if sys.argv[2] == "--out" and len(sys.argv) > 3:
+                    output_path = Path(sys.argv[3])
+                    result = client.handler.handle_template(output_path=output_path)
+                    client.print_result(result)
+                    sys.exit(0 if result["success"] else 1)
+
             # Add slash prefix for internal process_command (REPL compatibility)
             client.process_command(f"/{arg}")
             sys.exit(0)

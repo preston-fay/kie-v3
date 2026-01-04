@@ -1139,3 +1139,153 @@ project_state/  - Project tracking
                 "success": False,
                 "message": f"Map creation failed: {str(e)}",
             }
+
+    def handle_template(self, output_path: Optional[Path] = None) -> Dict[str, Any]:
+        """
+        Generate KIE Workspace Starter Template ZIP.
+
+        Args:
+            output_path: Where to save the ZIP (default: kie_workspace_starter.zip)
+
+        Returns:
+            Status dict with zip_path
+        """
+        import zipfile
+        import importlib.resources
+
+        if output_path is None:
+            output_path = Path.cwd() / "kie_workspace_starter.zip"
+        else:
+            output_path = Path(output_path)
+
+        try:
+            with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                # Create folder structure
+                folders = [
+                    "data/",
+                    "outputs/",
+                    "outputs/charts/",
+                    "outputs/tables/",
+                    "outputs/maps/",
+                    "exports/",
+                    "project_state/",
+                    "project_state/validation_reports/",
+                    ".claude/",
+                    ".claude/commands/",
+                ]
+                for folder in folders:
+                    # Write empty folder marker
+                    zf.writestr(folder, "")
+
+                # Add workspace marker
+                zf.writestr("project_state/.kie_workspace", "")
+
+                # Add .gitignore
+                gitignore_content = """# Data files
+data/*
+!data/.gitkeep
+
+# Outputs
+outputs/*
+!outputs/.gitkeep
+
+# Exports
+exports/*
+!exports/.gitkeep
+
+# Project state (keep structure, not content)
+project_state/*.yaml
+project_state/*.json
+project_state/validation_reports/*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+.next/
+build/
+dist/
+"""
+                zf.writestr(".gitignore", gitignore_content)
+
+                # Add README.md
+                readme_content = """# KIE Project
+
+## Quick Start
+
+1. **Drop your data file** into the chat or `data/` folder
+2. **Describe what you want** in plain English
+3. **Let Claude (KIE)** create brand-compliant deliverables
+
+That's it! Claude will guide you through the rest.
+
+## Folder Structure
+
+```
+data/           - Put your data files here
+outputs/        - Generated charts, tables, maps
+  charts/       - Chart outputs
+  tables/       - Table configurations
+  maps/         - Map outputs
+exports/        - Final deliverables (PPTX, etc.)
+project_state/  - Project tracking
+  spec.yaml     - Requirements (source of truth)
+  status.json   - Build status
+  validation_reports/ - QC reports
+```
+
+## Commands
+
+- `/kie_setup` - Check workspace health
+- `/status` - Show project status
+- `/interview` - Start requirements gathering
+- `/validate` - Run quality checks
+- `/build` - Build deliverables
+- `/preview` - Preview outputs
+
+## Tips
+
+- Just describe what you need naturally
+- Say "preview" to see what's been generated
+- Say "export" when ready for final deliverables
+- KIE enforces Kearney brand standards automatically
+- All outputs are validated before delivery
+"""
+                zf.writestr("README.md", readme_content)
+
+                # Add CLAUDE.md (from repo root)
+                kie_repo_root = Path(__file__).parent.parent.parent
+                source_claude_md = kie_repo_root / "CLAUDE.md"
+                if source_claude_md.exists():
+                    zf.write(source_claude_md, "CLAUDE.md")
+                else:
+                    zf.writestr("CLAUDE.md", "# KIE Project\n\nKIE (Kearney Insight Engine) v3 project.")
+
+                # Add slash commands from templates
+                templates_dir = Path(__file__).parent.parent / "templates" / "commands"
+                if templates_dir.exists():
+                    for cmd_file in templates_dir.glob("*.md"):
+                        zf.write(cmd_file, f".claude/commands/{cmd_file.name}")
+                else:
+                    # Fallback: use repo commands
+                    repo_commands = kie_repo_root / ".claude" / "commands"
+                    if repo_commands.exists():
+                        for cmd_file in repo_commands.glob("*.md"):
+                            zf.write(cmd_file, f".claude/commands/{cmd_file.name}")
+
+            return {
+                "success": True,
+                "message": f"Workspace starter template created",
+                "zip_path": str(output_path),
+                "size_bytes": output_path.stat().st_size,
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Template generation failed: {str(e)}",
+            }
