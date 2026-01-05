@@ -274,6 +274,7 @@ project_state/  - Project tracking
         Handle /doctor command.
 
         Checks workspace health and detects package name collision risks.
+        Provides data-first guidance when data exists but no spec.
 
         Returns:
             Status dict with warnings
@@ -281,10 +282,12 @@ project_state/  - Project tracking
         import kie
         import sys
         from importlib.util import find_spec
+        from kie.workspace import find_candidate_datasets, select_primary_dataset
 
         warnings = []
         errors = []
         checks = []
+        suggestions = []
 
         # 1. Check resolved kie module path
         kie_file = Path(kie.__file__).resolve()
@@ -343,18 +346,48 @@ project_state/  - Project tracking
             checks.append(f"✓ Slash commands provisioned ({len(list(commands_dir.glob('*.md')))} commands)")
 
         # 6. Check for spec.yaml
-        if self.spec_path.exists():
+        spec_exists = self.spec_path.exists()
+        if spec_exists:
             checks.append("✓ Project spec found (project_state/spec.yaml)")
         else:
             warnings.append(
                 "⚠️  No project spec found. Run /interview to create spec.yaml."
             )
 
+        # 7. Data-first guidance: detect datasets and provide smart next steps
+        datasets = find_candidate_datasets(self.project_root)
+        primary_dataset = select_primary_dataset(datasets)
+
+        if primary_dataset and not spec_exists:
+            # Data exists but no spec - provide EDA-first guidance
+            relative_path = primary_dataset.relative_to(self.project_root)
+            eda_profile_path = self.project_root / "project_state" / "eda_profile.json"
+
+            if not eda_profile_path.exists():
+                # No EDA yet - strongly recommend starting with EDA
+                suggestions.append(f"📊 Data found: {relative_path}")
+                suggestions.append("   Next step: Run `/eda` to explore your data first")
+                suggestions.append("   (You can always run `/interview` later to define project type)")
+            else:
+                # EDA exists but no spec - suggest analysis or interview
+                suggestions.append(f"📊 Data found: {relative_path}")
+                suggestions.append("   EDA profile exists - ready for next step")
+                suggestions.append("   Options: Run `/analyze` for insights, or `/interview` to define deliverable")
+        elif datasets and not spec_exists:
+            # Multiple datasets, no spec, no primary selected
+            suggestions.append(f"📊 Found {len(datasets)} datasets in data/")
+            suggestions.append("   Next step: Run `/eda` to explore your data")
+        elif not datasets and not spec_exists:
+            # No data, no spec - suggest adding data or starting interview
+            suggestions.append("💡 Tip: Drop your data files in data/, then run `/eda`")
+            suggestions.append("   Or run `/interview` to start with requirements gathering")
+
         return {
             "success": len(errors) == 0,
             "checks": checks,
             "warnings": warnings,
             "errors": errors,
+            "suggestions": suggestions,
             "kie_package_location": str(kie_package_root),
         }
 
