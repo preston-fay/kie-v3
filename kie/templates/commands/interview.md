@@ -131,8 +131,6 @@ Then run `/interview` again.
 
 ---
 
-Let me start the interview now.
-
 ```python
 from pathlib import Path
 from kie.interview.engine import InterviewEngine
