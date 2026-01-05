@@ -141,11 +141,43 @@ choose_file() {
 }
 
 # ============================================================
+# Prerequisite Checks
+# ============================================================
+
+check_prerequisites() {
+    log "Checking prerequisites..."
+
+    # Check 1: python3 must exist
+    if ! command -v python3 &>/dev/null; then
+        show_error "Python Not Found" "Python 3 is not installed on this machine.\n\nPlease contact your tech lead or IT to install Python 3 before using this launcher."
+        exit 1
+    fi
+
+    log "✓ Python 3 found: $(command -v python3)"
+
+    # Check 2: KIE module must be importable
+    local kie_check_output
+    local kie_check_exit_code=0
+
+    kie_check_output=$(python3 -c "import kie; print(kie.__file__)" 2>&1) || kie_check_exit_code=$?
+
+    if [[ "$kie_check_exit_code" != "0" ]]; then
+        show_error "KIE Not Installed" "KIE is not installed on this machine.\n\nPlease contact your tech lead or IT to install KIE before using this launcher.\n\nError: $kie_check_output"
+        exit 1
+    fi
+
+    log "✓ KIE installed at: $kie_check_output"
+}
+
+# ============================================================
 # Main Launcher Logic
 # ============================================================
 
 main() {
     log "Starting KIE Workspace Launcher..."
+
+    # Run prerequisite checks first
+    check_prerequisites
 
     # Step 1: Choose parent directory
     log "Step 1: Choose parent directory"

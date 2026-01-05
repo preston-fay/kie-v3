@@ -4,64 +4,38 @@
 
 The KIE Workspace Launcher is a zero-terminal, Mac-only tool that creates new KIE workspaces without requiring command-line usage or ZIP file extraction.
 
-## What It Does
+## Prerequisites (Required)
 
-1. Prompts for workspace parent directory
-2. Prompts for project name
-3. Optionally prompts to select a data file (CSV/Excel)
-4. Creates workspace at `<parent>/<project_name>`
-5. Runs `python3 -m kie.cli init` to initialize workspace
-6. Copies selected data file to `data/` (if provided)
-7. Runs `python3 -m kie.cli doctor` to verify setup
-8. Opens workspace in Finder
-9. Attempts to open in Claude Code (or VS Code if available)
+**IMPORTANT**: Before using the launcher, you must have:
 
-## Prerequisites
+1. **macOS** (tested on macOS 10.14+)
+2. **Python 3.11+** installed
+3. **KIE v3 installed** by your tech lead or IT
 
-- macOS (tested on macOS 10.14+)
-- Python 3.11+ installed
-- KIE v3 installed: `pip install -e /path/to/kie-v3`
+If KIE is not installed, the launcher will show an error dialog and prompt you to contact your tech lead.
+
+**To verify KIE is installed**, open Terminal and run:
+```bash
+python3 -c "import kie; print(kie.__file__)"
+```
+
+If this prints a file path, KIE is installed correctly.
 
 ## Installation
 
-### Option 1: Automator Application (Recommended)
+### Step 1: Get the Launcher App
 
-1. Open **Automator** (Applications > Automator)
-2. Create a new **Application**
-3. Add action: **Run Shell Script**
-4. Set shell to: `/bin/zsh`
-5. Paste the contents of `create_kie_workspace.sh` into the script area
-6. Save as: **Create KIE Workspace.app**
-7. Move the app to your Applications folder or Desktop
-8. (Optional) Add to Dock by dragging the app icon
+**The `Create KIE Workspace.app` file should be provided to you by your tech lead or IT department.**
 
-### Option 2: Direct Script Execution
+Do NOT attempt to build the app yourself unless you are a developer.
 
-If you prefer to run the script directly from Terminal:
+### Step 2: Install the App
 
-```bash
-# Clone or navigate to KIE v3 repo
-cd /path/to/kie-v3
+1. Download or copy **Create KIE Workspace.app** to your Mac
+2. Move it to your **Applications** folder or **Desktop**
+3. (Optional) Drag the app icon to your **Dock** for quick access
 
-# Run the launcher
-zsh tools/mac_launcher/create_kie_workspace.sh
-```
-
-This will show GUI dialogs for all prompts.
-
-## Usage
-
-### Using the Automator App
-
-1. Double-click **Create KIE Workspace.app**
-2. Follow the prompts:
-   - **Choose parent folder**: Select where to create workspace (e.g., `~/Documents`)
-   - **Enter project name**: Type project name (e.g., `acme_q4_analysis`)
-   - **Add data file?**: Choose "Choose File" to select CSV/Excel, or "Skip"
-3. Wait for initialization (10-30 seconds)
-4. Workspace opens in Finder and (if available) Claude Code
-
-### First Run Permissions
+### Step 3: First Run Permissions
 
 On first use, macOS will prompt for permissions:
 
@@ -71,9 +45,33 @@ On first use, macOS will prompt for permissions:
 
 2. **Python execution**
    - If prompted about Python, click **Allow**
-   - This is required to run `kie.cli init` and `kie.cli doctor`
+   - This is required to run KIE initialization and validation
 
-## What Gets Created
+## Usage
+
+### Creating a Workspace
+
+1. **Double-click** `Create KIE Workspace.app`
+2. Follow the prompts:
+   - **Choose parent folder**: Select where to create workspace (e.g., `~/Documents`)
+   - **Enter project name**: Type your project name (e.g., `acme_q4_analysis`)
+   - **Add data file?**: Choose "Choose File" to select CSV/Excel, or "Skip"
+3. Wait 10-30 seconds for initialization
+4. Your workspace opens in Finder and (if available) Claude Code
+
+### What You'll See
+
+The launcher will:
+1. Check that KIE is installed (fail fast if not)
+2. Create your workspace folder
+3. Initialize workspace structure (data/, outputs/, exports/, project_state/)
+4. Copy slash commands to `.claude/commands/`
+5. Copy your data file (if you selected one)
+6. Validate the workspace setup
+7. Open the folder in Finder
+8. Try to open Claude Code (falls back to VS Code if unavailable)
+
+### What Gets Created
 
 After successful run, your workspace will contain:
 
@@ -86,24 +84,21 @@ After successful run, your workspace will contain:
 ├── outputs/              # Generated charts, insights
 ├── exports/              # Final deliverables (dashboards, presentations)
 └── project_state/        # Spec, interview state, profiles
-    └── .kie_workspace    # Marker file
 ```
 
 ## Troubleshooting
 
-### Error: "Failed to initialize workspace"
+### Error: "KIE Not Installed"
 
-**Cause**: KIE v3 is not installed or Python cannot find it.
+**Cause**: KIE is not installed on your machine.
 
-**Solution**:
-```bash
-# Verify KIE is installed
-python3 -c "import kie; print(kie.__file__)"
+**Solution**: Contact your tech lead or IT department to install KIE before using this launcher.
 
-# If not found, install KIE v3
-cd /path/to/kie-v3
-pip install -e .
-```
+### Error: "Python Not Found"
+
+**Cause**: Python 3 is not installed on your machine.
+
+**Solution**: Contact your tech lead or IT department to install Python 3.
 
 ### Error: "Workspace already exists"
 
@@ -120,28 +115,24 @@ pip install -e .
 
 **What to do**:
 1. Open workspace in Claude Code manually
-2. Run `python3 -m kie.cli doctor` in Terminal to see detailed errors
-3. Fix any missing dependencies
-4. Workspace should still be usable for most operations
+2. Run `/doctor` in Claude Code to see detailed diagnostics
+3. Contact your tech lead if issues persist
 
 ### No GUI Dialogs Appear
 
 **Cause**: Script is running in background or permissions issue.
 
 **Solution**:
-1. Check System Preferences > Security & Privacy > Automation
-2. Ensure "Automator" or your app has permissions
-3. Try running the script directly from Terminal to see error messages:
-   ```bash
-   zsh /path/to/create_kie_workspace.sh
-   ```
+1. Check **System Preferences** > **Security & Privacy** > **Automation**
+2. Ensure "Create KIE Workspace" has permissions
+3. Try running the app again
 
 ### Claude Code Doesn't Open
 
 **Cause**: Claude Code is not installed or not in Applications folder.
 
 **What happens**:
-- Script will silently fall back to VS Code (if available)
+- Launcher will try VS Code as fallback
 - If neither is available, only Finder opens
 - This is expected behavior - not an error
 
@@ -149,9 +140,59 @@ pip install -e .
 - Install Claude Code
 - Ensure it's named "Claude Code.app" in Applications folder
 
-## Non-Interactive Mode (For Testing)
+## Support
 
-Developers and power users can run the launcher non-interactively:
+If you encounter issues:
+
+1. Check this troubleshooting guide
+2. Contact your tech lead or KIE support with:
+   - macOS version: run `sw_vers` in Terminal
+   - Python version: run `python3 --version` in Terminal
+   - Error messages from the launcher
+   - Screenshot of any error dialogs
+
+## Security Note
+
+This launcher:
+- Only accesses folders you explicitly choose
+- Does NOT require `sudo` or admin privileges
+- Does NOT modify your system or the KIE installation
+- Only creates files in the workspace location you select
+- Uses standard macOS APIs (osascript, Finder dialogs)
+
+All operations are performed with your user account permissions.
+
+---
+
+## Developer Appendix: Building the Automator App
+
+**This section is for developers and tech leads only. Consultants should use the pre-built .app file.**
+
+### Building from Source
+
+1. Open **Automator** (Applications > Automator)
+2. Create a new **Application**
+3. Add action: **Run Shell Script**
+4. Set shell to: `/bin/zsh`
+5. Copy the entire contents of `create_kie_workspace.sh` into the script area
+6. Save as: **Create KIE Workspace.app**
+7. Distribute the .app file to consultants
+
+### Testing the Script Directly
+
+Developers can test the script without building an app:
+
+```bash
+# Navigate to KIE v3 repo
+cd /path/to/kie-v3
+
+# Run the launcher script directly
+zsh tools/mac_launcher/create_kie_workspace.sh
+```
+
+This will show GUI dialogs for all prompts.
+
+### Non-Interactive Mode (For Automated Testing)
 
 ```bash
 # Set environment variables to skip dialogs
@@ -163,7 +204,7 @@ zsh tools/mac_launcher/create_kie_workspace.sh
 
 Omit `KIE_DATA_FILE` to skip data file copying.
 
-## Dry Run Mode (No Changes)
+### Dry Run Mode (No Changes)
 
 Test the launcher without creating anything:
 
@@ -172,27 +213,3 @@ DRY_RUN=1 zsh tools/mac_launcher/create_kie_workspace.sh
 ```
 
 This will show all commands that would be executed without actually running them.
-
-## Support
-
-If you encounter issues:
-
-1. Check this troubleshooting guide
-2. Run `python3 -m kie.cli doctor` in Terminal from your workspace
-3. Check KIE logs in `project_state/`
-4. Contact KIE support with:
-   - macOS version: `sw_vers`
-   - Python version: `python3 --version`
-   - KIE version: `python3 -c "import kie; print(kie.__version__)"`
-   - Error messages from launcher or doctor
-
-## Security Note
-
-This launcher:
-- Only accesses folders you explicitly choose
-- Does NOT require `sudo` or admin privileges
-- Does NOT modify your system or the KIE v3 product repo
-- Only creates files in the workspace location you select
-- Uses standard macOS APIs (osascript, Finder dialogs)
-
-All operations are performed with your user account permissions.
