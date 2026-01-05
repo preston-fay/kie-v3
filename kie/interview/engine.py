@@ -97,6 +97,34 @@ class InterviewEngine:
         # Extract information
         extracted = self._extract_information(message)
 
+        # SPECIAL CASE: EDA-first pause at deliverable selection
+        # If user is at project_type question and wants to do EDA first, pause the interview
+        message_lower = message.lower().strip()
+        eda_first_phrases = ["eda", "eda first", "start with eda", "not sure", "not sure yet",
+                             "decide later", "explore first", "exploration first"]
+
+        if (not self.state.has_project_type and
+            any(phrase in message_lower for phrase in eda_first_phrases)):
+            # User wants to do EDA before choosing deliverable type
+            # Store intent in context and pause interview cleanly
+            if not self.state.spec.context:
+                self.state.spec.context = {}
+            self.state.spec.context["intent"] = "eda_first"
+            self.state.spec.context["intent_note"] = message
+
+            # Save state (interview remains resumable)
+            self.save_state()
+
+            # Return response that tells user to run /eda
+            return {
+                "acknowledgment": ["📊 EDA-first approach detected"],
+                "slots_filled": [],
+                "next_question": "Run `/eda` to explore your data.\n\nAfter EDA, run `/interview` again and choose dashboard or presentation based on what you discovered.",
+                "complete": False,
+                "completion_percentage": self.state.get_completion_percentage(),
+                "message": "Interview paused for EDA. State saved - you can resume anytime."
+            }
+
         # Update state
         slots_filled = self._update_state(extracted)
 
