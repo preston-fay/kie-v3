@@ -8,5 +8,5 @@ Show current KIE project status.
 Execute this command:
 
 ```bash
-python3 -m kie.cli /status
+python3 -m kie.cli status
 ```

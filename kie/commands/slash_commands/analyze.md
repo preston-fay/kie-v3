@@ -8,5 +8,5 @@ Analyze data and generate structured insights.
 Execute this command:
 
 ```bash
-python3 -m kie.cli /analyze
+python3 -m kie.cli analyze
 ```

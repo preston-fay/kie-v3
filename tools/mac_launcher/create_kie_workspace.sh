@@ -13,6 +13,7 @@ DRY_RUN="${DRY_RUN:-0}"
 KIE_WORKSPACE_PARENT="${KIE_WORKSPACE_PARENT:-}"
 KIE_PROJECT_NAME="${KIE_PROJECT_NAME:-}"
 KIE_DATA_FILE="${KIE_DATA_FILE:-}"
+KIE_OPEN_EDITOR="${KIE_OPEN_EDITOR:-none}"  # none, finder, vscode
 
 # ============================================================
 # Helper Functions
@@ -302,34 +303,46 @@ except Exception as e:
         fi
     fi
 
-    # Step 10: Open in Finder
-    log "Opening workspace in Finder"
+    # Step 10: Open workspace based on KIE_OPEN_EDITOR setting
+    log "Opening workspace (mode: $KIE_OPEN_EDITOR)"
 
     if [[ "$DRY_RUN" == "1" ]]; then
-        log "DRY RUN: Would execute: open \"$WORKSPACE_PATH\""
+        log "DRY RUN: Would open with mode: $KIE_OPEN_EDITOR"
     elif [[ -n "$KIE_WORKSPACE_PARENT" && -n "$KIE_PROJECT_NAME" ]]; then
-        log "Non-interactive mode: Skipping Finder open"
+        log "Non-interactive mode: Skipping workspace open (use KIE_OPEN_EDITOR to override)"
     else
-        open "$WORKSPACE_PATH"
-    fi
-
-    # Step 11: Try to open in Claude Code (if available)
-    log "Attempting to open in Claude Code..."
-
-    if [[ "$DRY_RUN" == "1" ]]; then
-        log "DRY RUN: Would attempt: open -a 'Claude Code' \"$WORKSPACE_PATH\""
-    elif [[ -n "$KIE_WORKSPACE_PARENT" && -n "$KIE_PROJECT_NAME" ]]; then
-        log "Non-interactive mode: Skipping editor open"
-    else
-        # Try Claude Code
-        if open -a "Claude Code" "$WORKSPACE_PATH" 2>/dev/null; then
-            log "Opened in Claude Code"
-        # Fallback to VS Code if available
-        elif command -v code &>/dev/null; then
-            code "$WORKSPACE_PATH" 2>/dev/null && log "Opened in VS Code" || log "Could not open in editor"
-        else
-            log "No editor available (Claude Code or VS Code not found)"
-        fi
+        case "$KIE_OPEN_EDITOR" in
+            finder)
+                log "Opening in Finder..."
+                open "$WORKSPACE_PATH"
+                ;;
+            vscode)
+                log "Opening in VS Code..."
+                # Try code CLI first
+                if command -v code &>/dev/null; then
+                    if code "$WORKSPACE_PATH" 2>/dev/null; then
+                        log "Opened in VS Code (via CLI)"
+                    else
+                        log "Warning: code CLI failed"
+                    fi
+                # Fallback to open -a
+                elif open -a "Visual Studio Code" "$WORKSPACE_PATH" 2>/dev/null; then
+                    log "Opened in VS Code (via app)"
+                else
+                    log "Error: VS Code not found. Install VS Code or use --open=none"
+                    log "Workspace created successfully at: $WORKSPACE_PATH"
+                fi
+                ;;
+            none)
+                log "Not opening any editor (KIE_OPEN_EDITOR=none)"
+                log "Workspace created at: $WORKSPACE_PATH"
+                ;;
+            *)
+                log "Warning: Unknown KIE_OPEN_EDITOR value: $KIE_OPEN_EDITOR"
+                log "Valid values: none, finder, vscode"
+                log "Workspace created at: $WORKSPACE_PATH"
+                ;;
+        esac
     fi
 
     # Step 12: Show success message
