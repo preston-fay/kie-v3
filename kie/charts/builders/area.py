@@ -4,16 +4,17 @@ Area Chart Data Builder
 Generates Recharts-compatible JSON configurations for area charts.
 """
 
-from typing import Any, List, Dict, Optional, Union
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
 from kie.base import ChartBuilder, RechartsConfig
 from kie.brand.colors import KDSColors
 from kie.charts.schema import (
     AreaChartConfig,
-    AxisConfig,
     AreaConfig,
+    AxisConfig,
     DataLabelConfig,
     LegendConfig,
     TooltipConfig,
@@ -61,12 +62,12 @@ class AreaChartBuilder(ChartBuilder):
 
     def build(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x_key: str,
-        y_keys: Union[str, List[str]],
-        title: Optional[str] = None,
-        subtitle: Optional[str] = None,
-        colors: Optional[List[str]] = None,
+        y_keys: str | list[str],
+        title: str | None = None,
+        subtitle: str | None = None,
+        colors: list[str] | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """
@@ -153,11 +154,11 @@ class AreaChartBuilder(ChartBuilder):
 
 # Convenience functions
 def area_chart(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     x: str,
-    y: Union[str, List[str]],
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    y: str | list[str],
+    title: str | None = None,
+    output_path: Path | None = None,
     **kwargs,
 ) -> RechartsConfig:
     """
@@ -193,11 +194,11 @@ def area_chart(
 
 
 def stacked_area_chart(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     x: str,
-    y: List[str],
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    y: list[str],
+    title: str | None = None,
+    output_path: Path | None = None,
 ) -> RechartsConfig:
     """
     Quick function to create a stacked area chart.

@@ -4,21 +4,18 @@ Chart Factory
 Unified interface for creating all chart types with smart defaults.
 """
 
-from typing import Any, List, Dict, Optional, Union, Literal
-from pathlib import Path
+from typing import Any, Literal
+
 import pandas as pd
 
 from kie.base import RechartsConfig
-from kie.charts.builders.bar import BarChartBuilder
-from kie.charts.builders.line import LineChartBuilder
 from kie.charts.builders.area import AreaChartBuilder
-from kie.charts.builders.pie import PieChartBuilder, DonutChartBuilder
-from kie.charts.builders.scatter import ScatterPlotBuilder
+from kie.charts.builders.bar import BarChartBuilder
 from kie.charts.builders.combo import ComboChartBuilder
+from kie.charts.builders.line import LineChartBuilder
+from kie.charts.builders.pie import DonutChartBuilder, PieChartBuilder
+from kie.charts.builders.scatter import ScatterPlotBuilder
 from kie.charts.builders.waterfall import WaterfallChartBuilder
-from kie.brand.theme import get_theme, ThemeMode, set_theme
-from kie.charts.theme_config import get_recharts_theme_config
-
 
 ChartType = Literal[
     "bar", "horizontal_bar", "stacked_bar",
@@ -41,7 +38,7 @@ class ChartFactory:
     @staticmethod
     def create(
         chart_type: ChartType,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         **kwargs,
     ) -> RechartsConfig:
         """
@@ -95,10 +92,10 @@ class ChartFactory:
 
     @staticmethod
     def bar(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x: str,
-        y: Union[str, List[str]],
-        title: Optional[str] = None,
+        y: str | list[str],
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a bar chart."""
@@ -107,10 +104,10 @@ class ChartFactory:
 
     @staticmethod
     def horizontal_bar(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x: str,
-        y: Union[str, List[str]],
-        title: Optional[str] = None,
+        y: str | list[str],
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a horizontal bar chart."""
@@ -119,10 +116,10 @@ class ChartFactory:
 
     @staticmethod
     def stacked_bar(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x: str,
-        y: List[str],
-        title: Optional[str] = None,
+        y: list[str],
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a stacked bar chart."""
@@ -131,10 +128,10 @@ class ChartFactory:
 
     @staticmethod
     def line(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x: str,
-        y: Union[str, List[str]],
-        title: Optional[str] = None,
+        y: str | list[str],
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a line chart."""
@@ -143,10 +140,10 @@ class ChartFactory:
 
     @staticmethod
     def area(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x: str,
-        y: Union[str, List[str]],
-        title: Optional[str] = None,
+        y: str | list[str],
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create an area chart."""
@@ -155,10 +152,10 @@ class ChartFactory:
 
     @staticmethod
     def stacked_area(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x: str,
-        y: List[str],
-        title: Optional[str] = None,
+        y: list[str],
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a stacked area chart."""
@@ -167,10 +164,10 @@ class ChartFactory:
 
     @staticmethod
     def pie(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         name: str,
         value: str,
-        title: Optional[str] = None,
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a pie chart."""
@@ -179,10 +176,10 @@ class ChartFactory:
 
     @staticmethod
     def donut(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         name: str,
         value: str,
-        title: Optional[str] = None,
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a donut chart."""
@@ -191,11 +188,11 @@ class ChartFactory:
 
     @staticmethod
     def scatter(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x: str,
         y: str,
-        category: Optional[str] = None,
-        title: Optional[str] = None,
+        category: str | None = None,
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a scatter plot."""
@@ -204,11 +201,11 @@ class ChartFactory:
 
     @staticmethod
     def combo(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x: str,
-        bars: Union[str, List[str]],
-        lines: Union[str, List[str]],
-        title: Optional[str] = None,
+        bars: str | list[str],
+        lines: str | list[str],
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a combo chart (bar + line)."""
@@ -217,11 +214,11 @@ class ChartFactory:
 
     @staticmethod
     def waterfall(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         labels: str,
         values: str,
-        is_total: Optional[str] = None,
-        title: Optional[str] = None,
+        is_total: str | None = None,
+        title: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """Create a waterfall chart."""
@@ -237,9 +234,9 @@ class ChartFactory:
 
     @staticmethod
     def auto_detect(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
-        x: Optional[str] = None,
-        y: Optional[Union[str, List[str]]] = None,
+        data: pd.DataFrame | list[dict[str, Any]],
+        x: str | None = None,
+        y: str | list[str] | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """

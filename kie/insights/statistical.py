@@ -7,7 +7,7 @@ outliers, correlations, and significant differences.
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -20,10 +20,10 @@ class StatisticalResult:
     """Result of a statistical test."""
     test_name: str
     statistic: float
-    p_value: Optional[float]
+    p_value: float | None
     is_significant: bool
     interpretation: str
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
 
 class StatisticalAnalyzer:
@@ -48,7 +48,7 @@ class StatisticalAnalyzer:
         """
         self.significance_level = significance_level
 
-    def describe(self, series: pd.Series) -> Dict[str, Any]:
+    def describe(self, series: pd.Series) -> dict[str, Any]:
         """
         Get comprehensive descriptive statistics.
 
@@ -96,7 +96,7 @@ class StatisticalAnalyzer:
         series: pd.Series,
         method: str = "iqr",
         threshold: float = 1.5,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Detect outliers in a numeric series.
 
@@ -150,9 +150,9 @@ class StatisticalAnalyzer:
 
     def analyze_trend(
         self,
-        values: List[float],
-        periods: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        values: list[float],
+        periods: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Analyze trend in sequential data.
 
@@ -228,7 +228,7 @@ class StatisticalAnalyzer:
         x: pd.Series,
         y: pd.Series,
         method: str = "pearson",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze correlation between two variables.
 
@@ -279,7 +279,7 @@ class StatisticalAnalyzer:
         self,
         series: pd.Series,
         n_bins: int = 10,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze the distribution of a numeric series.
 
@@ -329,7 +329,7 @@ class StatisticalAnalyzer:
         data: pd.DataFrame,
         value_column: str,
         group_column: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Compare a metric across groups.
 
@@ -355,7 +355,7 @@ class StatisticalAnalyzer:
 
         # Calculate totals and shares
         total = sum(s["sum"] for s in group_stats.values())
-        for name, stats in group_stats.items():
+        for _name, stats in group_stats.items():
             stats["share"] = float(stats["sum"] / total * 100) if total > 0 else 0
 
         # Find leader
@@ -385,9 +385,9 @@ class StatisticalAnalyzer:
 
     def detect_significant_changes(
         self,
-        values: List[float],
+        values: list[float],
         threshold_pct: float = 10.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Detect significant period-over-period changes.
 
@@ -419,9 +419,9 @@ class StatisticalAnalyzer:
 
     def calculate_growth_metrics(
         self,
-        values: List[float],
-        periods: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        values: list[float],
+        periods: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Calculate various growth metrics.
 

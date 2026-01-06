@@ -4,15 +4,16 @@ Scatter Plot Data Builder
 Generates Recharts-compatible JSON configurations for scatter plots.
 """
 
-from typing import Any, List, Dict, Optional, Union
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
 from kie.base import ChartBuilder, RechartsConfig
 from kie.brand.colors import KDSColors
 from kie.charts.schema import (
-    ScatterChartConfig,
     AxisConfig,
+    ScatterChartConfig,
     TooltipConfig,
 )
 
@@ -46,13 +47,13 @@ class ScatterPlotBuilder(ChartBuilder):
 
     def build(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x_key: str,
         y_key: str,
-        category_key: Optional[str] = None,
-        title: Optional[str] = None,
-        subtitle: Optional[str] = None,
-        colors: Optional[List[str]] = None,
+        category_key: str | None = None,
+        title: str | None = None,
+        subtitle: str | None = None,
+        colors: list[str] | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """
@@ -79,7 +80,7 @@ class ScatterPlotBuilder(ChartBuilder):
 
         # If category_key provided, group data by category
         if category_key:
-            categories = list(set(item[category_key] for item in data_list))
+            categories = list({item[category_key] for item in data_list})
             if colors is None:
                 colors = KDSColors.get_chart_colors(len(categories))
 
@@ -139,12 +140,12 @@ class ScatterPlotBuilder(ChartBuilder):
 
 # Convenience function
 def scatter_plot(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     x: str,
     y: str,
-    category: Optional[str] = None,
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    category: str | None = None,
+    title: str | None = None,
+    output_path: Path | None = None,
     **kwargs,
 ) -> RechartsConfig:
     """

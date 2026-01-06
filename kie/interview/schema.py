@@ -4,10 +4,11 @@ Interview System Schema
 Defines project specification models for conversational requirements gathering.
 """
 
-from typing import Optional, List, Dict, Any
-from enum import Enum
-from pydantic import BaseModel, Field
 from datetime import datetime
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class ProjectType(str, Enum):
@@ -40,11 +41,11 @@ class DataSource(BaseModel):
     """Data source specification."""
 
     type: str = Field(..., description="Type: csv, excel, database, api, mock")
-    location: Optional[str] = Field(None, description="File path or URL")
-    description: Optional[str] = Field(None, description="Human description")
-    columns: Optional[List[str]] = Field(None, description="Column names")
-    sample_rows: Optional[int] = Field(None, description="Number of rows")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    location: str | None = Field(None, description="File path or URL")
+    description: str | None = Field(None, description="Human description")
+    columns: list[str] | None = Field(None, description="Column names")
+    sample_rows: int | None = Field(None, description="Number of rows")
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
 
 
 class ChartSpec(BaseModel):
@@ -53,10 +54,10 @@ class ChartSpec(BaseModel):
     chart_type: str = Field(..., description="bar, line, pie, map, etc.")
     title: str = Field(..., description="Chart title")
     data_source: str = Field(..., description="Reference to data source")
-    x_axis: Optional[str] = Field(None, description="X-axis column")
-    y_axis: Optional[List[str]] = Field(None, description="Y-axis columns")
-    filters: Optional[Dict[str, Any]] = Field(None, description="Data filters")
-    notes: Optional[str] = Field(None, description="Notes for consultant")
+    x_axis: str | None = Field(None, description="X-axis column")
+    y_axis: list[str] | None = Field(None, description="Y-axis columns")
+    filters: dict[str, Any] | None = Field(None, description="Data filters")
+    notes: str | None = Field(None, description="Notes for consultant")
 
 
 class SlideSpec(BaseModel):
@@ -64,16 +65,16 @@ class SlideSpec(BaseModel):
 
     slide_type: str = Field(..., description="title, content, chart, section")
     title: str = Field(..., description="Slide title")
-    charts: Optional[List[ChartSpec]] = Field(None, description="Charts on slide")
-    bullet_points: Optional[List[str]] = Field(None, description="Bullet points")
-    speaker_notes: Optional[str] = Field(None, description="Speaker notes")
+    charts: list[ChartSpec] | None = Field(None, description="Charts on slide")
+    bullet_points: list[str] | None = Field(None, description="Bullet points")
+    speaker_notes: str | None = Field(None, description="Speaker notes")
 
 
 class ThemePreferences(BaseModel):
     """Theme preferences."""
 
     mode: str = Field("dark", description="dark or light")
-    custom_colors: Optional[List[str]] = Field(None, description="Custom colors")
+    custom_colors: list[str] | None = Field(None, description="Custom colors")
 
 
 class ProjectPreferences(BaseModel):
@@ -96,24 +97,24 @@ class ProjectSpec(BaseModel):
     # Metadata
     project_name: str = Field(..., description="Project name")
     project_type: ProjectType = Field(..., description="Project type")
-    client_name: Optional[str] = Field(None, description="Client name")
+    client_name: str | None = Field(None, description="Client name")
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
     # Requirements
     objective: str = Field(..., description="Project objective")
-    audience: Optional[str] = Field(None, description="Target audience")
-    deadline: Optional[datetime] = Field(None, description="Delivery deadline")
+    audience: str | None = Field(None, description="Target audience")
+    deadline: datetime | None = Field(None, description="Delivery deadline")
 
     # Data
-    data_sources: List[DataSource] = Field(default_factory=list, description="Data sources")
+    data_sources: list[DataSource] = Field(default_factory=list, description="Data sources")
 
     # Outputs
-    deliverables: List[DeliverableType] = Field(
+    deliverables: list[DeliverableType] = Field(
         default_factory=list, description="Output deliverables"
     )
-    charts: List[ChartSpec] = Field(default_factory=list, description="Chart specifications")
-    slides: List[SlideSpec] = Field(default_factory=list, description="Slide specifications")
+    charts: list[ChartSpec] = Field(default_factory=list, description="Chart specifications")
+    slides: list[SlideSpec] = Field(default_factory=list, description="Slide specifications")
 
     # Preferences
     preferences: ProjectPreferences = Field(
@@ -121,9 +122,9 @@ class ProjectSpec(BaseModel):
     )
 
     # Context
-    context: Optional[Dict[str, Any]] = Field(None, description="Additional context")
-    constraints: Optional[List[str]] = Field(None, description="Constraints/limitations")
-    success_criteria: Optional[List[str]] = Field(None, description="Success criteria")
+    context: dict[str, Any] | None = Field(None, description="Additional context")
+    constraints: list[str] | None = Field(None, description="Constraints/limitations")
+    success_criteria: list[str] | None = Field(None, description="Success criteria")
 
     class Config:
         json_encoders = {
@@ -139,7 +140,7 @@ class InterviewState(BaseModel):
     """
 
     # Interview mode selection
-    interview_mode: Optional[str] = None  # "express" or "full"
+    interview_mode: str | None = None  # "express" or "full"
 
     # Completion status
     has_project_name: bool = False
@@ -164,17 +165,17 @@ class InterviewState(BaseModel):
     )
 
     # Interview progress
-    questions_asked: List[str] = Field(default_factory=list)
-    answers_received: List[str] = Field(default_factory=list)
-    slots_filled: List[str] = Field(default_factory=list)
-    slots_remaining: List[str] = Field(default_factory=list)
+    questions_asked: list[str] = Field(default_factory=list)
+    answers_received: list[str] = Field(default_factory=list)
+    slots_filled: list[str] = Field(default_factory=list)
+    slots_remaining: list[str] = Field(default_factory=list)
 
     # NEW: Type-specific question routing (Phase 1)
-    active_question_sequence: List[str] = Field(default_factory=list)
+    active_question_sequence: list[str] = Field(default_factory=list)
     current_question_index: int = 0
 
     # Conversation history
-    conversation: List[Dict[str, str]] = Field(default_factory=list)
+    conversation: list[dict[str, str]] = Field(default_factory=list)
 
     def is_complete(self) -> bool:
         """
@@ -246,7 +247,7 @@ class InterviewState(BaseModel):
             # No mode selected yet
             return 0.0
 
-    def get_missing_required_fields(self) -> List[str]:
+    def get_missing_required_fields(self) -> list[str]:
         """Get list of missing required fields."""
         missing = []
 

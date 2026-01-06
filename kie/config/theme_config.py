@@ -6,10 +6,10 @@ Integrates with project spec and persists theme choice.
 """
 
 from pathlib import Path
-from typing import Optional
+
 import yaml
 
-from kie.brand.theme import ThemeMode, set_theme, get_theme
+from kie.brand.theme import ThemeMode, set_theme
 
 
 class ProjectThemeConfig:
@@ -29,7 +29,7 @@ class ProjectThemeConfig:
         self.project_dir = project_dir or Path.cwd()
         self.spec_path = self.project_dir / "project_state" / "spec.yaml"
 
-    def load_theme(self) -> Optional[ThemeMode]:
+    def load_theme(self) -> ThemeMode | None:
         """
         Load theme preference from project spec.
 

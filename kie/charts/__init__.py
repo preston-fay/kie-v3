@@ -5,33 +5,33 @@ Unified interface for generating Recharts-compatible JSON configurations.
 """
 
 # Chart builders
-from kie.charts.builders.bar import (
-    BarChartBuilder,
-    bar_chart,
-    horizontal_bar_chart,
-)
-from kie.charts.builders.line import (
-    LineChartBuilder,
-    line_chart,
-)
 from kie.charts.builders.area import (
     AreaChartBuilder,
     area_chart,
     stacked_area_chart,
 )
-from kie.charts.builders.pie import (
-    PieChartBuilder,
-    DonutChartBuilder,
-    pie_chart,
-    donut_chart,
-)
-from kie.charts.builders.scatter import (
-    ScatterPlotBuilder,
-    scatter_plot,
+from kie.charts.builders.bar import (
+    BarChartBuilder,
+    bar_chart,
+    horizontal_bar_chart,
 )
 from kie.charts.builders.combo import (
     ComboChartBuilder,
     combo_chart,
+)
+from kie.charts.builders.line import (
+    LineChartBuilder,
+    line_chart,
+)
+from kie.charts.builders.pie import (
+    DonutChartBuilder,
+    PieChartBuilder,
+    donut_chart,
+    pie_chart,
+)
+from kie.charts.builders.scatter import (
+    ScatterPlotBuilder,
+    scatter_plot,
 )
 from kie.charts.builders.waterfall import (
     WaterfallChartBuilder,
@@ -43,27 +43,27 @@ from kie.charts.factory import ChartFactory, create_chart
 
 # Formatting utilities
 from kie.charts.formatting import (
-    format_number,
-    format_currency,
-    format_percentage,
-    format_change,
-    generate_label,
     calculate_percentages,
-    smart_round,
     format_axis_label,
+    format_change,
+    format_currency,
+    format_number,
+    format_percentage,
+    generate_label,
+    smart_round,
 )
 
 # Schema
 from kie.charts.schema import (
-    RechartsSchema,
+    AreaConfig,
     AxisConfig,
+    BarConfig,
     DataLabelConfig,
     LegendConfig,
-    TooltipConfig,
-    BarConfig,
     LineConfig,
-    AreaConfig,
     PieConfig,
+    RechartsSchema,
+    TooltipConfig,
     validate_kds_compliance,
 )
 

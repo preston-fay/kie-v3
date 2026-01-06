@@ -6,19 +6,18 @@ High accuracy for US addresses, includes FIPS codes.
 No rate limits specified, but respectful usage recommended.
 """
 
-import aiohttp
 import time
-from typing import Optional, List, Dict, Any
-from urllib.parse import urlencode
 
+import aiohttp
+
+from kie.exceptions import GeocodingError
 from kie.geo.models import (
     GeocodingRequest,
     GeocodingResult,
-    GeocodingStatus,
     GeocodingService,
+    GeocodingStatus,
 )
-from kie.geo.utils import RateLimiter, normalize_address
-from kie.exceptions import GeocodingError
+from kie.geo.utils import RateLimiter
 
 
 class CensusGeocoder:
@@ -105,9 +104,9 @@ class CensusGeocoder:
 
     async def geocode_batch(
         self,
-        requests: List[GeocodingRequest],
+        requests: list[GeocodingRequest],
         batch_size: int = 100,
-    ) -> List[GeocodingResult]:
+    ) -> list[GeocodingResult]:
         """
         Geocode multiple addresses in batch.
 
@@ -131,8 +130,8 @@ class CensusGeocoder:
         return results
 
     async def _geocode_batch_internal(
-        self, requests: List[GeocodingRequest]
-    ) -> List[GeocodingResult]:
+        self, requests: list[GeocodingRequest]
+    ) -> list[GeocodingResult]:
         """Internal batch geocoding implementation."""
         try:
             # Respect rate limit
@@ -192,7 +191,7 @@ class CensusGeocoder:
                 for req in requests
             ]
 
-    def _build_params(self, request: GeocodingRequest) -> Dict[str, str]:
+    def _build_params(self, request: GeocodingRequest) -> dict[str, str]:
         """Build query parameters for Census API."""
         address_str = self._build_address_string(request)
 

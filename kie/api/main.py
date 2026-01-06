@@ -4,15 +4,15 @@ KIE v3 FastAPI Application
 Main API server for KIE v3 backend.
 """
 
+import time
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pathlib import Path
-import time
 
+from kie.api.routes import charts, health, projects
 from kie.config import get_config
 from kie.exceptions import KIEError
-
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -62,7 +62,6 @@ async def kie_error_handler(request: Request, exc: KIEError):
 
 
 # Import routes (will create these next)
-from kie.api.routes import health, charts, projects
 
 app.include_router(health.router, prefix="/api/v3", tags=["health"])
 app.include_router(charts.router, prefix="/api/v3/charts", tags=["charts"])

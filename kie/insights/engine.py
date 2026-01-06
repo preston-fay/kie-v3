@@ -7,7 +7,7 @@ presentation-ready content with evidence linkage.
 
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import pandas as pd
 
@@ -47,7 +47,7 @@ class InsightEngine:
         catalog = engine.build_catalog(insights, "What drives revenue?")
     """
 
-    def __init__(self, statistical_analyzer: Optional[StatisticalAnalyzer] = None):
+    def __init__(self, statistical_analyzer: StatisticalAnalyzer | None = None):
         """
         Initialize engine.
 
@@ -69,11 +69,11 @@ class InsightEngine:
         insight_type: InsightType = InsightType.COMPARISON,
         severity: InsightSeverity = InsightSeverity.SUPPORTING,
         category: InsightCategory = InsightCategory.FINDING,
-        evidence: Optional[List[Evidence]] = None,
+        evidence: list[Evidence] | None = None,
         suggested_slide_type: str = "content",
-        tags: Optional[List[str]] = None,
+        tags: list[str] | None = None,
         confidence: float = 0.8,
-        statistical_significance: Optional[float] = None,
+        statistical_significance: float | None = None,
     ) -> Insight:
         """
         Create a new insight with generated ID.
@@ -110,8 +110,8 @@ class InsightEngine:
     def create_comparison_insight(
         self,
         metric_name: str,
-        values: Dict[str, float],
-        chart_path: Optional[str] = None,
+        values: dict[str, float],
+        chart_path: str | None = None,
     ) -> Insight:
         """
         Extract insight from a comparison of values.
@@ -192,9 +192,9 @@ class InsightEngine:
     def create_trend_insight(
         self,
         metric_name: str,
-        periods: List[str],
-        values: List[float],
-        chart_path: Optional[str] = None,
+        periods: list[str],
+        values: list[float],
+        chart_path: str | None = None,
     ) -> Insight:
         """
         Extract insight from a trend over time.
@@ -277,8 +277,8 @@ class InsightEngine:
         self,
         metric_name: str,
         series: pd.Series,
-        labels: Optional[pd.Series] = None,
-    ) -> Optional[Insight]:
+        labels: pd.Series | None = None,
+    ) -> Insight | None:
         """
         Extract insight about outliers in data.
 
@@ -301,7 +301,7 @@ class InsightEngine:
         # Get outlier labels if available
         if labels is not None and len(outliers["outlier_indices"]) > 0:
             outlier_labels = labels.iloc[outliers["outlier_indices"]].tolist()[:3]
-            examples = ", ".join(str(l) for l in outlier_labels)
+            examples = ", ".join(str(label) for label in outlier_labels)
         else:
             examples = ", ".join(f"{v:,.0f}" for v in outliers["outlier_values"][:3])
 
@@ -345,7 +345,7 @@ class InsightEngine:
         top_item: str,
         top_share: float,
         total_items: int,
-        chart_path: Optional[str] = None,
+        chart_path: str | None = None,
     ) -> Insight:
         """
         Extract insight about concentration risk.
@@ -424,7 +424,7 @@ class InsightEngine:
         var2_name: str,
         var1: pd.Series,
         var2: pd.Series,
-    ) -> Optional[Insight]:
+    ) -> Insight | None:
         """
         Extract insight about correlation between variables.
 
@@ -490,7 +490,7 @@ class InsightEngine:
         action: str,
         rationale: str,
         expected_impact: str,
-        supporting_insights: Optional[List[str]] = None,
+        supporting_insights: list[str] | None = None,
         priority: str = "medium",
     ) -> Insight:
         """
@@ -537,10 +537,10 @@ class InsightEngine:
         self,
         df: pd.DataFrame,
         value_column: str,
-        group_column: Optional[str] = None,
-        time_column: Optional[str] = None,
-        label_column: Optional[str] = None,
-    ) -> List[Insight]:
+        group_column: str | None = None,
+        time_column: str | None = None,
+        label_column: str | None = None,
+    ) -> list[Insight]:
         """
         Automatically extract insights from a DataFrame.
 
@@ -615,9 +615,9 @@ class InsightEngine:
 
     def build_catalog(
         self,
-        insights: List[Insight],
+        insights: list[Insight],
         business_question: str,
-        data_summary: Optional[Dict[str, Any]] = None,
+        data_summary: dict[str, Any] | None = None,
     ) -> InsightCatalog:
         """
         Build an insight catalog with narrative structure.
@@ -663,7 +663,7 @@ class InsightEngine:
             data_summary=data_summary or {},
         )
 
-    def rank_insights(self, insights: List[Insight]) -> List[Insight]:
+    def rank_insights(self, insights: list[Insight]) -> list[Insight]:
         """
         Rank insights by importance.
 
@@ -693,7 +693,7 @@ class InsightEngine:
 
         return sorted(insights, key=score, reverse=True)
 
-    def to_slide_sequence(self, catalog: InsightCatalog) -> List[Dict[str, Any]]:
+    def to_slide_sequence(self, catalog: InsightCatalog) -> list[dict[str, Any]]:
         """
         Convert insight catalog to slide specifications.
 
@@ -764,7 +764,7 @@ class InsightEngine:
 
         return slides
 
-    def _insight_to_slide_spec(self, insight: Insight) -> Dict[str, Any]:
+    def _insight_to_slide_spec(self, insight: Insight) -> dict[str, Any]:
         """Convert single insight to slide spec."""
         # Find chart evidence if any
         chart_evidence = next(

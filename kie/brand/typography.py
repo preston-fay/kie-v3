@@ -4,7 +4,6 @@ KDS Typography System
 Official Kearney Design System typography settings.
 """
 
-from typing import Tuple, Dict
 from enum import Enum
 
 
@@ -64,7 +63,7 @@ class Typography:
         weight: FontWeight = FontWeight.REGULAR,
         family: FontFamily = FontFamily.PRIMARY,
         line_height: LineHeight = LineHeight.NORMAL,
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Get complete font configuration.
 
@@ -85,7 +84,7 @@ class Typography:
         }
 
     @staticmethod
-    def get_chart_title_style() -> Dict[str, any]:
+    def get_chart_title_style() -> dict[str, any]:
         """Get typography for chart titles."""
         return {
             "font_family": FontFamily.PRIMARY.value,
@@ -95,7 +94,7 @@ class Typography:
         }
 
     @staticmethod
-    def get_chart_label_style() -> Dict[str, any]:
+    def get_chart_label_style() -> dict[str, any]:
         """Get typography for chart axis labels."""
         return {
             "font_family": FontFamily.PRIMARY.value,
@@ -105,7 +104,7 @@ class Typography:
         }
 
     @staticmethod
-    def get_data_label_style() -> Dict[str, any]:
+    def get_data_label_style() -> dict[str, any]:
         """Get typography for data labels on charts."""
         return {
             "font_family": FontFamily.PRIMARY.value,
@@ -115,7 +114,7 @@ class Typography:
         }
 
     @staticmethod
-    def get_slide_title_style() -> Dict[str, any]:
+    def get_slide_title_style() -> dict[str, any]:
         """Get typography for slide titles."""
         return {
             "font_family": FontFamily.PRIMARY.value,
@@ -125,7 +124,7 @@ class Typography:
         }
 
     @staticmethod
-    def get_slide_body_style() -> Dict[str, any]:
+    def get_slide_body_style() -> dict[str, any]:
         """Get typography for slide body text."""
         return {
             "font_family": FontFamily.PRIMARY.value,

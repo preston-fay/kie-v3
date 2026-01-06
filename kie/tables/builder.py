@@ -4,29 +4,27 @@ Table Builder
 Creates JSON configurations for KDS-styled tables with smart formatting.
 """
 
-from typing import Dict, Any, List, Optional, Union, Literal
-import pandas as pd
-from datetime import datetime, date
+from datetime import date, datetime
+from typing import Any, Literal
 
+import pandas as pd
+
+from kie.brand.theme import get_theme
 from kie.tables.schema import (
-    TableConfig,
+    Alignment,
     ColumnConfig,
     ColumnType,
-    Alignment,
-    NumberFormat,
-    CurrencyFormat,
-    PercentageFormat,
-    DateFormat,
-    TableStyle,
-    PaginationConfig,
-    SortConfig,
-    SortDirection,
     ConditionalFormat,
     ConditionalFormatType,
+    CurrencyFormat,
+    DateFormat,
+    NumberFormat,
+    PercentageFormat,
+    SortConfig,
+    SortDirection,
     SparklineConfig,
+    TableConfig,
 )
-from kie.brand.theme import get_theme
-from kie.charts.formatting import format_number
 
 
 class TableBuilder:
@@ -43,9 +41,9 @@ class TableBuilder:
 
     def build(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
-        title: Optional[str] = None,
-        columns: Optional[List[Dict[str, Any]]] = None,
+        data: pd.DataFrame | list[dict[str, Any]],
+        title: str | None = None,
+        columns: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> TableConfig:
         """
@@ -86,7 +84,7 @@ class TableBuilder:
 
         return config
 
-    def _auto_detect_columns(self, df: pd.DataFrame) -> List[ColumnConfig]:
+    def _auto_detect_columns(self, df: pd.DataFrame) -> list[ColumnConfig]:
         """
         Auto-detect column types and formats from DataFrame.
 
@@ -143,7 +141,7 @@ class TableBuilder:
 
     def _detect_column_type(
         self, sample: pd.Series, col_name: str
-    ) -> tuple[ColumnType, Dict[str, Any]]:
+    ) -> tuple[ColumnType, dict[str, Any]]:
         """
         Detect column type from sample data.
 
@@ -197,13 +195,13 @@ class TableBuilder:
         # Check first value
         first_val = sample.iloc[0]
 
-        if isinstance(first_val, (date, datetime)):
+        if isinstance(first_val, date | datetime):
             return ColumnType.DATE, {"date_format": DateFormat(format="MM/DD/YYYY")}
 
         if isinstance(first_val, bool):
             return ColumnType.BOOLEAN, {}
 
-        if isinstance(first_val, (int, float)):
+        if isinstance(first_val, int | float):
             # Number - check if should abbreviate
             max_val = abs(sample).max()
             return ColumnType.NUMBER, {
@@ -229,8 +227,8 @@ class TableBuilder:
         return col_name.replace("_", " ").title()
 
     def _build_column_configs(
-        self, columns: List[Dict[str, Any]], df: pd.DataFrame
-    ) -> List[ColumnConfig]:
+        self, columns: list[dict[str, Any]], df: pd.DataFrame
+    ) -> list[ColumnConfig]:
         """
         Build column configs from custom specifications.
 
@@ -368,10 +366,10 @@ class ComparisonTableBuilder(TableBuilder):
 
     def build_comparison(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         entity_column: str,
-        comparison_columns: List[str],
-        title: Optional[str] = None,
+        comparison_columns: list[str],
+        title: str | None = None,
         highlight_best: bool = True,
     ) -> TableConfig:
         """
@@ -433,10 +431,10 @@ class FinancialTableBuilder(TableBuilder):
 
     def build_financial(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
-        title: Optional[str] = None,
-        currency_columns: Optional[List[str]] = None,
-        percentage_columns: Optional[List[str]] = None,
+        data: pd.DataFrame | list[dict[str, Any]],
+        title: str | None = None,
+        currency_columns: list[str] | None = None,
+        percentage_columns: list[str] | None = None,
     ) -> TableConfig:
         """
         Build financial table.

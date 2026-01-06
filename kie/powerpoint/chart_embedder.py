@@ -5,16 +5,16 @@ Embeds native, editable charts in PowerPoint slides (not images).
 Charts remain fully editable after generation.
 """
 
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any
+
 from pptx import Presentation
 from pptx.chart.data import CategoryChartData
-from pptx.enum.chart import XL_CHART_TYPE, XL_LEGEND_POSITION, XL_LABEL_POSITION
-from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
-from pathlib import Path
+from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION, XL_LEGEND_POSITION
+from pptx.util import Inches, Pt
 
-from kie.brand.theme import get_theme
 from kie.brand.colors import KDSColors
+from kie.brand.theme import get_theme
 
 
 class PowerPointChartEmbedder:
@@ -33,11 +33,11 @@ class PowerPointChartEmbedder:
     def embed_bar_chart(
         self,
         slide,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         x_key: str,
-        y_keys: List[str],
-        title: Optional[str] = None,
-        position: Tuple[float, float, float, float] = None,
+        y_keys: list[str],
+        title: str | None = None,
+        position: tuple[float, float, float, float] = None,
         stacked: bool = False,
     ):
         """
@@ -69,7 +69,7 @@ class PowerPointChartEmbedder:
         chart_data.categories = [item[x_key] for item in data]
 
         # Add series
-        for i, y_key in enumerate(y_keys):
+        for _i, y_key in enumerate(y_keys):
             values = [item[y_key] for item in data]
             chart_data.add_series(y_key, values)
 
@@ -84,11 +84,11 @@ class PowerPointChartEmbedder:
     def embed_line_chart(
         self,
         slide,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         x_key: str,
-        y_keys: List[str],
-        title: Optional[str] = None,
-        position: Tuple[float, float, float, float] = None,
+        y_keys: list[str],
+        title: str | None = None,
+        position: tuple[float, float, float, float] = None,
         smooth: bool = True,
     ):
         """
@@ -119,7 +119,7 @@ class PowerPointChartEmbedder:
         chart_data.categories = [item[x_key] for item in data]
 
         # Add series
-        for i, y_key in enumerate(y_keys):
+        for _i, y_key in enumerate(y_keys):
             values = [item[y_key] for item in data]
             chart_data.add_series(y_key, values)
 
@@ -139,11 +139,11 @@ class PowerPointChartEmbedder:
     def embed_pie_chart(
         self,
         slide,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         label_key: str,
         value_key: str,
-        title: Optional[str] = None,
-        position: Tuple[float, float, float, float] = None,
+        title: str | None = None,
+        position: tuple[float, float, float, float] = None,
         donut: bool = False,
     ):
         """
@@ -199,11 +199,11 @@ class PowerPointChartEmbedder:
     def embed_area_chart(
         self,
         slide,
-        data: List[Dict[str, Any]],
+        data: list[dict[str, Any]],
         x_key: str,
-        y_keys: List[str],
-        title: Optional[str] = None,
-        position: Tuple[float, float, float, float] = None,
+        y_keys: list[str],
+        title: str | None = None,
+        position: tuple[float, float, float, float] = None,
         stacked: bool = False,
     ):
         """
@@ -245,7 +245,7 @@ class PowerPointChartEmbedder:
 
         return chart
 
-    def _style_chart(self, chart, title: Optional[str], num_series: int):
+    def _style_chart(self, chart, title: str | None, num_series: int):
         """
         Apply KDS styling to chart.
 
@@ -291,14 +291,14 @@ class PowerPointChartEmbedder:
             try:
                 series.format.fill.solid()
                 series.format.fill.fore_color.rgb = rgb
-            except:
+            except Exception:
                 pass  # Some chart types don't support this
 
         # Remove gridlines (KDS rule)
         try:
             chart.value_axis.has_major_gridlines = False
             chart.value_axis.has_minor_gridlines = False
-        except:
+        except Exception:
             pass
 
         # Axis fonts
@@ -318,7 +318,7 @@ class PowerPointChartEmbedder:
             category_axis.tick_labels.font.color.rgb = RGBColor.from_string(
                 self.theme.get_text("secondary").lstrip("#")
             )
-        except:
+        except Exception:
             pass
 
         # Background
@@ -333,15 +333,15 @@ class PowerPointChartEmbedder:
             chart.plot_area.fill.fore_color.rgb = RGBColor.from_string(
                 self.theme.get_background().lstrip("#")
             )
-        except:
+        except Exception:
             pass
 
     def embed_table(
         self,
         slide,
-        data: List[Dict[str, Any]],
-        columns: List[str],
-        position: Tuple[float, float, float, float] = None,
+        data: list[dict[str, Any]],
+        columns: list[str],
+        position: tuple[float, float, float, float] = None,
     ):
         """
         Embed native table in slide.
@@ -411,7 +411,7 @@ def embed_chart_in_slide(
     prs: Presentation,
     slide_idx: int,
     chart_type: str,
-    data: List[Dict[str, Any]],
+    data: list[dict[str, Any]],
     **kwargs,
 ):
     """

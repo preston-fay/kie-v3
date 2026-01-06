@@ -4,12 +4,12 @@ Validation Report Generator
 Creates human-readable validation reports for consultant review.
 """
 
-from typing import List, Dict, Any, Optional
-from pathlib import Path
-from datetime import datetime
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-from kie.validation.validators import ValidationResult, ValidationLevel, ValidationCategory
+from kie.validation.validators import ValidationLevel, ValidationResult
 
 
 @dataclass
@@ -18,13 +18,13 @@ class ValidationReport:
 
     timestamp: datetime
     output_type: str  # 'chart', 'table', 'slide', 'dashboard'
-    output_path: Optional[Path]
+    output_path: Path | None
     overall_passed: bool
     critical_count: int
     warning_count: int
     info_count: int
-    results: List[ValidationResult]
-    summary: Dict[str, Any]
+    results: list[ValidationResult]
+    summary: dict[str, Any]
 
 
 class ValidationReportGenerator:
@@ -36,14 +36,14 @@ class ValidationReportGenerator:
 
     def __init__(self):
         """Initialize report generator."""
-        self.reports: List[ValidationReport] = []
+        self.reports: list[ValidationReport] = []
 
     def generate_report(
         self,
-        results: List[ValidationResult],
-        summary: Dict[str, Any],
+        results: list[ValidationResult],
+        summary: dict[str, Any],
         output_type: str,
-        output_path: Optional[Path] = None,
+        output_path: Path | None = None,
     ) -> ValidationReport:
         """
         Generate validation report.
@@ -205,7 +205,7 @@ class ValidationReportGenerator:
 
         return "\n".join(lines)
 
-    def format_json_report(self, report: ValidationReport) -> Dict[str, Any]:
+    def format_json_report(self, report: ValidationReport) -> dict[str, Any]:
         """
         Format report as JSON.
 
@@ -261,7 +261,7 @@ class ValidationReportGenerator:
         else:
             raise ValueError(f"Unknown format: {format}")
 
-    def get_summary_dashboard(self) -> Dict[str, Any]:
+    def get_summary_dashboard(self) -> dict[str, Any]:
         """
         Get summary dashboard across all reports.
 
@@ -285,7 +285,7 @@ class ValidationReportGenerator:
         info_total = sum(r.info_count for r in self.reports)
 
         # By output type
-        by_type: Dict[str, Dict[str, int]] = {}
+        by_type: dict[str, dict[str, int]] = {}
         for report in self.reports:
             if report.output_type not in by_type:
                 by_type[report.output_type] = {"passed": 0, "failed": 0}
@@ -296,7 +296,7 @@ class ValidationReportGenerator:
                 by_type[report.output_type]["failed"] += 1
 
         # By category (aggregate across all reports)
-        by_category: Dict[str, Dict[str, int]] = {}
+        by_category: dict[str, dict[str, int]] = {}
         for report in self.reports:
             for category, counts in report.summary["by_category"].items():
                 if category not in by_category:
@@ -321,11 +321,11 @@ class ValidationReportGenerator:
 
 
 def generate_validation_report(
-    results: List[ValidationResult],
-    summary: Dict[str, Any],
+    results: list[ValidationResult],
+    summary: dict[str, Any],
     output_type: str,
-    output_path: Optional[Path] = None,
-    save_to: Optional[Path] = None,
+    output_path: Path | None = None,
+    save_to: Path | None = None,
 ) -> ValidationReport:
     """
     Convenience function to generate and optionally save report.

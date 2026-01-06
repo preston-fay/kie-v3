@@ -5,11 +5,12 @@ Critical safety checks before any output reaches consultants.
 Prevents errors, synthetic data issues, and brand violations.
 """
 
-from typing import Dict, List, Any, Optional, Tuple
+import re
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
 import pandas as pd
-import re
 
 
 class ValidationLevel(str, Enum):
@@ -39,8 +40,8 @@ class ValidationResult:
     level: ValidationLevel
     category: ValidationCategory
     message: str
-    details: Optional[Dict[str, Any]] = None
-    suggestion: Optional[str] = None
+    details: dict[str, Any] | None = None
+    suggestion: str | None = None
 
 
 class OutputValidator:
@@ -52,14 +53,14 @@ class OutputValidator:
 
     def __init__(self):
         """Initialize validator."""
-        self.results: List[ValidationResult] = []
+        self.results: list[ValidationResult] = []
 
     def validate_all(
         self,
-        data: Optional[pd.DataFrame] = None,
-        config: Optional[Dict[str, Any]] = None,
-        content: Optional[str] = None,
-    ) -> Tuple[bool, List[ValidationResult]]:
+        data: pd.DataFrame | None = None,
+        config: dict[str, Any] | None = None,
+        content: str | None = None,
+    ) -> tuple[bool, list[ValidationResult]]:
         """
         Run all validation checks.
 
@@ -260,7 +261,7 @@ class OutputValidator:
                     )
                 )
 
-    def _validate_brand_compliance(self, config: Dict[str, Any]):
+    def _validate_brand_compliance(self, config: dict[str, Any]):
         """Check KDS brand compliance."""
 
         # Check for forbidden colors (greens)
@@ -331,7 +332,7 @@ class OutputValidator:
                             )
                             break
 
-    def _validate_accessibility(self, config: Dict[str, Any]):
+    def _validate_accessibility(self, config: dict[str, Any]):
         """Check WCAG accessibility compliance."""
 
         # Check for color-only differentiation
@@ -343,7 +344,7 @@ class OutputValidator:
                 for key, value in obj.items():
                     new_path = f"{path}.{key}" if path else key
                     if "fontsize" in key.lower() or "font_size" in key.lower():
-                        if isinstance(value, (int, float)) and value < 10:
+                        if isinstance(value, int | float) and value < 10:
                             self.results.append(
                                 ValidationResult(
                                     passed=False,
@@ -408,7 +409,7 @@ class OutputValidator:
                     )
                 )
 
-    def get_validation_summary(self) -> Dict[str, Any]:
+    def get_validation_summary(self) -> dict[str, Any]:
         """
         Get summary of validation results.
 
@@ -447,11 +448,11 @@ class OutputValidator:
 
 
 def validate_output(
-    data: Optional[pd.DataFrame] = None,
-    config: Optional[Dict[str, Any]] = None,
-    content: Optional[str] = None,
+    data: pd.DataFrame | None = None,
+    config: dict[str, Any] | None = None,
+    content: str | None = None,
     strict: bool = True,
-) -> Tuple[bool, List[ValidationResult], Dict[str, Any]]:
+) -> tuple[bool, list[ValidationResult], dict[str, Any]]:
     """
     Convenience function to validate outputs.
 

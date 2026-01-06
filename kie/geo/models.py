@@ -5,9 +5,9 @@ Structured data classes for geocoding results and requests.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 
 class GeocodingService(str, Enum):
@@ -35,16 +35,16 @@ class GeocodingRequest:
     """Request for geocoding operation."""
 
     address: str
-    city: Optional[str] = None
-    state: Optional[str] = None
-    zip_code: Optional[str] = None
+    city: str | None = None
+    state: str | None = None
+    zip_code: str | None = None
     country: str = "US"
 
     # Request metadata
-    request_id: Optional[str] = None
+    request_id: str | None = None
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "address": self.address,
@@ -78,35 +78,35 @@ class GeocodingResult:
     original_address: str
 
     # Output coordinates
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: float | None = None
+    longitude: float | None = None
 
     # Normalized address components
-    formatted_address: Optional[str] = None
-    street: Optional[str] = None
-    city: Optional[str] = None
-    county: Optional[str] = None
-    state: Optional[str] = None
-    state_code: Optional[str] = None
-    zip_code: Optional[str] = None
-    country: Optional[str] = None
-    country_code: Optional[str] = None
+    formatted_address: str | None = None
+    street: str | None = None
+    city: str | None = None
+    county: str | None = None
+    state: str | None = None
+    state_code: str | None = None
+    zip_code: str | None = None
+    country: str | None = None
+    country_code: str | None = None
 
     # Geographic codes
-    fips_code: Optional[str] = None  # State + County FIPS
-    fips_state: Optional[str] = None  # 2-digit state FIPS
-    fips_county: Optional[str] = None  # 3-digit county FIPS
+    fips_code: str | None = None  # State + County FIPS
+    fips_state: str | None = None  # 2-digit state FIPS
+    fips_county: str | None = None  # 3-digit county FIPS
 
     # Metadata
     confidence: float = 0.0  # 0.0 to 1.0
-    match_type: Optional[str] = None  # "exact", "approximate", "interpolated"
-    service: Optional[str] = None
+    match_type: str | None = None  # "exact", "approximate", "interpolated"
+    service: str | None = None
     status: GeocodingStatus = GeocodingStatus.FAILED
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     # Timing
     timestamp: datetime = field(default_factory=datetime.utcnow)
-    response_time_ms: Optional[float] = None
+    response_time_ms: float | None = None
 
     @property
     def success(self) -> bool:
@@ -114,13 +114,13 @@ class GeocodingResult:
         return self.status == GeocodingStatus.SUCCESS and self.latitude is not None
 
     @property
-    def coordinates(self) -> Optional[tuple]:
+    def coordinates(self) -> tuple | None:
         """Get (latitude, longitude) tuple."""
         if self.latitude is not None and self.longitude is not None:
             return (self.latitude, self.longitude)
         return None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "original_address": self.original_address,
@@ -153,7 +153,7 @@ class GeocodingResult:
         cls,
         address: str,
         error: str,
-        service: Optional[str] = None,
+        service: str | None = None,
         status: GeocodingStatus = GeocodingStatus.FAILED,
     ) -> "GeocodingResult":
         """Create result from error."""
@@ -169,7 +169,7 @@ class GeocodingResult:
 class BatchGeocodingResult:
     """Result from batch geocoding operation."""
 
-    results: List[GeocodingResult]
+    results: list[GeocodingResult]
     total_count: int
     success_count: int
     failed_count: int
@@ -181,7 +181,7 @@ class BatchGeocodingResult:
     total_duration_seconds: float
 
     # Service stats
-    service_stats: Dict[str, int] = field(default_factory=dict)
+    service_stats: dict[str, int] = field(default_factory=dict)
 
     @property
     def success_rate(self) -> float:
@@ -190,7 +190,7 @@ class BatchGeocodingResult:
             return 0.0
         return (self.success_count / self.total_count) * 100
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "results": [r.to_dict() for r in self.results],
@@ -205,7 +205,7 @@ class BatchGeocodingResult:
             "service_stats": self.service_stats,
         }
 
-    def get_failed_addresses(self) -> List[str]:
+    def get_failed_addresses(self) -> list[str]:
         """Get list of addresses that failed geocoding."""
         return [
             r.original_address
@@ -213,7 +213,7 @@ class BatchGeocodingResult:
             if not r.success
         ]
 
-    def get_low_confidence_results(self, threshold: float = 0.7) -> List[GeocodingResult]:
+    def get_low_confidence_results(self, threshold: float = 0.7) -> list[GeocodingResult]:
         """Get results with confidence below threshold."""
         return [
             r for r in self.results
@@ -230,32 +230,32 @@ class ReverseGeocodingResult:
     longitude: float
 
     # Output address
-    formatted_address: Optional[str] = None
-    street: Optional[str] = None
-    city: Optional[str] = None
-    county: Optional[str] = None
-    state: Optional[str] = None
-    state_code: Optional[str] = None
-    zip_code: Optional[str] = None
-    country: Optional[str] = None
+    formatted_address: str | None = None
+    street: str | None = None
+    city: str | None = None
+    county: str | None = None
+    state: str | None = None
+    state_code: str | None = None
+    zip_code: str | None = None
+    country: str | None = None
 
     # Geographic codes
-    fips_code: Optional[str] = None
-    fips_state: Optional[str] = None
-    fips_county: Optional[str] = None
+    fips_code: str | None = None
+    fips_state: str | None = None
+    fips_county: str | None = None
 
     # Metadata
     confidence: float = 0.0
-    service: Optional[str] = None
+    service: str | None = None
     status: GeocodingStatus = GeocodingStatus.FAILED
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     @property
     def success(self) -> bool:
         """Check if reverse geocoding was successful."""
         return self.status == GeocodingStatus.SUCCESS and self.formatted_address is not None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "latitude": self.latitude,

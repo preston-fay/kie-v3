@@ -5,7 +5,6 @@ IMPORTANT: This is the official 10-color palette from preston-fay/Kearneydesigns
 Use colors in the exact order specified for charts.
 """
 
-from typing import Tuple, List
 from enum import Enum
 
 
@@ -16,7 +15,7 @@ class KDSColors:
     PRIMARY = "#7823DC"  # Kearney Purple
 
     # Chart Palette (10 official colors - USE IN THIS EXACT ORDER)
-    CHART_PALETTE: Tuple[str, ...] = (
+    CHART_PALETTE: tuple[str, ...] = (
         "#D2D2D2",  # 1 - Light Gray
         "#A5A6A5",  # 2 - Medium Gray
         "#787878",  # 3 - Dark Gray
@@ -42,7 +41,7 @@ class KDSColors:
     TEXT_ON_LIGHT = "#1E1E1E"  # Dark text on light backgrounds
 
     # FORBIDDEN COLORS (never use these)
-    FORBIDDEN_GREENS: Tuple[str, ...] = (
+    FORBIDDEN_GREENS: tuple[str, ...] = (
         "#00FF00", "#008000", "#90EE90", "#98FB98", "#00FA9A",
         "#3CB371", "#2E8B57", "#228B22", "#32CD32", "#7FFF00",
         "#7CFC00", "#ADFF2F", "#00FF7F", "#00FFFF", "#40E0D0",
@@ -64,7 +63,7 @@ class KDSColors:
         return cls.CHART_PALETTE[index % len(cls.CHART_PALETTE)]
 
     @classmethod
-    def get_chart_colors(cls, count: int) -> List[str]:
+    def get_chart_colors(cls, count: int) -> list[str]:
         """
         Get list of chart colors.
 
@@ -117,7 +116,7 @@ class KDSColors:
         )
 
     @classmethod
-    def validate_palette(cls, colors: List[str]) -> Tuple[bool, List[str]]:
+    def validate_palette(cls, colors: list[str]) -> tuple[bool, list[str]]:
         """
         Validate that colors are from KDS palette.
 
@@ -153,7 +152,7 @@ class ColorPalette(Enum):
     KEARNEY_PURPLE = "#7823DC"
 
 
-def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
+def hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     """
     Convert hex color to RGB tuple.
 

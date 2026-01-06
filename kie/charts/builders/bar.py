@@ -4,15 +4,16 @@ Bar Chart Data Builder
 Generates Recharts-compatible JSON configurations for bar charts.
 """
 
-from typing import Any, List, Dict, Optional, Union
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
 from kie.base import ChartBuilder, RechartsConfig
 from kie.brand.colors import KDSColors
 from kie.charts.schema import (
-    BarChartConfig,
     AxisConfig,
+    BarChartConfig,
     BarConfig,
     DataLabelConfig,
     LegendConfig,
@@ -56,12 +57,12 @@ class BarChartBuilder(ChartBuilder):
 
     def build(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x_key: str,
-        y_keys: Union[str, List[str]],
-        title: Optional[str] = None,
-        subtitle: Optional[str] = None,
-        colors: Optional[List[str]] = None,
+        y_keys: str | list[str],
+        title: str | None = None,
+        subtitle: str | None = None,
+        colors: list[str] | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """
@@ -98,7 +99,6 @@ class BarChartBuilder(ChartBuilder):
 
         # Build bar configs
         bars = []
-        stack_id = "stack1" if self.stacked else None
 
         for i, y_key in enumerate(y_keys):
             bar_config = BarConfig(
@@ -150,11 +150,11 @@ class BarChartBuilder(ChartBuilder):
 
     def build_grouped(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x_key: str,
-        y_keys: List[str],
-        title: Optional[str] = None,
-        colors: Optional[List[str]] = None,
+        y_keys: list[str],
+        title: str | None = None,
+        colors: list[str] | None = None,
     ) -> RechartsConfig:
         """
         Build grouped bar chart (multiple bars per category).
@@ -179,11 +179,11 @@ class BarChartBuilder(ChartBuilder):
 
     def build_stacked(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x_key: str,
-        y_keys: List[str],
-        title: Optional[str] = None,
-        colors: Optional[List[str]] = None,
+        y_keys: list[str],
+        title: str | None = None,
+        colors: list[str] | None = None,
     ) -> RechartsConfig:
         """
         Build stacked bar chart.
@@ -215,11 +215,11 @@ class BarChartBuilder(ChartBuilder):
 
 # Convenience functions
 def bar_chart(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     x: str,
-    y: Union[str, List[str]],
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    y: str | list[str],
+    title: str | None = None,
+    output_path: Path | None = None,
     **kwargs,
 ) -> RechartsConfig:
     """
@@ -255,11 +255,11 @@ def bar_chart(
 
 
 def horizontal_bar_chart(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     x: str,
-    y: Union[str, List[str]],
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    y: str | list[str],
+    title: str | None = None,
+    output_path: Path | None = None,
 ) -> RechartsConfig:
     """
     Quick function to create a horizontal bar chart.

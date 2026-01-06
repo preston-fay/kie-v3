@@ -4,13 +4,12 @@ KDS Brand Compliance Validator
 Validates outputs against Kearney Design System guidelines.
 """
 
-from pathlib import Path
-from typing import Dict, List, Any, Optional
 import json
-import re
+from pathlib import Path
+from typing import Any
 
 from kie.brand.colors import KDSColors, meets_wcag_aa
-from kie.exceptions import BrandComplianceError, ForbiddenColorError
+from kie.exceptions import ForbiddenColorError
 
 
 class BrandValidator:
@@ -25,7 +24,7 @@ class BrandValidator:
         """
         self.strict = strict
 
-    def validate_chart_config(self, config_path: Path) -> Dict[str, Any]:
+    def validate_chart_config(self, config_path: Path) -> dict[str, Any]:
         """
         Validate Recharts JSON configuration.
 
@@ -83,7 +82,7 @@ class BrandValidator:
             "file": str(config_path),
         }
 
-    def validate_directory(self, directory: Path) -> Dict[str, Any]:
+    def validate_directory(self, directory: Path) -> dict[str, Any]:
         """
         Validate all chart configs in a directory.
 
@@ -118,7 +117,7 @@ class BrandValidator:
             "warnings": all_warnings,
         }
 
-    def validate_colors(self, colors: List[str]) -> Dict[str, Any]:
+    def validate_colors(self, colors: list[str]) -> dict[str, Any]:
         """
         Validate list of colors.
 
@@ -153,7 +152,7 @@ class BrandValidator:
 
     def validate_contrast(
         self, foreground: str, background: str, large_text: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Validate color contrast meets WCAG AA.
 
@@ -193,7 +192,7 @@ class BrandValidator:
 
         return result
 
-    def generate_report(self, directory: Path, output_path: Optional[Path] = None) -> str:
+    def generate_report(self, directory: Path, output_path: Path | None = None) -> str:
         """
         Generate comprehensive compliance report.
 

@@ -4,19 +4,20 @@ Combo Chart Data Builder
 Generates Recharts-compatible JSON configurations for combo charts (bar + line).
 """
 
-from typing import Any, List, Dict, Optional, Union
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
 from kie.base import ChartBuilder, RechartsConfig
 from kie.brand.colors import KDSColors
 from kie.charts.schema import (
-    ComboChartConfig,
     AxisConfig,
     BarConfig,
-    LineConfig,
+    ComboChartConfig,
     DataLabelConfig,
     LegendConfig,
+    LineConfig,
     TooltipConfig,
 )
 
@@ -51,13 +52,13 @@ class ComboChartBuilder(ChartBuilder):
 
     def build(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x_key: str,
-        bar_keys: Union[str, List[str]],
-        line_keys: Union[str, List[str]],
-        title: Optional[str] = None,
-        subtitle: Optional[str] = None,
-        colors: Optional[List[str]] = None,
+        bar_keys: str | list[str],
+        line_keys: str | list[str],
+        title: str | None = None,
+        subtitle: str | None = None,
+        colors: list[str] | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """
@@ -164,12 +165,12 @@ class ComboChartBuilder(ChartBuilder):
 
 # Convenience function
 def combo_chart(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     x: str,
-    bars: Union[str, List[str]],
-    lines: Union[str, List[str]],
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    bars: str | list[str],
+    lines: str | list[str],
+    title: str | None = None,
+    output_path: Path | None = None,
     **kwargs,
 ) -> RechartsConfig:
     """

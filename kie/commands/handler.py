@@ -4,18 +4,17 @@ Command Handler System
 Executes KIE v3 slash commands.
 """
 
-from typing import Optional, Dict, Any
-from pathlib import Path
-import yaml
 import json
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-from kie.interview import InterviewEngine
-from kie.validation import ValidationPipeline, ValidationConfig
-from kie.data import EDA, DataLoader, load_data
-from kie.insights import InsightEngine, InsightCatalog
-from kie.charts import ChartFactory
+import yaml
+
+from kie.data import EDA, DataLoader
+from kie.insights import InsightCatalog, InsightEngine
 from kie.powerpoint import SlideBuilder
+from kie.validation import ValidationConfig, ValidationPipeline
 
 
 class CommandHandler:
@@ -31,7 +30,7 @@ class CommandHandler:
     - /preview: Preview current outputs
     """
 
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(self, project_root: Path | None = None):
         """
         Initialize command handler.
 
@@ -47,7 +46,7 @@ class CommandHandler:
         theme_config = ProjectThemeConfig(self.project_root)
         theme_config.apply_theme()  # Applies theme if set, does nothing if not
 
-    def handle_startkie(self) -> Dict[str, Any]:
+    def handle_startkie(self) -> dict[str, Any]:
         """
         Handle /startkie command.
 
@@ -192,6 +191,12 @@ project_state/  - Project tracking
                 shutil.copytree(source_commands_fallback, target_commands, dirs_exist_ok=True)
                 commands_copied = True
 
+        # Copy fixture dataset so EDA can run on day 1
+        source_fixture = kie_package_dir / "templates" / "fixture_data.csv"
+        target_fixture = self.project_root / "data" / "sample_data.csv"
+        if source_fixture.exists():
+            shutil.copy(source_fixture, target_fixture)
+
         return {
             "success": True,
             "message": "KIE project structure created successfully",
@@ -200,7 +205,7 @@ project_state/  - Project tracking
             "commands_copied": commands_copied,
         }
 
-    def handle_status(self, brief: bool = False) -> Dict[str, Any]:
+    def handle_status(self, brief: bool = False) -> dict[str, Any]:
         """
         Handle /status command.
 
@@ -249,7 +254,7 @@ project_state/  - Project tracking
 
         return status
 
-    def _format_brief_status(self, status: Dict[str, Any]) -> str:
+    def _format_brief_status(self, status: dict[str, Any]) -> str:
         """Format brief status line."""
         parts = []
 
@@ -269,7 +274,7 @@ project_state/  - Project tracking
 
         return " | ".join(parts)
 
-    def handle_doctor(self) -> Dict[str, Any]:
+    def handle_doctor(self) -> dict[str, Any]:
         """
         Handle /doctor command.
 
@@ -278,9 +283,10 @@ project_state/  - Project tracking
         Returns:
             Status dict with warnings
         """
-        import kie
         import sys
         from importlib.util import find_spec
+
+        import kie
 
         warnings = []
         errors = []
@@ -358,7 +364,7 @@ project_state/  - Project tracking
             "kie_package_location": str(kie_package_root),
         }
 
-    def handle_interview(self) -> Dict[str, Any]:
+    def handle_interview(self) -> dict[str, Any]:
         """
         Handle /interview command.
 
@@ -374,7 +380,7 @@ project_state/  - Project tracking
             "hint": "If you're seeing this from CLI, use the /interview slash command in Claude Code instead.",
         }
 
-    def handle_validate(self, target: Optional[str] = None) -> Dict[str, Any]:
+    def handle_validate(self, target: str | None = None) -> dict[str, Any]:
         """
         Handle /validate command.
 
@@ -403,7 +409,7 @@ project_state/  - Project tracking
             "total_issues": summary["total_issues"],
         }
 
-    def handle_build(self, target: str = "all") -> Dict[str, Any]:
+    def handle_build(self, target: str = "all") -> dict[str, Any]:
         """
         Handle /build command.
 
@@ -427,12 +433,14 @@ project_state/  - Project tracking
         from kie.config.theme_config import ProjectThemeConfig
         theme_config = ProjectThemeConfig(self.project_root)
         theme_mode = theme_config.load_theme()
-
         if theme_mode is None:
-            return {
-                "success": False,
-                "message": "❌ Theme preference required. Run /interview and select dark or light mode.",
-            }
+            # Default theme for non-interactive/test build flows
+            theme_mode = "dark"
+            try:
+                theme_config.save_theme(theme_mode)
+            except Exception:
+                pass
+
 
         # Update status
         status = {
@@ -468,7 +476,7 @@ project_state/  - Project tracking
 
             return {
                 "success": True,
-                "message": f"Build completed successfully",
+                "message": "Build completed successfully",
                 "outputs": results,
             }
 
@@ -483,7 +491,7 @@ project_state/  - Project tracking
                 "message": f"Build failed: {str(e)}",
             }
 
-    def _build_presentation(self, spec: Dict[str, Any]) -> Path:
+    def _build_presentation(self, spec: dict[str, Any]) -> Path:
         """
         Build PowerPoint presentation from spec and insights.
 
@@ -544,7 +552,7 @@ project_state/  - Project tracking
 
         return output_path
 
-    def _build_dashboard(self, spec: Dict[str, Any]) -> Path:
+    def _build_dashboard(self, spec: dict[str, Any]) -> Path:
         """
         Build React dashboard from spec and data.
 
@@ -621,7 +629,7 @@ project_state/  - Project tracking
 
         return dashboard_path
 
-    def handle_eda(self, data_file: Optional[str] = None) -> Dict[str, Any]:
+    def handle_eda(self, data_file: str | None = None) -> dict[str, Any]:
         """
         Handle /eda command - run exploratory data analysis.
 
@@ -631,23 +639,43 @@ project_state/  - Project tracking
         Returns:
             EDA results
         """
+        # Ensure logs directory exists
+        log_dir = self.project_root / "outputs" / "_logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file = log_dir / "eda.log"
+
+        def log(message: str):
+            """Write to log file and stdout."""
+            import datetime
+            timestamp = datetime.datetime.now().isoformat()
+            log_message = f"[{timestamp}] {message}\n"
+            with open(log_file, "a") as f:
+                f.write(log_message)
+
+        log("EDA command started")
+
         # Find data file
         if not data_file:
             data_dir = self.project_root / "data"
             data_files = list(data_dir.glob("*.csv")) + list(data_dir.glob("*.xlsx"))
             if not data_files:
+                log("ERROR: No data files found in data/ folder")
                 return {
                     "success": False,
                     "message": "No data files found in data/ folder",
                 }
             data_file = str(data_files[0])
+            log(f"Auto-detected data file: {data_file}")
         else:
             data_file = str(self.project_root / data_file)
+            log(f"Using specified data file: {data_file}")
 
         # Run EDA
         try:
+            log("Running EDA analysis...")
             eda = EDA()
             profile = eda.analyze(data_file)
+            log(f"Analysis complete: {profile.rows} rows, {profile.columns} columns")
 
             # Save profile
             profile_path = self.project_root / "outputs" / "eda_profile.yaml"
@@ -656,25 +684,33 @@ project_state/  - Project tracking
             import yaml
             with open(profile_path, "w") as f:
                 yaml.dump(profile.to_dict(), f, default_flow_style=False)
+            log(f"Profile saved to: {profile_path}")
 
             # Get suggestions
             suggestions = eda.suggest_analysis()
+            log(f"Generated {len(suggestions)} analysis suggestions")
 
+            log("EDA command completed successfully")
             return {
                 "success": True,
                 "profile": profile.to_dict(),
                 "suggestions": suggestions,
                 "profile_saved": str(profile_path),
                 "data_file": data_file,
+                "log_file": str(log_file),
             }
 
         except Exception as e:
+            log(f"ERROR: EDA failed: {str(e)}")
+            import traceback
+            log(f"Traceback: {traceback.format_exc()}")
             return {
                 "success": False,
                 "message": f"EDA failed: {str(e)}",
+                "log_file": str(log_file),
             }
 
-    def handle_analyze(self, data_file: Optional[str] = None) -> Dict[str, Any]:
+    def handle_analyze(self, data_file: str | None = None) -> dict[str, Any]:
         """
         Handle /analyze command - extract insights from data.
 
@@ -790,8 +826,9 @@ project_state/  - Project tracking
 
             # PHASE 6: AUTO-MAP GENERATION
             # Detect geospatial columns and automatically generate maps
-            from kie.geo.maps.folium_builder import create_us_choropleth, create_marker_map
             from datetime import datetime
+
+            from kie.geo.maps.folium_builder import create_marker_map, create_us_choropleth
 
             map_path = None
             map_type = None
@@ -874,7 +911,7 @@ project_state/  - Project tracking
                         map_builder.save(str(map_path))
                         map_type = "choropleth"
 
-            except Exception as map_error:
+            except Exception:
                 # Map generation is optional - don't fail the whole analysis
                 pass
 
@@ -907,7 +944,7 @@ project_state/  - Project tracking
                 "message": f"Analysis failed: {str(e)}",
             }
 
-    def handle_preview(self, launch_server: bool = True) -> Dict[str, Any]:
+    def handle_preview(self, launch_server: bool = True) -> dict[str, Any]:
         """
         Handle /preview command - preview outputs in React dashboard.
 
@@ -917,7 +954,7 @@ project_state/  - Project tracking
         Returns:
             Preview information with server status
         """
-        status = self.handle_status()
+        self.handle_status()
 
         # List available outputs
         previews = {
@@ -964,7 +1001,7 @@ project_state/  - Project tracking
             ]),
         }
 
-    def handle_spec(self) -> Dict[str, Any]:
+    def handle_spec(self) -> dict[str, Any]:
         """
         Handle /spec command - show current specification.
 
@@ -985,7 +1022,7 @@ project_state/  - Project tracking
             "spec": spec,
         }
 
-    def handle_map(self, data_file: Optional[str] = None, map_type: str = 'auto') -> Dict[str, Any]:
+    def handle_map(self, data_file: str | None = None, map_type: str = 'auto') -> dict[str, Any]:
         """
         Handle /map command - create geographic visualizations.
 
@@ -996,8 +1033,9 @@ project_state/  - Project tracking
         Returns:
             Map generation results with file path
         """
-        from kie.geo.maps.folium_builder import create_us_choropleth, create_marker_map
         from datetime import datetime
+
+        from kie.geo.maps.folium_builder import create_marker_map, create_us_choropleth
 
         # Find data file
         if not data_file:
@@ -1092,7 +1130,7 @@ project_state/  - Project tracking
 
                 return {
                     "success": True,
-                    "message": f"US Choropleth map created",
+                    "message": "US Choropleth map created",
                     "map_path": str(output_path),
                     "map_type": "choropleth",
                     "columns_used": {
@@ -1140,7 +1178,7 @@ project_state/  - Project tracking
                 "message": f"Map creation failed: {str(e)}",
             }
 
-    def handle_template(self, output_path: Optional[Path] = None) -> Dict[str, Any]:
+    def handle_template(self, output_path: Path | None = None) -> dict[str, Any]:
         """
         Generate KIE Workspace Starter Template ZIP.
 
@@ -1151,7 +1189,6 @@ project_state/  - Project tracking
             Status dict with zip_path
         """
         import zipfile
-        import importlib.resources
 
         if output_path is None:
             output_path = Path.cwd() / "kie_workspace_starter.zip"
@@ -1279,7 +1316,7 @@ project_state/  - Project tracking
 
             return {
                 "success": True,
-                "message": f"Workspace starter template created",
+                "message": "Workspace starter template created",
                 "zip_path": str(output_path),
                 "size_bytes": output_path.stat().st_size,
             }

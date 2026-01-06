@@ -5,22 +5,20 @@ Conversational requirements gathering using step-by-step prompting.
 Supports express (6 questions) and full (11 questions) modes.
 """
 
-from typing import Optional, List, Dict, Any
 import re
 from pathlib import Path
-import yaml
-from datetime import datetime
+from typing import Any
 
+import yaml
+
+from kie.interview.question_bank import QuestionBank
 from kie.interview.schema import (
+    DataSource,
+    DeliverableType,
     InterviewState,
     ProjectSpec,
     ProjectType,
-    DeliverableType,
-    DataSource,
-    ChartSpec,
-    ThemePreferences,
 )
-from kie.interview.question_bank import QuestionBank
 
 
 class InterviewEngine:
@@ -49,7 +47,7 @@ class InterviewEngine:
         "constraints",
     ]
 
-    def __init__(self, state_path: Optional[Path] = None):
+    def __init__(self, state_path: Path | None = None):
         """
         Initialize interview engine.
 
@@ -63,7 +61,7 @@ class InterviewEngine:
         if self.state_path.exists():
             self.load_state()
 
-    def process_message(self, message: str) -> Dict[str, Any]:
+    def process_message(self, message: str) -> dict[str, Any]:
         """
         Process user message and extract requirements.
 
@@ -180,7 +178,7 @@ class InterviewEngine:
         # Unknown field - assume missing
         return True
 
-    def _get_next_question(self) -> Optional[str]:
+    def _get_next_question(self) -> str | None:
         """
         Return single focused question based on interview mode and project type.
 
@@ -223,7 +221,7 @@ class InterviewEngine:
 
         return None  # All questions answered
 
-    def _extract_information(self, message: str) -> Dict[str, Any]:
+    def _extract_information(self, message: str) -> dict[str, Any]:
         """
         Extract structured information from message.
 
@@ -245,7 +243,7 @@ class InterviewEngine:
 
         # Project type detection
         project_type_patterns = {
-            ProjectType.ANALYTICS: ["analyz", "analysis", "insight", "explore", "investigate", "analytics"],
+            # Prefer supported deliverables when explicitly mentioned
             ProjectType.PRESENTATION: [
                 "presentation",
                 "slides",
@@ -261,11 +259,14 @@ class InterviewEngine:
                 "interactive",
                 "visualiz",
             ],
+            # "analysis" is too generic; keep analytics triggers tighter
+            ProjectType.ANALYTICS: ["analyz", "insight", "explore", "investigate", "analytics"],
             ProjectType.MODELING: ["model", "predict", "forecast", "machine learning", "ml", "modeling"],
             ProjectType.PROPOSAL: ["proposal", "rfp", "pitch", "bid"],
             ProjectType.RESEARCH: ["research", "market", "competitive", "landscape"],
             ProjectType.DATA_ENGINEERING: ["data engineering", "pipeline", "etl", "data_engineering"],
             ProjectType.WEBAPP: ["webapp", "web app", "application"],
+
         }
 
         for proj_type, patterns in project_type_patterns.items():
@@ -334,9 +335,9 @@ class InterviewEngine:
             extracted["data_location"] = message.strip()
 
         # Theme preference (explicit only - no defaults)
-        if "dark" in message_lower and not "light" in message_lower:
+        if "dark" in message_lower and "light" not in message_lower:
             extracted["theme"] = "dark"
-        elif "light" in message_lower and not "dark" in message_lower:
+        elif "light" in message_lower and "dark" not in message_lower:
             extracted["theme"] = "light"
 
         # Audience detection
@@ -393,7 +394,7 @@ class InterviewEngine:
 
         return extracted
 
-    def _update_state(self, extracted: Dict[str, Any]) -> List[str]:
+    def _update_state(self, extracted: dict[str, Any]) -> list[str]:
         """
         Update interview state with extracted information.
 
@@ -531,8 +532,8 @@ class InterviewEngine:
         return slots_filled
 
     def _generate_response(
-        self, extracted: Dict[str, Any], slots_filled: List[str]
-    ) -> Dict[str, Any]:
+        self, extracted: dict[str, Any], slots_filled: list[str]
+    ) -> dict[str, Any]:
         """
         Generate response to user with single next question.
 
@@ -649,7 +650,7 @@ class InterviewEngine:
         if self.state_path.exists():
             self.state_path.unlink()
 
-    def export_spec_yaml(self, output_path: Optional[Path] = None) -> Path:
+    def export_spec_yaml(self, output_path: Path | None = None) -> Path:
         """
         Export spec to YAML file.
 

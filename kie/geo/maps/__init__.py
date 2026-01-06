@@ -5,12 +5,12 @@ Folium-based maps with KDS styling.
 """
 
 from kie.geo.maps.folium_builder import (
+    ChoroplethConfig,
+    HeatmapConfig,
+    LayerConfig,
     MapBuilder,
     MapConfig,
-    LayerConfig,
-    ChoroplethConfig,
     MarkerConfig,
-    HeatmapConfig,
 )
 
 __all__ = [

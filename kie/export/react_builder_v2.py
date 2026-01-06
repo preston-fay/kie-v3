@@ -3,9 +3,9 @@ Simplified React Dashboard Builder for KIE v3 - FULLY DATA-AGNOSTIC
 Generates dashboards that work with ANY data structure
 """
 
-from pathlib import Path
-from typing import Optional
 import json
+from pathlib import Path
+
 from kie.data.loader import DataSchema
 
 
@@ -265,7 +265,7 @@ export default function Dashboard() {{
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <p className="text-gray-400 text-sm">Total Rows</p>
-            <p className="text-2xl font-bold">{{{rowCount}}}</p>
+            <p className="text-2xl font-bold">{{{"row_count"}}}</p>
           </div>
           <div>
             <p className="text-gray-400 text-sm">Columns</p>

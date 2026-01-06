@@ -4,11 +4,12 @@ Theme-aware configuration helpers for charts.
 Provides functions to generate chart configurations that respect theme preferences.
 """
 
-from typing import Dict, Any
-from kie.brand.theme import get_theme, ThemeMode
+from typing import Any
+
+from kie.brand.theme import get_theme
 
 
-def get_tooltip_config() -> Dict[str, Any]:
+def get_tooltip_config() -> dict[str, Any]:
     """
     Get tooltip configuration for current theme.
 
@@ -27,7 +28,7 @@ def get_tooltip_config() -> Dict[str, Any]:
     }
 
 
-def get_legend_config() -> Dict[str, Any]:
+def get_legend_config() -> dict[str, Any]:
     """
     Get legend configuration for current theme.
 
@@ -42,7 +43,7 @@ def get_legend_config() -> Dict[str, Any]:
     }
 
 
-def get_axis_tick_config() -> Dict[str, Any]:
+def get_axis_tick_config() -> dict[str, Any]:
     """
     Get axis tick configuration for current theme.
 
@@ -57,7 +58,7 @@ def get_axis_tick_config() -> Dict[str, Any]:
     }
 
 
-def get_data_label_config(position: str = "top") -> Dict[str, Any]:
+def get_data_label_config(position: str = "top") -> dict[str, Any]:
     """
     Get data label configuration for current theme.
 
@@ -77,7 +78,7 @@ def get_data_label_config(position: str = "top") -> Dict[str, Any]:
     }
 
 
-def get_chart_container_style() -> Dict[str, Any]:
+def get_chart_container_style() -> dict[str, Any]:
     """
     Get container style for chart wrapper.
 
@@ -93,7 +94,7 @@ def get_chart_container_style() -> Dict[str, Any]:
     }
 
 
-def get_recharts_theme_config() -> Dict[str, Any]:
+def get_recharts_theme_config() -> dict[str, Any]:
     """
     Get complete Recharts theme configuration.
 

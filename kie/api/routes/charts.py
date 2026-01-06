@@ -2,10 +2,10 @@
 Chart generation endpoints.
 """
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-from pathlib import Path
 
 router = APIRouter()
 
@@ -14,12 +14,12 @@ class ChartRequest(BaseModel):
     """Request model for chart generation."""
 
     chart_type: str
-    data: List[Dict[str, Any]]
-    title: Optional[str] = None
-    subtitle: Optional[str] = None
+    data: list[dict[str, Any]]
+    title: str | None = None
+    subtitle: str | None = None
     x_key: str
-    y_keys: List[str]
-    colors: Optional[List[str]] = None
+    y_keys: list[str]
+    colors: list[str] | None = None
 
 
 class ChartResponse(BaseModel):
@@ -27,8 +27,8 @@ class ChartResponse(BaseModel):
 
     status: str
     chart_type: str
-    config: Dict[str, Any]
-    file_path: Optional[str] = None
+    config: dict[str, Any]
+    file_path: str | None = None
 
 
 @router.post("/generate", response_model=ChartResponse)

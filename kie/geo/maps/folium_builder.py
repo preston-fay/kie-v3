@@ -4,33 +4,34 @@ Folium Map Builder with KDS Styling
 Creates interactive maps with Kearney Design System branding.
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Literal, Tuple
-import pandas as pd
-import folium
-from folium import plugins
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+import folium
+import pandas as pd
+from folium import plugins
 
 from kie.brand.colors import KDSColors
-from kie.brand.theme import get_theme, ThemeMode
+from kie.brand.theme import get_theme
 
 
 @dataclass
 class MapConfig:
     """Configuration for map creation."""
 
-    center: Tuple[float, float] = (39.8283, -98.5795)  # Center of US
+    center: tuple[float, float] = (39.8283, -98.5795)  # Center of US
     zoom: int = 4
     width: str = "100%"
     height: str = "600px"
-    tiles: Optional[str] = None  # Auto-selected based on theme if None
+    tiles: str | None = None  # Auto-selected based on theme if None
     attribution: str = "Kearney Insight Engine"
 
     # KDS styling (auto-populated from theme if None)
-    background_color: Optional[str] = None
-    text_color: Optional[str] = None
-    border_color: Optional[str] = None
+    background_color: str | None = None
+    text_color: str | None = None
+    border_color: str | None = None
 
     # Map controls
     zoom_control: bool = True
@@ -71,12 +72,12 @@ class ChoroplethConfig(LayerConfig):
     """Configuration for choropleth layer."""
 
     geo_data: Any = None  # GeoJSON or file path
-    data: Optional[pd.DataFrame] = None
-    columns: Optional[List[str]] = None  # [key_column, value_column]
+    data: pd.DataFrame | None = None
+    columns: list[str] | None = None  # [key_column, value_column]
     key_on: str = "feature.properties.id"
 
     # Color scheme - Official KDS palette
-    color_scale: List[str] = None  # Will be set to KDS palette in __post_init__
+    color_scale: list[str] = None  # Will be set to KDS palette in __post_init__
     fill_color: str = "PuRd"  # Purple-Red gradient (KDS-friendly) - kept for fallback
     fill_opacity: float = 0.7
     line_opacity: float = 0.3
@@ -84,12 +85,12 @@ class ChoroplethConfig(LayerConfig):
     line_weight: int = 1
 
     # Legend
-    legend_name: Optional[str] = None
+    legend_name: str | None = None
     nan_fill_color: str = "#1E1E1E"
     nan_fill_opacity: float = 0.2
 
     # Bins
-    threshold_scale: Optional[List[float]] = None
+    threshold_scale: list[float] | None = None
     bins: int = 5
 
     def __post_init__(self):
@@ -102,7 +103,7 @@ class ChoroplethConfig(LayerConfig):
 class MarkerConfig(LayerConfig):
     """Configuration for marker layer."""
 
-    data: Optional[pd.DataFrame] = None
+    data: pd.DataFrame | None = None
     latitude_col: str = "latitude"
     longitude_col: str = "longitude"
 
@@ -112,8 +113,8 @@ class MarkerConfig(LayerConfig):
     prefix: str = "glyphicon"
 
     # Popup/tooltip
-    popup_cols: Optional[List[str]] = None
-    tooltip_cols: Optional[List[str]] = None
+    popup_cols: list[str] | None = None
+    tooltip_cols: list[str] | None = None
 
     # Clustering
     cluster: bool = False
@@ -124,10 +125,10 @@ class MarkerConfig(LayerConfig):
 class HeatmapConfig(LayerConfig):
     """Configuration for heatmap layer."""
 
-    data: Optional[pd.DataFrame] = None
+    data: pd.DataFrame | None = None
     latitude_col: str = "latitude"
     longitude_col: str = "longitude"
-    weight_col: Optional[str] = None
+    weight_col: str | None = None
 
     # Heatmap styling
     radius: int = 15
@@ -136,7 +137,7 @@ class HeatmapConfig(LayerConfig):
     max_zoom: int = 13
 
     # Color gradient (KDS purple gradient)
-    gradient: Dict[float, str] = field(default_factory=lambda: {
+    gradient: dict[float, str] = field(default_factory=lambda: {
         0.0: "#1E1E1E",
         0.2: "#E0D2FA",
         0.4: "#C8A5F0",
@@ -154,7 +155,7 @@ class MapBuilder:
     Uses Folium with custom KDS templates.
     """
 
-    def __init__(self, config: Optional[MapConfig] = None):
+    def __init__(self, config: MapConfig | None = None):
         """
         Initialize map builder.
 
@@ -232,7 +233,7 @@ class MapBuilder:
 
         # Load GeoJSON if path provided
         geo_data = config.geo_data
-        if isinstance(geo_data, (str, Path)):
+        if isinstance(geo_data, str | Path):
             with open(geo_data) as f:
                 geo_data = json.load(f)
 
@@ -290,7 +291,7 @@ class MapBuilder:
             parent = self.map
 
         # Add markers
-        for idx, row in config.data.iterrows():
+        for _idx, row in config.data.iterrows():
             lat = row[config.latitude_col]
             lon = row[config.longitude_col]
 
@@ -344,7 +345,7 @@ class MapBuilder:
 
         # Build heatmap data
         heat_data = []
-        for idx, row in config.data.iterrows():
+        for _idx, row in config.data.iterrows():
             lat = row[config.latitude_col]
             lon = row[config.longitude_col]
 
@@ -493,7 +494,7 @@ class MapBuilder:
         # Add CSS to map
         self.map.get_root().html.add_child(folium.Element(kds_css))
 
-    def _build_popup_html(self, row: pd.Series, columns: List[str]) -> str:
+    def _build_popup_html(self, row: pd.Series, columns: list[str]) -> str:
         """Build HTML for marker popup."""
         html = f"""
         <div style='font-family: Inter, Arial, sans-serif; color: {self.config.text_color};'>
@@ -507,7 +508,7 @@ class MapBuilder:
         html += "</div>"
         return html
 
-    def _build_tooltip(self, row: pd.Series, columns: List[str]) -> str:
+    def _build_tooltip(self, row: pd.Series, columns: list[str]) -> str:
         """Build text for marker tooltip."""
         parts = []
         for col in columns:
@@ -521,7 +522,7 @@ def create_us_choropleth(
     data: pd.DataFrame,
     value_column: str,
     key_column: str = "state",
-    title: Optional[str] = None,
+    title: str | None = None,
     **kwargs,
 ) -> MapBuilder:
     """
@@ -568,7 +569,7 @@ def create_marker_map(
     data: pd.DataFrame,
     latitude_col: str = "latitude",
     longitude_col: str = "longitude",
-    popup_cols: Optional[List[str]] = None,
+    popup_cols: list[str] | None = None,
     cluster: bool = True,
     **kwargs,
 ) -> MapBuilder:
@@ -619,7 +620,7 @@ def create_heatmap(
     data: pd.DataFrame,
     latitude_col: str = "latitude",
     longitude_col: str = "longitude",
-    weight_col: Optional[str] = None,
+    weight_col: str | None = None,
     **kwargs,
 ) -> MapBuilder:
     """

@@ -5,20 +5,20 @@ Paid geocoding service with high quality results and good international coverage
 Requires API key (access token).
 """
 
-import aiohttp
 import time
-from typing import Optional
-from urllib.parse import urlencode, quote
+from urllib.parse import quote, urlencode
 
+import aiohttp
+
+from kie.exceptions import APIKeyError, GeocodingError
 from kie.geo.models import (
     GeocodingRequest,
     GeocodingResult,
-    GeocodingStatus,
     GeocodingService,
+    GeocodingStatus,
     ReverseGeocodingResult,
 )
 from kie.geo.utils import RateLimiter
-from kie.exceptions import GeocodingError, APIKeyError
 
 
 class MapboxGeocoder:

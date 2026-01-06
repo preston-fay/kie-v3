@@ -5,24 +5,24 @@ Comprehensive table builder with smart formatting, conditional formatting,
 and KDS styling.
 """
 
-from kie.tables.schema import (
-    TableConfig,
-    ColumnConfig,
-    ColumnType,
-    Alignment,
-    NumberFormat,
-    CurrencyFormat,
-    PercentageFormat,
-    ConditionalFormat,
-    ConditionalFormatType,
-    SparklineConfig,
-)
 from kie.tables.builder import (
-    TableBuilder,
     ComparisonTableBuilder,
     FinancialTableBuilder,
+    TableBuilder,
 )
 from kie.tables.factory import TableFactory
+from kie.tables.schema import (
+    Alignment,
+    ColumnConfig,
+    ColumnType,
+    ConditionalFormat,
+    ConditionalFormatType,
+    CurrencyFormat,
+    NumberFormat,
+    PercentageFormat,
+    SparklineConfig,
+    TableConfig,
+)
 
 __all__ = [
     # Schema

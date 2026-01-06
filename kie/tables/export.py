@@ -5,11 +5,10 @@ Export tables to various formats (CSV, Excel, PDF).
 """
 
 from pathlib import Path
-from typing import Union, Optional
-import pandas as pd
-from io import BytesIO
 
-from kie.tables.schema import TableConfig, ColumnType
+import pandas as pd
+
+from kie.tables.schema import TableConfig
 
 
 class TableExporter:
@@ -20,7 +19,7 @@ class TableExporter:
         pass
 
     def to_csv(
-        self, config: TableConfig, output_path: Union[str, Path], include_totals: bool = True
+        self, config: TableConfig, output_path: str | Path, include_totals: bool = True
     ) -> Path:
         """
         Export table to CSV.
@@ -59,7 +58,7 @@ class TableExporter:
     def to_excel(
         self,
         config: TableConfig,
-        output_path: Union[str, Path],
+        output_path: str | Path,
         sheet_name: str = "Data",
         include_totals: bool = True,
         style_headers: bool = True,
@@ -107,7 +106,7 @@ class TableExporter:
         return output_path
 
     def to_pdf(
-        self, config: TableConfig, output_path: Union[str, Path], include_totals: bool = True
+        self, config: TableConfig, output_path: str | Path, include_totals: bool = True
     ) -> Path:
         """
         Export table to PDF.
@@ -171,9 +170,9 @@ class TableExporter:
             sheet_name: Sheet name
             config: TableConfig
         """
-        from openpyxl.styles import Font, PatternFill, Alignment as ExcelAlignment
+        from openpyxl.styles import Alignment as ExcelAlignment
+        from openpyxl.styles import Font, PatternFill
 
-        workbook = writer.book
         worksheet = writer.sheets[sheet_name]
 
         # KDS purple for headers
@@ -195,7 +194,7 @@ class TableExporter:
                 try:
                     if len(str(cell.value)) > max_length:
                         max_length = len(str(cell.value))
-                except:
+                except Exception:
                     pass
 
             adjusted_width = min(max_length + 2, 50)
@@ -212,9 +211,9 @@ class TableExporter:
 
 def export_table(
     config: TableConfig,
-    output_dir: Union[str, Path],
-    formats: list = ["csv", "excel"],
-    base_name: Optional[str] = None,
+    output_dir: str | Path,
+    formats: list = None,
+    base_name: str | None = None,
 ) -> dict:
     """
     Export table to multiple formats.
@@ -228,6 +227,8 @@ def export_table(
     Returns:
         Dictionary mapping format to file path
     """
+    if formats is None:
+        formats = ["csv", "excel"]
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

@@ -4,16 +4,17 @@ Pie Chart Data Builder
 Generates Recharts-compatible JSON configurations for pie and donut charts.
 """
 
-from typing import Any, List, Dict, Optional, Union
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
 from kie.base import ChartBuilder, RechartsConfig
 from kie.brand.colors import KDSColors
 from kie.charts.schema import (
+    LegendConfig,
     PieChartConfig,
     PieConfig,
-    LegendConfig,
     TooltipConfig,
 )
 
@@ -56,12 +57,12 @@ class PieChartBuilder(ChartBuilder):
 
     def build(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         name_key: str,
         value_key: str,
-        title: Optional[str] = None,
-        subtitle: Optional[str] = None,
-        colors: Optional[List[str]] = None,
+        title: str | None = None,
+        subtitle: str | None = None,
+        colors: list[str] | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """
@@ -173,11 +174,11 @@ class DonutChartBuilder(PieChartBuilder):
 
 # Convenience functions
 def pie_chart(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     name: str,
     value: str,
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    title: str | None = None,
+    output_path: Path | None = None,
     **kwargs,
 ) -> RechartsConfig:
     """
@@ -213,11 +214,11 @@ def pie_chart(
 
 
 def donut_chart(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     name: str,
     value: str,
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    title: str | None = None,
+    output_path: Path | None = None,
     **kwargs,
 ) -> RechartsConfig:
     """

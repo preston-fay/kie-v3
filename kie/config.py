@@ -4,10 +4,11 @@ KIE v3 Configuration Management
 Centralized configuration using Pydantic for validation.
 """
 
-from pathlib import Path
-from typing import Optional, Literal
-from pydantic import BaseModel, Field, field_validator
 import os
+from pathlib import Path
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class GeocodingConfig(BaseModel):
@@ -22,12 +23,12 @@ class GeocodingConfig(BaseModel):
     cache_ttl: int = 86400  # 24 hours in seconds
 
     # API Keys (optional, for paid services)
-    google_api_key: Optional[str] = None
-    mapbox_api_key: Optional[str] = None
+    google_api_key: str | None = None
+    mapbox_api_key: str | None = None
 
     @field_validator("google_api_key", "mapbox_api_key", mode="before")
     @classmethod
-    def load_from_env(cls, v: Optional[str], info) -> Optional[str]:
+    def load_from_env(cls, v: str | None, info) -> str | None:
         """Load API keys from environment if not provided."""
         if v is not None:
             return v
@@ -95,7 +96,7 @@ class KIEConfig(BaseModel):
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    log_file: Optional[Path] = None
+    log_file: Path | None = None
 
     @field_validator("output_dir", "export_dir", "data_dir")
     @classmethod
@@ -120,7 +121,7 @@ class KIEConfig(BaseModel):
 
 
 # Global configuration instance
-_config: Optional[KIEConfig] = None
+_config: KIEConfig | None = None
 
 
 def get_config() -> KIEConfig:

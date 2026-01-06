@@ -5,20 +5,20 @@ Paid geocoding service with highest quality results worldwide.
 Requires API key.
 """
 
-import aiohttp
 import time
-from typing import Optional
 from urllib.parse import urlencode
 
+import aiohttp
+
+from kie.exceptions import APIKeyError, GeocodingError
 from kie.geo.models import (
     GeocodingRequest,
     GeocodingResult,
-    GeocodingStatus,
     GeocodingService,
+    GeocodingStatus,
     ReverseGeocodingResult,
 )
 from kie.geo.utils import RateLimiter
-from kie.exceptions import GeocodingError, APIKeyError
 
 
 class GoogleMapsGeocoder:

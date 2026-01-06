@@ -4,17 +4,18 @@ Validation Pipeline Integration
 Integrates validation into the build pipeline to enforce safety checks.
 """
 
-from typing import Optional, List, Dict, Any, Callable
-from pathlib import Path
+from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
+from kie.validation.reports import ValidationReport, ValidationReportGenerator
 from kie.validation.validators import (
     OutputValidator,
-    ValidationResult,
     validate_output,
 )
-from kie.validation.reports import ValidationReportGenerator, ValidationReport
 
 
 @dataclass
@@ -25,7 +26,7 @@ class ValidationConfig:
     save_reports: bool = True  # Save validation reports
     report_dir: Path = Path("project_state/validation_reports")
     auto_fix: bool = False  # Attempt automatic fixes (future)
-    custom_validators: List[Callable] = None  # User-defined validators
+    custom_validators: list[Callable] = None  # User-defined validators
 
 
 class ValidationPipeline:
@@ -35,7 +36,7 @@ class ValidationPipeline:
     Enforces safety checks before outputs reach consultants.
     """
 
-    def __init__(self, config: Optional[ValidationConfig] = None):
+    def __init__(self, config: ValidationConfig | None = None):
         """
         Initialize validation pipeline.
 
@@ -52,8 +53,8 @@ class ValidationPipeline:
     def validate_chart(
         self,
         data: pd.DataFrame,
-        chart_config: Dict[str, Any],
-        output_path: Optional[Path] = None,
+        chart_config: dict[str, Any],
+        output_path: Path | None = None,
     ) -> ValidationReport:
         """
         Validate chart output.
@@ -98,8 +99,8 @@ class ValidationPipeline:
     def validate_table(
         self,
         data: pd.DataFrame,
-        table_config: Dict[str, Any],
-        output_path: Optional[Path] = None,
+        table_config: dict[str, Any],
+        output_path: Path | None = None,
     ) -> ValidationReport:
         """
         Validate table output.
@@ -139,9 +140,9 @@ class ValidationPipeline:
 
     def validate_slide(
         self,
-        slide_config: Dict[str, Any],
-        content: Optional[str] = None,
-        output_path: Optional[Path] = None,
+        slide_config: dict[str, Any],
+        content: str | None = None,
+        output_path: Path | None = None,
     ) -> ValidationReport:
         """
         Validate PowerPoint slide.
@@ -181,8 +182,8 @@ class ValidationPipeline:
 
     def validate_dashboard(
         self,
-        components: List[Dict[str, Any]],
-        output_path: Optional[Path] = None,
+        components: list[dict[str, Any]],
+        output_path: Path | None = None,
     ) -> ValidationReport:
         """
         Validate dashboard (multiple components).
@@ -241,8 +242,8 @@ class ValidationPipeline:
 
     def validate_presentation(
         self,
-        slides: List[Dict[str, Any]],
-        output_path: Optional[Path] = None,
+        slides: list[dict[str, Any]],
+        output_path: Path | None = None,
     ) -> ValidationReport:
         """
         Validate complete PowerPoint presentation.
@@ -346,7 +347,7 @@ class ValidationPipeline:
 
         raise ValidationError(error_msg, report)
 
-    def get_pipeline_summary(self) -> Dict[str, Any]:
+    def get_pipeline_summary(self) -> dict[str, Any]:
         """
         Get summary of all validations run in this pipeline.
 
@@ -382,8 +383,8 @@ class ValidationError(Exception):
 # Convenience functions
 def validate_chart_output(
     data: pd.DataFrame,
-    chart_config: Dict[str, Any],
-    output_path: Optional[Path] = None,
+    chart_config: dict[str, Any],
+    output_path: Path | None = None,
     strict: bool = True,
 ) -> ValidationReport:
     """
@@ -407,8 +408,8 @@ def validate_chart_output(
 
 def validate_table_output(
     data: pd.DataFrame,
-    table_config: Dict[str, Any],
-    output_path: Optional[Path] = None,
+    table_config: dict[str, Any],
+    output_path: Path | None = None,
     strict: bool = True,
 ) -> ValidationReport:
     """
@@ -431,9 +432,9 @@ def validate_table_output(
 
 
 def validate_slide_output(
-    slide_config: Dict[str, Any],
-    content: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    slide_config: dict[str, Any],
+    content: str | None = None,
+    output_path: Path | None = None,
     strict: bool = True,
 ) -> ValidationReport:
     """

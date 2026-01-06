@@ -4,9 +4,10 @@ Table Schema Definitions
 Pydantic models for table configurations consumed by React components.
 """
 
-from typing import Dict, Any, List, Optional, Literal, Union
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
 
 
 class ColumnType(str, Enum):
@@ -83,7 +84,7 @@ class DateFormat(BaseModel):
     """Date formatting options."""
 
     format: str = "MM/DD/YYYY"  # Moment.js format string
-    timezone: Optional[str] = None
+    timezone: str | None = None
 
 
 class ConditionalFormat(BaseModel):
@@ -93,24 +94,24 @@ class ConditionalFormat(BaseModel):
     column: str
 
     # For COLOR_SCALE and DATA_BARS
-    min_value: Optional[float] = None
-    max_value: Optional[float] = None
-    min_color: Optional[str] = None
-    max_color: Optional[str] = None
-    mid_color: Optional[str] = None
+    min_value: float | None = None
+    max_value: float | None = None
+    min_color: str | None = None
+    max_color: str | None = None
+    mid_color: str | None = None
 
     # For ICONS
-    icon_set: Optional[Literal["arrows", "traffic_lights", "stars", "flags"]] = None
+    icon_set: Literal["arrows", "traffic_lights", "stars", "flags"] | None = None
 
     # For THRESHOLD
-    threshold: Optional[float] = None
-    operator: Optional[Literal["gt", "gte", "lt", "lte", "eq", "neq"]] = None
-    color: Optional[str] = None
-    background_color: Optional[str] = None
-    font_weight: Optional[Literal["normal", "bold"]] = None
+    threshold: float | None = None
+    operator: Literal["gt", "gte", "lt", "lte", "eq", "neq"] | None = None
+    color: str | None = None
+    background_color: str | None = None
+    font_weight: Literal["normal", "bold"] | None = None
 
     # For HIGHLIGHT
-    highlight_color: Optional[str] = None
+    highlight_color: str | None = None
 
 
 class SparklineConfig(BaseModel):
@@ -118,7 +119,7 @@ class SparklineConfig(BaseModel):
 
     type: Literal["line", "bar", "area"] = "line"
     data_key: str  # Key in row data containing array of values
-    color: Optional[str] = None
+    color: str | None = None
     width: int = 100
     height: int = 30
     show_tooltip: bool = True
@@ -130,9 +131,9 @@ class ColumnConfig(BaseModel):
     key: str  # Data key
     header: str  # Display name
     type: ColumnType = ColumnType.TEXT
-    width: Optional[int] = None  # Fixed width in pixels
+    width: int | None = None  # Fixed width in pixels
     min_width: int = 100
-    max_width: Optional[int] = None
+    max_width: int | None = None
     alignment: Alignment = Alignment.LEFT
     sortable: bool = True
     filterable: bool = True
@@ -141,22 +142,22 @@ class ColumnConfig(BaseModel):
     frozen: bool = False  # Pin to left/right
 
     # Formatting
-    number_format: Optional[NumberFormat] = None
-    currency_format: Optional[CurrencyFormat] = None
-    percentage_format: Optional[PercentageFormat] = None
-    date_format: Optional[DateFormat] = None
+    number_format: NumberFormat | None = None
+    currency_format: CurrencyFormat | None = None
+    percentage_format: PercentageFormat | None = None
+    date_format: DateFormat | None = None
 
     # Conditional formatting
-    conditional_formats: List[ConditionalFormat] = Field(default_factory=list)
+    conditional_formats: list[ConditionalFormat] = Field(default_factory=list)
 
     # Sparkline (for SPARKLINE type)
-    sparkline_config: Optional[SparklineConfig] = None
+    sparkline_config: SparklineConfig | None = None
 
     # Custom cell renderer
-    cell_renderer: Optional[str] = None  # Name of custom renderer function
+    cell_renderer: str | None = None  # Name of custom renderer function
 
     # Footer aggregation
-    footer_aggregate: Optional[Literal["sum", "avg", "min", "max", "count"]] = None
+    footer_aggregate: Literal["sum", "avg", "min", "max", "count"] | None = None
 
 
 class PaginationConfig(BaseModel):
@@ -164,7 +165,7 @@ class PaginationConfig(BaseModel):
 
     enabled: bool = True
     page_size: int = 25
-    page_size_options: List[int] = Field(default_factory=lambda: [10, 25, 50, 100])
+    page_size_options: list[int] = Field(default_factory=lambda: [10, 25, 50, 100])
     show_page_size_selector: bool = True
 
 
@@ -180,7 +181,7 @@ class FilterConfig(BaseModel):
 
     column: str
     operator: Literal["contains", "equals", "gt", "gte", "lt", "lte", "between", "in"]
-    value: Union[str, int, float, List[Any]]
+    value: str | int | float | list[Any]
 
 
 class TableStyle(BaseModel):
@@ -190,8 +191,8 @@ class TableStyle(BaseModel):
     hover_highlight: bool = True
     bordered: bool = False
     compact: bool = False
-    header_background: Optional[str] = None
-    header_text_color: Optional[str] = None
+    header_background: str | None = None
+    header_text_color: str | None = None
     row_height: int = 48
     font_size: int = 14
 
@@ -200,7 +201,7 @@ class ExportConfig(BaseModel):
     """Export configuration."""
 
     enabled: bool = True
-    formats: List[Literal["csv", "excel", "pdf", "json"]] = Field(
+    formats: list[Literal["csv", "excel", "pdf", "json"]] = Field(
         default_factory=lambda: ["csv", "excel"]
     )
     filename: str = "table_export"
@@ -212,19 +213,19 @@ class TableConfig(BaseModel):
     """Complete table configuration."""
 
     # Metadata
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
 
     # Columns
-    columns: List[ColumnConfig]
+    columns: list[ColumnConfig]
 
     # Data
-    data: List[Dict[str, Any]]
+    data: list[dict[str, Any]]
 
     # Features
     pagination: PaginationConfig = Field(default_factory=PaginationConfig)
-    initial_sort: Optional[List[SortConfig]] = None
-    initial_filters: Optional[List[FilterConfig]] = None
+    initial_sort: list[SortConfig] | None = None
+    initial_filters: list[FilterConfig] | None = None
 
     # Styling
     style: TableStyle = Field(default_factory=TableStyle)
@@ -242,19 +243,19 @@ class TableConfig(BaseModel):
 
     # Expandable rows
     expandable: bool = False
-    expand_render: Optional[str] = None  # Custom renderer for expanded content
+    expand_render: str | None = None  # Custom renderer for expanded content
 
     # Totals row
     show_totals_row: bool = False
     totals_label: str = "Total"
 
     # Theme (auto-populated from global theme)
-    theme_mode: Optional[Literal["dark", "light"]] = None
+    theme_mode: Literal["dark", "light"] | None = None
 
 
 class TableResponse(BaseModel):
     """Response from table builder."""
 
     config: TableConfig
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    warnings: List[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)

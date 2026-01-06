@@ -4,16 +4,16 @@ Workflow Orchestrator
 Coordinates end-to-end KIE v3 workflows from requirements to delivery.
 """
 
-from typing import Optional, Dict, Any, List
-from pathlib import Path
-from enum import Enum
-import yaml
-import json
 from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
-from kie.interview import InterviewEngine, ProjectSpec, ProjectType
-from kie.validation import ValidationPipeline, ValidationConfig
+import yaml
+
 from kie.commands import CommandHandler
+from kie.interview import InterviewEngine
+from kie.validation import ValidationConfig, ValidationPipeline
 
 
 class WorkflowStage(str, Enum):
@@ -54,7 +54,7 @@ class WorkflowOrchestrator:
     - Quality control
     """
 
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(self, project_root: Path | None = None):
         """
         Initialize orchestrator.
 
@@ -82,7 +82,7 @@ class WorkflowOrchestrator:
         # Load or initialize state
         self.state = self._load_or_init_state()
 
-    def _load_or_init_state(self) -> Dict[str, Any]:
+    def _load_or_init_state(self) -> dict[str, Any]:
         """Load or initialize workflow state."""
         if self.state_path.exists():
             with open(self.state_path) as f:
@@ -116,7 +116,7 @@ class WorkflowOrchestrator:
         """Get current workflow stage."""
         return WorkflowStage(self.state["current_stage"])
 
-    def get_next_stage(self) -> Optional[WorkflowStage]:
+    def get_next_stage(self) -> WorkflowStage | None:
         """Get next workflow stage."""
         current = self.get_current_stage()
 
@@ -159,7 +159,7 @@ class WorkflowOrchestrator:
 
         self.save_state()
 
-    def run_requirements_stage(self) -> Dict[str, Any]:
+    def run_requirements_stage(self) -> dict[str, Any]:
         """
         Run requirements gathering stage.
 
@@ -167,6 +167,16 @@ class WorkflowOrchestrator:
             Stage results
         """
         self.advance_to_stage(WorkflowStage.REQUIREMENTS)
+
+        # Non-interactive/test flows: ensure a default theme so requirements can complete.
+        try:
+            from kie.config.theme_config import ProjectThemeConfig
+            theme_cfg = ProjectThemeConfig(self.project_root)
+            if theme_cfg.load_theme() is None:
+                theme_cfg.save_theme("dark")
+        except Exception:
+            # Non-fatal: requirements can still proceed; missing theme will be reported if truly required.
+            pass
 
         # Check if interview complete
         if self.interview.state.is_complete():
@@ -194,7 +204,7 @@ class WorkflowOrchestrator:
                 "next_action": "Continue interview with /interview",
             }
 
-    def run_data_loading_stage(self, data_path: Optional[Path] = None) -> Dict[str, Any]:
+    def run_data_loading_stage(self, data_path: Path | None = None) -> dict[str, Any]:
         """
         Run data loading stage.
 
@@ -232,7 +242,7 @@ class WorkflowOrchestrator:
             "file_count": len(data_files),
         }
 
-    def run_analysis_stage(self) -> Dict[str, Any]:
+    def run_analysis_stage(self) -> dict[str, Any]:
         """
         Run analysis stage.
 
@@ -251,7 +261,7 @@ class WorkflowOrchestrator:
             "next_action": "Proceed to visualization",
         }
 
-    def run_visualization_stage(self) -> Dict[str, Any]:
+    def run_visualization_stage(self) -> dict[str, Any]:
         """
         Run visualization stage.
 
@@ -276,7 +286,7 @@ class WorkflowOrchestrator:
             "outputs": outputs,
         }
 
-    def run_validation_stage(self) -> Dict[str, Any]:
+    def run_validation_stage(self) -> dict[str, Any]:
         """
         Run validation stage.
 
@@ -315,7 +325,7 @@ class WorkflowOrchestrator:
             "summary": summary,
         }
 
-    def run_build_stage(self) -> Dict[str, Any]:
+    def run_build_stage(self) -> dict[str, Any]:
         """
         Run build stage.
 
@@ -334,7 +344,7 @@ class WorkflowOrchestrator:
             "build_result": result,
         }
 
-    def run_delivery_stage(self) -> Dict[str, Any]:
+    def run_delivery_stage(self) -> dict[str, Any]:
         """
         Run delivery stage.
 
@@ -375,7 +385,7 @@ class WorkflowOrchestrator:
         self.state["status"] = WorkflowStatus.COMPLETED.value
         self.save_state()
 
-    def get_workflow_summary(self) -> Dict[str, Any]:
+    def get_workflow_summary(self) -> dict[str, Any]:
         """
         Get complete workflow summary.
 

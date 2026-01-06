@@ -4,11 +4,11 @@ KIE v3 Base Classes
 Abstract base classes for charts, geocoders, exporters, etc.
 """
 
-from abc import ABC, abstractmethod
-from pathlib import Path
-from typing import Any, Dict, Optional, List
-from dataclasses import dataclass
 import json
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -16,12 +16,12 @@ class RechartsConfig:
     """Base configuration for Recharts visualizations."""
 
     chart_type: str
-    data: List[Dict[str, Any]]
-    config: Dict[str, Any]
-    title: Optional[str] = None
-    subtitle: Optional[str] = None
+    data: list[dict[str, Any]]
+    config: dict[str, Any]
+    title: str | None = None
+    subtitle: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "type": self.chart_type,
@@ -31,7 +31,7 @@ class RechartsConfig:
             "subtitle": self.subtitle,
         }
 
-    def to_json(self, path: Optional[Path] = None, indent: int = 2) -> str:
+    def to_json(self, path: Path | None = None, indent: int = 2) -> str:
         """
         Convert to JSON string.
 
@@ -108,19 +108,19 @@ class GeocodingResult:
     """Result from a geocoding operation."""
 
     address: str
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    fips_code: Optional[str] = None
+    latitude: float | None = None
+    longitude: float | None = None
+    fips_code: str | None = None
     confidence: float = 0.0
-    service: Optional[str] = None
-    error: Optional[str] = None
+    service: str | None = None
+    error: str | None = None
 
     @property
     def success(self) -> bool:
         """Check if geocoding was successful."""
         return self.latitude is not None and self.longitude is not None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "address": self.address,
@@ -164,9 +164,9 @@ class Geocoder(ABC):
     async def geocode(
         self,
         address: str,
-        city: Optional[str] = None,
-        state: Optional[str] = None,
-        zip_code: Optional[str] = None,
+        city: str | None = None,
+        state: str | None = None,
+        zip_code: str | None = None,
         country: str = "US",
     ) -> GeocodingResult:
         """
@@ -201,8 +201,8 @@ class Geocoder(ABC):
         pass
 
     async def geocode_batch(
-        self, addresses: List[str], batch_size: int = 100
-    ) -> List[Optional[GeocodingResult]]:
+        self, addresses: list[str], batch_size: int = 100
+    ) -> list[GeocodingResult | None]:
         """
         Geocode multiple addresses in batches.
 
@@ -213,7 +213,7 @@ class Geocoder(ABC):
         Returns:
             List of GeocodingResults (None for failures)
         """
-        results: List[Optional[GeocodingResult]] = []
+        results: list[GeocodingResult | None] = []
 
         for i in range(0, len(addresses), batch_size):
             batch = addresses[i : i + batch_size]
@@ -241,7 +241,7 @@ class Exporter(ABC):
 
     @abstractmethod
     def export(
-        self, inputs: Dict[str, Any], output_path: Path, **kwargs
+        self, inputs: dict[str, Any], output_path: Path, **kwargs
     ) -> Path:
         """
         Export deliverable.
@@ -265,7 +265,7 @@ class BrandValidator(ABC):
     """
 
     @abstractmethod
-    def validate(self, artifact: Any) -> Dict[str, Any]:
+    def validate(self, artifact: Any) -> dict[str, Any]:
         """
         Validate artifact against brand guidelines.
 

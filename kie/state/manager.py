@@ -4,13 +4,14 @@ State Management System
 Centralized state tracking for KIE v3 projects.
 """
 
-from typing import Optional, Dict, Any, List
-from pathlib import Path
-from enum import Enum
-import yaml
 import json
-from datetime import datetime
 from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any
+
+import yaml
 
 
 class StateType(str, Enum):
@@ -29,8 +30,8 @@ class StateSnapshot:
 
     timestamp: datetime
     state_type: StateType
-    data: Dict[str, Any]
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class StateManager:
@@ -47,7 +48,7 @@ class StateManager:
     All state persisted to project_state/ directory.
     """
 
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(self, project_root: Path | None = None):
         """
         Initialize state manager.
 
@@ -71,7 +72,7 @@ class StateManager:
         self.history_dir = self.state_dir / "history"
         self.history_dir.mkdir(exist_ok=True)
 
-    def load_state(self, state_type: StateType) -> Optional[Dict[str, Any]]:
+    def load_state(self, state_type: StateType) -> dict[str, Any] | None:
         """
         Load state by type.
 
@@ -96,7 +97,7 @@ class StateManager:
     def save_state(
         self,
         state_type: StateType,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         create_snapshot: bool = True,
     ):
         """
@@ -125,7 +126,7 @@ class StateManager:
         if create_snapshot:
             self.create_snapshot(state_type, data)
 
-    def create_snapshot(self, state_type: StateType, data: Dict[str, Any]):
+    def create_snapshot(self, state_type: StateType, data: dict[str, Any]):
         """
         Create historical snapshot.
 
@@ -140,27 +141,27 @@ class StateManager:
         with open(snapshot_path, "w") as f:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
-    def get_project_state(self) -> Optional[Dict[str, Any]]:
+    def get_project_state(self) -> dict[str, Any] | None:
         """Get project spec state."""
         return self.load_state(StateType.PROJECT)
 
-    def get_interview_state(self) -> Optional[Dict[str, Any]]:
+    def get_interview_state(self) -> dict[str, Any] | None:
         """Get interview state."""
         return self.load_state(StateType.INTERVIEW)
 
-    def get_workflow_state(self) -> Optional[Dict[str, Any]]:
+    def get_workflow_state(self) -> dict[str, Any] | None:
         """Get workflow state."""
         return self.load_state(StateType.WORKFLOW)
 
-    def get_build_state(self) -> Optional[Dict[str, Any]]:
+    def get_build_state(self) -> dict[str, Any] | None:
         """Get build state."""
         return self.load_state(StateType.BUILD)
 
-    def get_validation_state(self) -> Optional[Dict[str, Any]]:
+    def get_validation_state(self) -> dict[str, Any] | None:
         """Get validation state."""
         return self.load_state(StateType.VALIDATION)
 
-    def get_all_states(self) -> Dict[StateType, Optional[Dict[str, Any]]]:
+    def get_all_states(self) -> dict[StateType, dict[str, Any] | None]:
         """
         Get all states.
 
@@ -169,7 +170,7 @@ class StateManager:
         """
         return {state_type: self.load_state(state_type) for state_type in StateType}
 
-    def get_state_summary(self) -> Dict[str, Any]:
+    def get_state_summary(self) -> dict[str, Any]:
         """
         Get summary of all states.
 
@@ -222,7 +223,7 @@ class StateManager:
 
         return summary
 
-    def reset_state(self, state_type: Optional[StateType] = None):
+    def reset_state(self, state_type: StateType | None = None):
         """
         Reset state(s).
 
@@ -250,8 +251,8 @@ class StateManager:
                 self.reset_state(state_type)
 
     def get_history(
-        self, state_type: Optional[StateType] = None
-    ) -> List[Dict[str, Any]]:
+        self, state_type: StateType | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get state history.
 
@@ -281,7 +282,7 @@ class StateManager:
 
             try:
                 timestamp = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
-            except:
+            except Exception:
                 timestamp = datetime.fromtimestamp(snapshot_path.stat().st_mtime)
 
             snapshots.append(
@@ -294,7 +295,7 @@ class StateManager:
 
         return snapshots
 
-    def export_complete_state(self, output_path: Optional[Path] = None) -> Path:
+    def export_complete_state(self, output_path: Path | None = None) -> Path:
         """
         Export complete project state.
 
@@ -337,7 +338,7 @@ class StateManager:
             if data:
                 self.save_state(StateType(state_type), data, create_snapshot=False)
 
-    def watch_state_changes(self) -> Dict[str, datetime]:
+    def watch_state_changes(self) -> dict[str, datetime]:
         """
         Get last modified times for all states.
 
@@ -353,7 +354,7 @@ class StateManager:
 
         return changes
 
-    def get_state_health(self) -> Dict[str, Any]:
+    def get_state_health(self) -> dict[str, Any]:
         """
         Get state health check.
 

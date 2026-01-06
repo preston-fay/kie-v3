@@ -2,11 +2,9 @@
 Project management endpoints.
 """
 
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
-from pathlib import Path
-from datetime import datetime
 
 router = APIRouter()
 
@@ -17,7 +15,7 @@ class Project(BaseModel):
     id: str
     name: str
     type: str
-    client: Optional[str] = None
+    client: str | None = None
     created_at: str
     updated_at: str
     kie_version: str = "v3"
@@ -26,7 +24,7 @@ class Project(BaseModel):
 class ProjectListResponse(BaseModel):
     """Response model for project list."""
 
-    projects: List[Project]
+    projects: list[Project]
     total: int
 
 

@@ -2,10 +2,10 @@
 Health check endpoints.
 """
 
-from fastapi import APIRouter
-from datetime import datetime
-from pathlib import Path
 import sys
+from datetime import datetime
+
+from fastapi import APIRouter
 
 router = APIRouter()
 

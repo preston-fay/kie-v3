@@ -4,12 +4,11 @@ Smart Formatting Utilities for Charts
 Automatic number formatting, label generation, and data transformations.
 """
 
-from typing import Union, List, Optional
 import re
 
 
 def format_number(
-    value: Union[int, float],
+    value: int | float,
     precision: int = 1,
     prefix: str = "",
     suffix: str = "",
@@ -57,7 +56,7 @@ def format_number(
 
 
 def format_currency(
-    value: Union[int, float],
+    value: int | float,
     currency: str = "$",
     precision: int = 1,
     abbreviate: bool = True,
@@ -84,7 +83,7 @@ def format_currency(
 
 
 def format_percentage(
-    value: Union[int, float],
+    value: int | float,
     precision: int = 1,
     multiply_by_100: bool = False,
 ) -> str:
@@ -111,7 +110,7 @@ def format_percentage(
 
 
 def format_change(
-    value: Union[int, float],
+    value: int | float,
     precision: int = 1,
     show_sign: bool = True,
     as_percentage: bool = False,
@@ -148,7 +147,7 @@ def format_change(
         return f"{value:.{precision}f}{suffix}"
 
 
-def generate_label(text: str, max_length: Optional[int] = None) -> str:
+def generate_label(text: str, max_length: int | None = None) -> str:
     """
     Generate a clean label from text.
 
@@ -187,9 +186,9 @@ def generate_label(text: str, max_length: Optional[int] = None) -> str:
 
 
 def calculate_percentages(
-    values: List[Union[int, float]],
+    values: list[int | float],
     precision: int = 1,
-) -> List[float]:
+) -> list[float]:
     """
     Calculate percentages for a list of values.
 
@@ -213,7 +212,7 @@ def calculate_percentages(
     return [round((v / total) * 100, precision) for v in values]
 
 
-def smart_round(value: Union[int, float], significant_digits: int = 3) -> Union[int, float]:
+def smart_round(value: int | float, significant_digits: int = 3) -> int | float:
     """
     Round to significant digits for cleaner charts.
 
@@ -233,7 +232,7 @@ def smart_round(value: Union[int, float], significant_digits: int = 3) -> Union[
     if value == 0:
         return 0
 
-    from math import log10, floor
+    from math import floor, log10
 
     magnitude = floor(log10(abs(value)))
     factor = 10 ** (significant_digits - magnitude - 1)
@@ -241,7 +240,7 @@ def smart_round(value: Union[int, float], significant_digits: int = 3) -> Union[
 
 
 def format_axis_label(
-    value: Union[int, float],
+    value: int | float,
     axis_type: str = "numeric",
 ) -> str:
     """

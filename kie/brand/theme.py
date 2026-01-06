@@ -6,8 +6,8 @@ All outputs (charts, maps, slides) respect theme preference.
 """
 
 from dataclasses import dataclass
-from typing import Literal, Dict, List
 from enum import Enum
+from typing import Literal
 
 
 class ThemeMode(str, Enum):
@@ -41,7 +41,7 @@ class ThemeColors:
     brand_light: str = "#E0D2FA"
 
     # Chart colors (10 official KDS colors - used in order)
-    chart_colors: List[str] = None
+    chart_colors: list[str] = None
 
     # Semantic colors
     success: str = "#10B981"  # Green for success (exception to no-green rule)
@@ -181,7 +181,7 @@ class ThemeManager:
         else:
             return self.colors.border_secondary
 
-    def get_chart_colors(self, count: int = None) -> List[str]:
+    def get_chart_colors(self, count: int = None) -> list[str]:
         """
         Get chart colors for current theme.
 
@@ -280,7 +280,7 @@ class ThemeManager:
         else:
             return "CartoDB positron"
 
-    def get_css_variables(self) -> Dict[str, str]:
+    def get_css_variables(self) -> dict[str, str]:
         """
         Get CSS variables for web components.
 
@@ -305,7 +305,7 @@ class ThemeManager:
             "--kds-info": self.colors.info,
         }
 
-    def to_dict(self) -> Dict[str, any]:
+    def to_dict(self) -> dict[str, any]:
         """
         Export theme configuration as dictionary.
 

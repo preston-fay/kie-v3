@@ -4,16 +4,16 @@ KIE v3 Insights Module
 Automatic insight extraction and statistical analysis.
 """
 
+from .engine import InsightEngine
 from .schema import (
-    Insight,
-    InsightType,
-    InsightSeverity,
-    InsightCategory,
     Evidence,
+    Insight,
     InsightCatalog,
+    InsightCategory,
+    InsightSeverity,
+    InsightType,
 )
 from .statistical import StatisticalAnalyzer
-from .engine import InsightEngine
 
 __all__ = [
     "Insight",

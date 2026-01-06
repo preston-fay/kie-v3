@@ -5,7 +5,6 @@ Centralizes all question definitions and routing logic for different project typ
 Supports express (short) and full (detailed) interview modes.
 """
 
-from typing import Dict, List, Optional
 from kie.interview.schema import ProjectType
 
 
@@ -61,7 +60,7 @@ class QuestionBank:
     @classmethod
     def get_question_sequence(
         cls, project_type: ProjectType, mode: str
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Build the question sequence for a given project type and mode.
 
@@ -114,7 +113,7 @@ class QuestionBank:
         return sequence
 
     @classmethod
-    def get_question_text(cls, question_key: str, project_type: Optional[ProjectType] = None) -> str:
+    def get_question_text(cls, question_key: str, project_type: ProjectType | None = None) -> str:
         """
         Get the question text for a given question key.
 
@@ -142,6 +141,6 @@ class QuestionBank:
         return project_type in cls.SUPPORTED_TYPES
 
     @classmethod
-    def get_redirect_message(cls, project_type: ProjectType) -> Optional[str]:
+    def get_redirect_message(cls, project_type: ProjectType) -> str | None:
         """Get redirect message for unsupported project types."""
         return cls.UNSUPPORTED_TYPES.get(project_type)

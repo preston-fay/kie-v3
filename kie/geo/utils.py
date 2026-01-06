@@ -5,10 +5,11 @@ Helper functions for rate limiting, caching, and address normalization.
 """
 
 import asyncio
-import time
 import hashlib
-from typing import Optional, Dict, Any
+import time
 from functools import wraps
+from typing import Any
+
 import pandas as pd
 
 
@@ -66,7 +67,7 @@ class GeocodingCache:
         Args:
             max_size: Maximum number of cached entries
         """
-        self.cache: Dict[str, Any] = {}
+        self.cache: dict[str, Any] = {}
         self.max_size = max_size
         self.hits = 0
         self.misses = 0
@@ -80,7 +81,7 @@ class GeocodingCache:
         key_string = "|".join(parts)
         return hashlib.md5(key_string.encode()).hexdigest()
 
-    def get(self, address: str, **kwargs) -> Optional[Any]:
+    def get(self, address: str, **kwargs) -> Any | None:
         """Get cached result."""
         key = self._make_key(address, **kwargs)
         if key in self.cache:
@@ -177,7 +178,7 @@ def has_geocoding(df: pd.DataFrame) -> bool:
     return has_lat and has_lon
 
 
-def extract_coordinates(df: pd.DataFrame) -> Optional[tuple]:
+def extract_coordinates(df: pd.DataFrame) -> tuple | None:
     """
     Extract latitude and longitude columns from DataFrame.
 
@@ -248,7 +249,7 @@ def calculate_distance(
     Returns:
         Distance in kilometers
     """
-    from math import radians, sin, cos, sqrt, atan2
+    from math import atan2, cos, radians, sin, sqrt
 
     # Earth radius in kilometers
     R = 6371.0
@@ -293,7 +294,7 @@ def format_geocoding_stats(
     rate_per_sec = total / duration if duration > 0 else 0
 
     lines = [
-        f"Geocoding Results:",
+        "Geocoding Results:",
         f"  Total: {total}",
         f"  ✅ Success: {success} ({success_rate:.1f}%)",
         f"  ❌ Failed: {failed}",

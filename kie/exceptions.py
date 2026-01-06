@@ -4,13 +4,13 @@ KIE v3 Exception Classes
 Custom exceptions for better error handling and debugging.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any
 
 
 class KIEError(Exception):
     """Base exception for all KIE v3 errors."""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         self.message = message
         self.details = details or {}
         super().__init__(self.message)

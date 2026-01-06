@@ -5,20 +5,20 @@ Free geocoding service using OpenStreetMap data.
 Rate limit: 1 request/second for free tier.
 """
 
-import aiohttp
 import time
-from typing import Optional
 from urllib.parse import urlencode
 
+import aiohttp
+
+from kie.exceptions import GeocodingError, GeocodingRateLimitError
 from kie.geo.models import (
     GeocodingRequest,
     GeocodingResult,
-    GeocodingStatus,
     GeocodingService,
+    GeocodingStatus,
     ReverseGeocodingResult,
 )
 from kie.geo.utils import RateLimiter, normalize_address
-from kie.exceptions import GeocodingError, GeocodingRateLimitError
 
 
 class NominatimGeocoder:

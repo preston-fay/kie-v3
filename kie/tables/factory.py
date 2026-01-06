@@ -4,14 +4,15 @@ Table Factory
 Unified interface for creating tables with smart defaults.
 """
 
-from typing import Union, List, Dict, Any, Optional
-import pandas as pd
 from pathlib import Path
+from typing import Any
+
+import pandas as pd
 
 from kie.tables.builder import (
-    TableBuilder,
     ComparisonTableBuilder,
     FinancialTableBuilder,
+    TableBuilder,
 )
 from kie.tables.schema import TableConfig
 
@@ -25,8 +26,8 @@ class TableFactory:
 
     @staticmethod
     def create(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
-        title: Optional[str] = None,
+        data: pd.DataFrame | list[dict[str, Any]],
+        title: str | None = None,
         table_type: str = "standard",
         **kwargs,
     ) -> TableConfig:
@@ -51,8 +52,8 @@ class TableFactory:
 
     @staticmethod
     def standard(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
-        title: Optional[str] = None,
+        data: pd.DataFrame | list[dict[str, Any]],
+        title: str | None = None,
         **kwargs,
     ) -> TableConfig:
         """
@@ -71,10 +72,10 @@ class TableFactory:
 
     @staticmethod
     def comparison(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         entity_column: str,
-        comparison_columns: List[str],
-        title: Optional[str] = None,
+        comparison_columns: list[str],
+        title: str | None = None,
         **kwargs,
     ) -> TableConfig:
         """
@@ -101,10 +102,10 @@ class TableFactory:
 
     @staticmethod
     def financial(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
-        title: Optional[str] = None,
-        currency_columns: Optional[List[str]] = None,
-        percentage_columns: Optional[List[str]] = None,
+        data: pd.DataFrame | list[dict[str, Any]],
+        title: str | None = None,
+        currency_columns: list[str] | None = None,
+        percentage_columns: list[str] | None = None,
         **kwargs,
     ) -> TableConfig:
         """
@@ -131,11 +132,11 @@ class TableFactory:
 
     @staticmethod
     def top_n(
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         sort_column: str,
         n: int = 10,
         ascending: bool = False,
-        title: Optional[str] = None,
+        title: str | None = None,
         **kwargs,
     ) -> TableConfig:
         """
@@ -180,7 +181,7 @@ class TableFactory:
         return config
 
     @staticmethod
-    def save_json(config: TableConfig, output_path: Union[str, Path]) -> Path:
+    def save_json(config: TableConfig, output_path: str | Path) -> Path:
         """
         Save table configuration to JSON file.
 

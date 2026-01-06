@@ -1,0 +1,13 @@
+product,region,revenue,cost,units,margin
+Widget A,North,125000,75000,450,0.40
+Widget B,North,98000,62000,320,0.37
+Widget A,South,145000,87000,520,0.40
+Widget B,South,87000,58000,280,0.33
+Widget A,East,110000,66000,410,0.40
+Widget B,East,95000,62000,300,0.35
+Widget A,West,132000,79200,480,0.40
+Widget B,West,105000,68250,350,0.35
+Widget C,North,156000,93600,580,0.40
+Widget C,South,98000,68600,380,0.30
+Widget C,East,142000,99400,520,0.30
+Widget C,West,118000,82600,430,0.30

@@ -4,18 +4,19 @@ Line Chart Data Builder
 Generates Recharts-compatible JSON configurations for line charts.
 """
 
-from typing import Any, List, Dict, Optional, Union
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
 from kie.base import ChartBuilder, RechartsConfig
 from kie.brand.colors import KDSColors
 from kie.charts.schema import (
-    LineChartConfig,
     AxisConfig,
-    LineConfig,
     DataLabelConfig,
     LegendConfig,
+    LineChartConfig,
+    LineConfig,
     TooltipConfig,
 )
 
@@ -58,12 +59,12 @@ class LineChartBuilder(ChartBuilder):
 
     def build(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         x_key: str,
-        y_keys: Union[str, List[str]],
-        title: Optional[str] = None,
-        subtitle: Optional[str] = None,
-        colors: Optional[List[str]] = None,
+        y_keys: str | list[str],
+        title: str | None = None,
+        subtitle: str | None = None,
+        colors: list[str] | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """
@@ -147,11 +148,11 @@ class LineChartBuilder(ChartBuilder):
 
 # Convenience functions
 def line_chart(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     x: str,
-    y: Union[str, List[str]],
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    y: str | list[str],
+    title: str | None = None,
+    output_path: Path | None = None,
     **kwargs,
 ) -> RechartsConfig:
     """

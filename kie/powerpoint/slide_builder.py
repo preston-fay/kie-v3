@@ -4,12 +4,13 @@ Slide Builder with KDS Templates
 Creates KDS-compliant PowerPoint slides with standard layouts.
 """
 
-from typing import Optional, List, Dict, Any
-from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-from pptx.dml.color import RGBColor
 from pathlib import Path
+from typing import Any
+
+from pptx import Presentation
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
+from pptx.util import Inches, Pt
 
 from kie.brand.theme import get_theme
 from kie.powerpoint.chart_embedder import PowerPointChartEmbedder
@@ -40,9 +41,9 @@ class SlideBuilder:
     def add_title_slide(
         self,
         title: str,
-        subtitle: Optional[str] = None,
-        author: Optional[str] = None,
-        date: Optional[str] = None,
+        subtitle: str | None = None,
+        author: str | None = None,
+        date: str | None = None,
     ):
         """
         Add title slide.
@@ -167,8 +168,8 @@ class SlideBuilder:
     def add_content_slide(
         self,
         title: str,
-        bullet_points: Optional[List[str]] = None,
-        notes: Optional[str] = None,
+        bullet_points: list[str] | None = None,
+        notes: str | None = None,
     ):
         """
         Add content slide with bullet points.
@@ -220,8 +221,8 @@ class SlideBuilder:
         self,
         title: str,
         chart_type: str,
-        data: List[Dict[str, Any]],
-        notes: Optional[str] = None,
+        data: list[dict[str, Any]],
+        notes: str | None = None,
         **chart_kwargs,
     ):
         """
@@ -277,10 +278,10 @@ class SlideBuilder:
         self,
         title: str,
         chart1_type: str,
-        chart1_data: List[Dict[str, Any]],
+        chart1_data: list[dict[str, Any]],
         chart2_type: str,
-        chart2_data: List[Dict[str, Any]],
-        notes: Optional[str] = None,
+        chart2_data: list[dict[str, Any]],
+        notes: str | None = None,
         **kwargs,
     ):
         """

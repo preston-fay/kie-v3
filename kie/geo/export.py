@@ -5,13 +5,12 @@ Export geocoded data to various formats (CSV, GeoJSON, Shapefile).
 """
 
 from pathlib import Path
-from typing import Optional, List, Dict, Any
-import pandas as pd
-import geopandas as gpd
-from shapely.geometry import Point
-import json
 
-from kie.geo.models import GeocodingResult, BatchGeocodingResult
+import geopandas as gpd
+import pandas as pd
+from shapely.geometry import Point
+
+from kie.geo.models import BatchGeocodingResult, GeocodingResult
 
 
 class GeoExporter:
@@ -61,7 +60,7 @@ class GeoExporter:
         output_path: str,
         latitude_col: str = "latitude",
         longitude_col: str = "longitude",
-        properties: Optional[List[str]] = None,
+        properties: list[str] | None = None,
     ) -> Path:
         """
         Export to GeoJSON.
@@ -140,8 +139,8 @@ class GeoExporter:
         output_path: str,
         latitude_col: str = "latitude",
         longitude_col: str = "longitude",
-        name_col: Optional[str] = None,
-        description_cols: Optional[List[str]] = None,
+        name_col: str | None = None,
+        description_cols: list[str] | None = None,
     ) -> Path:
         """
         Export to KML (Google Earth format).
@@ -176,7 +175,7 @@ class GeoExporter:
 
     def results_to_dataframe(
         self,
-        results: List[GeocodingResult],
+        results: list[GeocodingResult],
         include_metadata: bool = True,
     ) -> pd.DataFrame:
         """
@@ -267,7 +266,7 @@ class GeoExporter:
 
         # Create Point geometries
         geometry = [
-            Point(xy) for xy in zip(valid_data[longitude_col], valid_data[latitude_col])
+            Point(xy) for xy in zip(valid_data[longitude_col], valid_data[latitude_col], strict=False)
         ]
 
         # Create GeoDataFrame
@@ -422,8 +421,8 @@ class GeoExporter:
         Returns:
             DataFrame with nearest neighbors
         """
-        from sklearn.neighbors import BallTree
         import numpy as np
+        from sklearn.neighbors import BallTree
 
         # Extract coordinates
         source_coords = source_points[[latitude_col, longitude_col]].values
@@ -444,8 +443,8 @@ class GeoExporter:
 
         # Build results
         results = []
-        for i, (dist_row, idx_row) in enumerate(zip(distances_miles, indices)):
-            for j, (dist, idx) in enumerate(zip(dist_row, idx_row)):
+        for i, (dist_row, idx_row) in enumerate(zip(distances_miles, indices, strict=False)):
+            for j, (dist, idx) in enumerate(zip(dist_row, idx_row, strict=False)):
                 result = {
                     "source_index": i,
                     "target_index": idx,
@@ -467,11 +466,11 @@ class GeoExporter:
 
 
 def export_geocoding_results(
-    results: List[GeocodingResult],
+    results: list[GeocodingResult],
     output_dir: str,
-    formats: List[str] = ["csv", "geojson"],
+    formats: list[str] = None,
     base_name: str = "geocoded_data",
-) -> Dict[str, Path]:
+) -> dict[str, Path]:
     """
     Export geocoding results to multiple formats.
 
@@ -484,6 +483,8 @@ def export_geocoding_results(
     Returns:
         Dictionary mapping format to file path
     """
+    if formats is None:
+        formats = ["csv", "geojson"]
     exporter = GeoExporter()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

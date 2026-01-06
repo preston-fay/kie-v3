@@ -4,9 +4,8 @@ FIPS Code Enrichment System
 Federal Information Processing Standards (FIPS) codes for US geographic areas.
 """
 
-from typing import Optional, Dict, Tuple
-import pandas as pd
 
+import pandas as pd
 
 # US State FIPS codes (2-digit)
 STATE_FIPS = {
@@ -58,7 +57,7 @@ class FIPSEnricher:
         self.fips_to_state = FIPS_TO_STATE
         self.state_names = STATE_NAMES
 
-    def get_state_fips(self, state: str) -> Optional[str]:
+    def get_state_fips(self, state: str) -> str | None:
         """
         Get state FIPS code from state abbreviation or name.
 
@@ -79,7 +78,7 @@ class FIPSEnricher:
 
         return None
 
-    def get_state_from_fips(self, fips_code: str) -> Optional[str]:
+    def get_state_from_fips(self, fips_code: str) -> str | None:
         """
         Get state abbreviation from FIPS code.
 
@@ -95,7 +94,7 @@ class FIPSEnricher:
 
         return self.fips_to_state.get(fips_code)
 
-    def parse_fips(self, fips_code: str) -> Tuple[Optional[str], Optional[str]]:
+    def parse_fips(self, fips_code: str) -> tuple[str | None, str | None]:
         """
         Parse full FIPS code into state and county components.
 
@@ -167,7 +166,7 @@ class FIPSEnricher:
 
         return True
 
-    def get_all_state_fips(self) -> Dict[str, str]:
+    def get_all_state_fips(self) -> dict[str, str]:
         """Get dictionary of all state abbreviations to FIPS codes."""
         return self.state_fips.copy()
 
@@ -176,7 +175,7 @@ class FIPSEnricher:
         return sorted(self.state_fips.keys())
 
 
-def zip_to_fips_approximation(zip_code: str) -> Optional[str]:
+def zip_to_fips_approximation(zip_code: str) -> str | None:
     """
     Approximate FIPS state code from ZIP code.
 

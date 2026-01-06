@@ -32,19 +32,18 @@ Usage:
         interview.export_spec_yaml()
 """
 
+from kie.interview.engine import InterviewEngine
 from kie.interview.schema import (
+    ChartSpec,
+    DataSource,
+    DeliverableType,
+    InterviewState,
+    ProjectPreferences,
     ProjectSpec,
     ProjectType,
-    DeliverableType,
-    DataSource,
-    ChartSpec,
     SlideSpec,
     ThemePreferences,
-    ProjectPreferences,
-    InterviewState,
 )
-
-from kie.interview.engine import InterviewEngine
 
 __all__ = [
     # Engine

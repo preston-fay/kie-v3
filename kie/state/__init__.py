@@ -38,8 +38,8 @@ Usage:
 
 from kie.state.manager import (
     StateManager,
-    StateType,
     StateSnapshot,
+    StateType,
 )
 
 __all__ = [

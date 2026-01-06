@@ -5,22 +5,21 @@ Intelligent multi-service geocoding with fallback strategy.
 """
 
 import asyncio
-from typing import List, Optional
-from datetime import datetime
 import os
+from datetime import datetime
 
+from kie.exceptions import APIKeyError
 from kie.geo.models import (
+    BatchGeocodingResult,
     GeocodingRequest,
     GeocodingResult,
     GeocodingStatus,
-    BatchGeocodingResult,
 )
-from kie.geo.services.nominatim import NominatimGeocoder
 from kie.geo.services.census import CensusGeocoder
 from kie.geo.services.google import GoogleMapsGeocoder
 from kie.geo.services.mapbox import MapboxGeocoder
+from kie.geo.services.nominatim import NominatimGeocoder
 from kie.geo.utils import GeocodingCache, format_geocoding_stats
-from kie.exceptions import APIKeyError
 
 
 class GeocodingPipeline:
@@ -37,11 +36,11 @@ class GeocodingPipeline:
     def __init__(
         self,
         preferred_service: str = "nominatim",
-        fallback_services: Optional[List[str]] = None,
+        fallback_services: list[str] | None = None,
         confidence_threshold: float = 0.75,
         enable_cache: bool = True,
-        google_api_key: Optional[str] = None,
-        mapbox_access_token: Optional[str] = None,
+        google_api_key: str | None = None,
+        mapbox_access_token: str | None = None,
     ):
         """
         Initialize geocoding pipeline.
@@ -146,7 +145,7 @@ class GeocodingPipeline:
                 if best_result is None or (result.success and result.confidence > best_result.confidence):
                     best_result = result
 
-            except Exception as e:
+            except Exception:
                 # Service failed, try next one
                 continue
 
@@ -171,7 +170,7 @@ class GeocodingPipeline:
 
     async def geocode_batch(
         self,
-        requests: List[GeocodingRequest],
+        requests: list[GeocodingRequest],
         batch_size: int = 100,
         show_progress: bool = True,
     ) -> BatchGeocodingResult:
@@ -252,7 +251,7 @@ class GeocodingPipeline:
 
         return batch_result
 
-    def get_available_services(self) -> List[str]:
+    def get_available_services(self) -> list[str]:
         """Get list of available geocoding services."""
         return list(self.geocoders.keys())
 

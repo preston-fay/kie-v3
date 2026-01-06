@@ -5,10 +5,9 @@ Core data structures for insights, evidence, and catalogs.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -45,10 +44,10 @@ class Evidence:
     evidence_type: str  # "chart", "metric", "data_point", "comparison", "statistic"
     reference: str  # Path to chart or metric identifier
     value: Any  # The actual value/data
-    label: Optional[str] = None  # Human-readable label
+    label: str | None = None  # Human-readable label
     confidence: float = 1.0  # Statistical confidence if applicable
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "type": self.evidence_type,
             "reference": self.reference,
@@ -58,7 +57,7 @@ class Evidence:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Evidence":
+    def from_dict(cls, data: dict[str, Any]) -> "Evidence":
         return cls(
             evidence_type=data.get("type", "metric"),
             reference=data.get("reference", ""),
@@ -77,13 +76,13 @@ class Insight:
     insight_type: InsightType = InsightType.COMPARISON
     severity: InsightSeverity = InsightSeverity.SUPPORTING
     category: InsightCategory = InsightCategory.FINDING
-    evidence: List[Evidence] = field(default_factory=list)
+    evidence: list[Evidence] = field(default_factory=list)
     suggested_slide_type: str = "content"
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
     confidence: float = 0.8  # Overall confidence 0-1
-    statistical_significance: Optional[float] = None  # p-value if applicable
+    statistical_significance: float | None = None  # p-value if applicable
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "headline": self.headline,
@@ -99,7 +98,7 @@ class Insight:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Insight":
+    def from_dict(cls, data: dict[str, Any]) -> "Insight":
         return cls(
             id=data["id"],
             headline=data["headline"],
@@ -127,11 +126,11 @@ class InsightCatalog:
     """Collection of insights with narrative structure."""
     generated_at: str
     business_question: str
-    insights: List[Insight]
-    narrative_arc: Dict[str, Any] = field(default_factory=dict)
-    data_summary: Dict[str, Any] = field(default_factory=dict)
+    insights: list[Insight]
+    narrative_arc: dict[str, Any] = field(default_factory=dict)
+    data_summary: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "generated_at": self.generated_at,
             "business_question": self.business_question,
@@ -141,7 +140,7 @@ class InsightCatalog:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "InsightCatalog":
+    def from_dict(cls, data: dict[str, Any]) -> "InsightCatalog":
         return cls(
             generated_at=data["generated_at"],
             business_question=data["business_question"],
@@ -161,31 +160,31 @@ class InsightCatalog:
     @classmethod
     def load(cls, path: str) -> "InsightCatalog":
         """Load catalog from YAML file."""
-        with open(path, "r") as f:
+        with open(path) as f:
             data = yaml.safe_load(f)
         return cls.from_dict(data)
 
-    def get_key_insights(self) -> List[Insight]:
+    def get_key_insights(self) -> list[Insight]:
         """Get insights marked as key."""
         return [i for i in self.insights if i.severity == InsightSeverity.KEY]
 
-    def get_by_category(self, category: InsightCategory) -> List[Insight]:
+    def get_by_category(self, category: InsightCategory) -> list[Insight]:
         """Get insights by category."""
         return [i for i in self.insights if i.category == category]
 
-    def get_by_type(self, insight_type: InsightType) -> List[Insight]:
+    def get_by_type(self, insight_type: InsightType) -> list[Insight]:
         """Get insights by type."""
         return [i for i in self.insights if i.insight_type == insight_type]
 
-    def get_findings(self) -> List[Insight]:
+    def get_findings(self) -> list[Insight]:
         """Get finding insights."""
         return self.get_by_category(InsightCategory.FINDING)
 
-    def get_recommendations(self) -> List[Insight]:
+    def get_recommendations(self) -> list[Insight]:
         """Get recommendation insights."""
         return self.get_by_category(InsightCategory.RECOMMENDATION)
 
-    def get_significant_insights(self) -> List[Insight]:
+    def get_significant_insights(self) -> list[Insight]:
         """Get statistically significant insights."""
         return [i for i in self.insights if i.is_statistically_significant]
 

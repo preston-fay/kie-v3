@@ -5,8 +5,9 @@ Generates Recharts-compatible JSON configurations for waterfall charts.
 Waterfall charts show cumulative effect of sequential positive/negative values.
 """
 
-from typing import Any, List, Dict, Optional, Union
 from pathlib import Path
+from typing import Any
+
 import pandas as pd
 
 from kie.base import ChartBuilder, RechartsConfig
@@ -29,9 +30,9 @@ class WaterfallChartBuilder(ChartBuilder):
         self,
         show_data_labels: bool = True,
         show_connectors: bool = True,
-        positive_color: Optional[str] = None,
-        negative_color: Optional[str] = None,
-        total_color: Optional[str] = None,
+        positive_color: str | None = None,
+        negative_color: str | None = None,
+        total_color: str | None = None,
     ):
         """
         Initialize waterfall chart builder.
@@ -51,12 +52,12 @@ class WaterfallChartBuilder(ChartBuilder):
 
     def build(
         self,
-        data: Union[pd.DataFrame, List[Dict[str, Any]]],
+        data: pd.DataFrame | list[dict[str, Any]],
         label_key: str,
         value_key: str,
-        is_total_key: Optional[str] = None,
-        title: Optional[str] = None,
-        subtitle: Optional[str] = None,
+        is_total_key: str | None = None,
+        title: str | None = None,
+        subtitle: str | None = None,
         **kwargs,
     ) -> RechartsConfig:
         """
@@ -171,12 +172,12 @@ class WaterfallChartBuilder(ChartBuilder):
 
 # Convenience function
 def waterfall_chart(
-    data: Union[pd.DataFrame, List[Dict[str, Any]]],
+    data: pd.DataFrame | list[dict[str, Any]],
     labels: str,
     values: str,
-    is_total: Optional[str] = None,
-    title: Optional[str] = None,
-    output_path: Optional[Path] = None,
+    is_total: str | None = None,
+    title: str | None = None,
+    output_path: Path | None = None,
     **kwargs,
 ) -> RechartsConfig:
     """

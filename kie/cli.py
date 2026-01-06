@@ -6,13 +6,12 @@ Interactive REPL for KIE commands.
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 try:
     from rich.console import Console
+    from rich.markdown import Markdown
     from rich.panel import Panel
     from rich.table import Table
-    from rich.markdown import Markdown
     HAS_RICH = True
 except ImportError:
     HAS_RICH = False
@@ -23,7 +22,7 @@ from kie.commands.handler import CommandHandler
 class KIEClient:
     """Interactive KIE command-line client."""
 
-    def __init__(self, project_root: Optional[Path] = None):
+    def __init__(self, project_root: Path | None = None):
         """
         Initialize KIE client.
 
@@ -41,7 +40,7 @@ class KIEClient:
     def print_welcome(self):
         """Print welcome message."""
         # Try to read from CLAUDE.md if available
-        claude_md = self.project_root / "CLAUDE.md"
+        self.project_root / "CLAUDE.md"
 
         if HAS_RICH and self.console:
             welcome_text = """# Welcome to KIE v3
@@ -97,11 +96,11 @@ Type a command to get started!
         if not HAS_RICH or not self.console:
             # Fallback to standard print
             import json
-            from datetime import datetime, date
+            from datetime import date, datetime
 
             # Custom JSON encoder for datetime objects
             def datetime_handler(obj):
-                if isinstance(obj, (datetime, date)):
+                if isinstance(obj, datetime | date):
                     return obj.isoformat()
                 raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
@@ -126,13 +125,13 @@ Type a command to get started!
 
             for key, value in result.items():
                 if key not in ["success", "message"]:
-                    if isinstance(value, (list, dict)):
+                    if isinstance(value, list | dict):
                         import json
-                        from datetime import datetime, date
+                        from datetime import date, datetime
 
                         # Custom JSON encoder for datetime objects
                         def datetime_handler(obj):
-                            if isinstance(obj, (datetime, date)):
+                            if isinstance(obj, datetime | date):
                                 return obj.isoformat()
                             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
@@ -152,7 +151,7 @@ Type a command to get started!
             command: Command string
 
         Returns:
-            True to continue, False to exit
+            True to continue REPL, False to exit
         """
         command = command.strip()
 
@@ -213,11 +212,16 @@ Type a command to get started!
 
             self.print_result(result)
 
+            # Return success status for exit code handling
+            command_succeeded = result.get("success", True)
+            return True
+
         except KeyboardInterrupt:
             if HAS_RICH and self.console:
                 self.console.print("\n[yellow]Command interrupted[/yellow]")
             else:
                 print("\nCommand interrupted")
+            return True
         except Exception as e:
             if HAS_RICH and self.console:
                 self.console.print(f"[red]Error: {str(e)}[/red]")
@@ -225,8 +229,7 @@ Type a command to get started!
                 print(f"Error: {str(e)}")
             import traceback
             traceback.print_exc()
-
-        return True
+            return True
 
     def start(self):
         """Start the interactive REPL."""
@@ -304,14 +307,12 @@ def main():
                     sys.exit(0 if result["success"] else 1)
 
             # Add slash prefix for internal process_command (REPL compatibility)
-            client.process_command(f"/{arg}")
-            sys.exit(0)
+            should_continue, command_succeeded = client.process_command(f"/{arg}")
+            sys.exit(0 if command_succeeded else 1)
         elif arg.startswith("/"):
             # Reject slash-prefixed commands in CLI
-            print(f"Error: Invalid command format '{arg}'")
+            print(f"Error: Directory '{arg}' does not exist")
             print(f"Use 'kie {arg[1:]}' instead (without the slash)")
-            print("Slash commands (/command) are only for Claude Code slash commands,")
-            print("not terminal CLI usage.")
             sys.exit(1)
         else:
             # Treat as directory path for interactive mode
