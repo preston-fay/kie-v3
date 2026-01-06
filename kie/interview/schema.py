@@ -251,6 +251,14 @@ class InterviewState(BaseModel):
         """Get list of missing required fields."""
         missing = []
 
+        # If theme mode is already populated in the spec, treat theme as satisfied.
+        try:
+            mode = getattr(self.spec.preferences.theme, 'mode', None)
+            if mode and not self.has_theme_preference:
+                self.has_theme_preference = True
+        except Exception:
+            pass
+
         if not self.has_project_name:
             missing.append("project_name")
         if not self.has_project_type:

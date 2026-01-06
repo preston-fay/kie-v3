@@ -460,6 +460,7 @@ class InterviewEngine:
         if "theme" in extracted and not self.state.has_theme_preference:
             self.state.spec.preferences.theme.mode = extracted["theme"]
             self.state.has_theme_preference = True
+            self.save_state()
             slots_filled.append("theme")
 
         # Project name
@@ -651,6 +652,14 @@ class InterviewEngine:
             self.state_path.unlink()
 
     def export_spec_yaml(self, output_path: Path | None = None) -> Path:
+        # Ensure required theme is set for programmatic/non-interactive flows.
+        # Interactive CLI will already have collected this explicitly.
+        if not self.state.has_theme_preference:
+            # Deterministic default so workflow orchestration can proceed.
+            if not getattr(self.state.spec.preferences.theme, 'mode', None):
+                self.state.spec.preferences.theme.mode = 'dark'
+            self.state.has_theme_preference = True
+
         """
         Export spec to YAML file.
 
