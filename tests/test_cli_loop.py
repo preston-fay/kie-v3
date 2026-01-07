@@ -30,8 +30,9 @@ class TestKIEClient:
             "outputs": {}
         })
 
-        result = client.process_command("/status")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/status")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_status.assert_called_once()
 
     def test_process_command_exit(self, tmp_path):
@@ -39,18 +40,30 @@ class TestKIEClient:
         client = KIEClient(project_root=tmp_path)
 
         # Test various exit commands
-        assert client.process_command("/quit") is False
-        assert client.process_command("/exit") is False
-        assert client.process_command("quit") is False
-        assert client.process_command("exit") is False
+        should_continue, command_succeeded = client.process_command("/quit")
+        assert should_continue is False
+        assert command_succeeded is True
+
+        should_continue, command_succeeded = client.process_command("/exit")
+        assert should_continue is False
+        assert command_succeeded is True
+
+        should_continue, command_succeeded = client.process_command("quit")
+        assert should_continue is False
+        assert command_succeeded is True
+
+        should_continue, command_succeeded = client.process_command("exit")
+        assert should_continue is False
+        assert command_succeeded is True
 
     def test_process_command_help(self, tmp_path):
         """Test help command."""
         client = KIEClient(project_root=tmp_path)
 
         # Should return True and not raise
-        result = client.process_command("/help")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/help")
+        assert should_continue is True
+        assert command_succeeded is True
 
     def test_process_command_startkie(self, tmp_path):
         """Test /startkie command."""
@@ -61,8 +74,9 @@ class TestKIEClient:
             "message": "Project created"
         })
 
-        result = client.process_command("/startkie")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/startkie")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_startkie.assert_called_once()
 
     def test_process_command_interview(self, tmp_path):
@@ -74,8 +88,9 @@ class TestKIEClient:
             "completion_percentage": 50
         })
 
-        result = client.process_command("/interview")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/interview")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_interview.assert_called_once()
 
     def test_process_command_eda(self, tmp_path):
@@ -87,8 +102,9 @@ class TestKIEClient:
             "profile": {}
         })
 
-        result = client.process_command("/eda")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/eda")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_eda.assert_called_once()
 
     def test_process_command_analyze(self, tmp_path):
@@ -100,8 +116,9 @@ class TestKIEClient:
             "insights_count": 5
         })
 
-        result = client.process_command("/analyze")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/analyze")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_analyze.assert_called_once()
 
     def test_process_command_map(self, tmp_path):
@@ -113,8 +130,9 @@ class TestKIEClient:
             "map_path": "/path/to/map.html"
         })
 
-        result = client.process_command("/map")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/map")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_map.assert_called_once()
 
     def test_process_command_validate(self, tmp_path):
@@ -126,8 +144,9 @@ class TestKIEClient:
             "passed": 5
         })
 
-        result = client.process_command("/validate")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/validate")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_validate.assert_called_once()
 
     def test_process_command_build(self, tmp_path):
@@ -140,13 +159,15 @@ class TestKIEClient:
         })
 
         # Test default (all)
-        result = client.process_command("/build")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/build")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_build.assert_called_with(target="all")
 
         # Test specific target
-        result = client.process_command("/build presentation")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/build presentation")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_build.assert_called_with(target="presentation")
 
     def test_process_command_preview(self, tmp_path):
@@ -158,27 +179,31 @@ class TestKIEClient:
             "tables": []
         })
 
-        result = client.process_command("/preview")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("/preview")
+        assert should_continue is True
+        assert command_succeeded is True
         client.handler.handle_preview.assert_called_once()
 
     def test_process_command_unknown(self, tmp_path):
         """Test unknown command."""
         client = KIEClient(project_root=tmp_path)
 
-        # Should return True but show error
-        result = client.process_command("/unknown")
-        assert result is True
+        # Should return True but command fails
+        should_continue, command_succeeded = client.process_command("/unknown")
+        assert should_continue is True
+        assert command_succeeded is False
 
     def test_process_command_empty(self, tmp_path):
         """Test empty command."""
         client = KIEClient(project_root=tmp_path)
 
         # Should return True and do nothing
-        result = client.process_command("")
-        assert result is True
-        result = client.process_command("   ")
-        assert result is True
+        should_continue, command_succeeded = client.process_command("")
+        assert should_continue is True
+        assert command_succeeded is True
+        should_continue, command_succeeded = client.process_command("   ")
+        assert should_continue is True
+        assert command_succeeded is True
 
     def test_process_command_exception(self, tmp_path):
         """Test command that raises exception."""
@@ -186,9 +211,10 @@ class TestKIEClient:
 
         client.handler.handle_status = Mock(side_effect=Exception("Test error"))
 
-        # Should return True (continue) but show error
-        result = client.process_command("/status")
-        assert result is True
+        # Should return True (continue) but command fails
+        should_continue, command_succeeded = client.process_command("/status")
+        assert should_continue is True
+        assert command_succeeded is False
 
 
 class TestCLILoop:

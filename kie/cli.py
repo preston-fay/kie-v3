@@ -143,7 +143,7 @@ Type a command to get started!
             if table.row_count > 0:
                 self.console.print(table)
 
-    def process_command(self, command: str) -> bool:
+    def process_command(self, command: str) -> tuple[bool, bool]:
         """
         Process a command.
 
@@ -151,12 +151,14 @@ Type a command to get started!
             command: Command string
 
         Returns:
-            True to continue REPL, False to exit
+            Tuple of (should_continue, command_succeeded)
+            - should_continue: True to continue REPL, False to exit
+            - command_succeeded: True if command succeeded, False if failed
         """
         command = command.strip()
 
         if not command:
-            return True
+            return (True, True)
 
         # Parse command and arguments
         parts = command.split(maxsplit=1)
@@ -169,12 +171,12 @@ Type a command to get started!
                 self.console.print("[purple]Goodbye![/purple]")
             else:
                 print("Goodbye!")
-            return False
+            return (False, True)
 
         # Handle help
         if cmd in ["/help", "help"]:
             self.print_welcome()
-            return True
+            return (True, True)
 
         # Dispatch to handler
         try:
@@ -214,14 +216,14 @@ Type a command to get started!
 
             # Return success status for exit code handling
             command_succeeded = result.get("success", True)
-            return True
+            return (True, command_succeeded)
 
         except KeyboardInterrupt:
             if HAS_RICH and self.console:
                 self.console.print("\n[yellow]Command interrupted[/yellow]")
             else:
                 print("\nCommand interrupted")
-            return True
+            return (True, False)
         except Exception as e:
             if HAS_RICH and self.console:
                 self.console.print(f"[red]Error: {str(e)}[/red]")
@@ -229,7 +231,7 @@ Type a command to get started!
                 print(f"Error: {str(e)}")
             import traceback
             traceback.print_exc()
-            return True
+            return (True, False)
 
     def start(self) -> None:
         """Start the interactive REPL."""
@@ -245,7 +247,7 @@ Type a command to get started!
                         command = input("(kie) > ")
 
                     # Process command
-                    should_continue = self.process_command(command)
+                    should_continue, command_succeeded = self.process_command(command)
                     if not should_continue:
                         break
 
