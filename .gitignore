@@ -79,3 +79,31 @@ docs/.doctrees/
 
 # Generated workspace template artifacts
 kie_workspace_starter.zip
+
+# Ralph autonomous agent state files
+.ralph/
+.call_count
+.circuit_breaker_history
+.circuit_breaker_state
+.exit_signals
+.last_output_length
+.last_reset
+.response_analysis
+
+# Project planning and debug files
+@fix_plan.md
+PROMPT.md
+progress.json
+status.json
+coverage.json
+debug_api.py
+
+# Claude Code project-specific config (not for repo)
+.claude/settings.json
+
+# MCP server config (contains API keys - SECURITY)
+.mcp.json
+
+# Automator development artifacts (should be in tools/mac_launcher/archive/)
+tools/mac_launcher/AUTOMATOR_*.sh
+tools/mac_launcher/AUTOMATOR_*.txt
