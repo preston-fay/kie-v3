@@ -61,7 +61,7 @@ class ProjectThemeConfig:
             print(f"Warning: Could not load theme from spec: {e}")
             return None  # On error, return None instead of defaulting
 
-    def save_theme(self, mode: ThemeMode):
+    def save_theme(self, mode: ThemeMode) -> None:
         """
         Save theme preference to project spec.
 
@@ -96,7 +96,7 @@ class ProjectThemeConfig:
         except Exception as e:
             print(f"Error: Could not save theme to spec: {e}")
 
-    def apply_theme(self):
+    def apply_theme(self) -> None:
         """
         Load and apply theme preference from project spec.
 
@@ -107,7 +107,7 @@ class ProjectThemeConfig:
         if mode is not None:
             set_theme(mode)
 
-    def change_theme(self, mode: ThemeMode):
+    def change_theme(self, mode: ThemeMode) -> None:
         """
         Change project theme preference.
 
@@ -121,7 +121,7 @@ class ProjectThemeConfig:
         set_theme(mode)
 
 
-def initialize_project_theme():
+def initialize_project_theme() -> None:
     """
     Initialize theme for current project.
 

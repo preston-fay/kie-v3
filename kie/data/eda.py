@@ -91,8 +91,8 @@ class EDA:
                 unique_percent=round(unique_pct, 2),
             )
 
-            # Numeric columns
-            if pd.api.types.is_numeric_dtype(series):
+            # Numeric columns (excluding boolean)
+            if pd.api.types.is_numeric_dtype(series) and not pd.api.types.is_bool_dtype(series):
                 self.profile.numeric_columns.append(col)
                 col_profile.mean = round(float(series.mean()), 4) if not series.isna().all() else None
                 col_profile.std = round(float(series.std()), 4) if not series.isna().all() else None
@@ -102,8 +102,8 @@ class EDA:
                 col_profile.q25 = float(series.quantile(0.25)) if not series.isna().all() else None
                 col_profile.q75 = float(series.quantile(0.75)) if not series.isna().all() else None
 
-            # Categorical columns
-            elif pd.api.types.is_object_dtype(series) or pd.api.types.is_categorical_dtype(series):
+            # Categorical columns (including boolean)
+            elif pd.api.types.is_object_dtype(series) or pd.api.types.is_categorical_dtype(series) or pd.api.types.is_bool_dtype(series):
                 self.profile.categorical_columns.append(col)
                 vc = series.value_counts()
                 col_profile.top_values = list(vc.head(5).index)

@@ -31,7 +31,7 @@ class RateLimiter:
         self.min_interval = 1.0 / requests_per_second
         self.last_request_time = 0.0
 
-    async def wait(self):
+    async def wait(self) -> None:
         """Wait if necessary to respect rate limit."""
         now = time.time()
         time_since_last = now - self.last_request_time
@@ -90,7 +90,7 @@ class GeocodingCache:
         self.misses += 1
         return None
 
-    def set(self, address: str, result: Any, **kwargs):
+    def set(self, address: str, result: Any, **kwargs) -> None:
         """Store result in cache."""
         if len(self.cache) >= self.max_size:
             # Simple eviction: remove oldest (first) entry
@@ -99,7 +99,7 @@ class GeocodingCache:
         key = self._make_key(address, **kwargs)
         self.cache[key] = result
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear cache."""
         self.cache.clear()
         self.hits = 0

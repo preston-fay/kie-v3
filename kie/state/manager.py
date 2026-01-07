@@ -99,7 +99,7 @@ class StateManager:
         state_type: StateType,
         data: dict[str, Any],
         create_snapshot: bool = True,
-    ):
+    ) -> None:
         """
         Save state by type.
 
@@ -126,7 +126,7 @@ class StateManager:
         if create_snapshot:
             self.create_snapshot(state_type, data)
 
-    def create_snapshot(self, state_type: StateType, data: dict[str, Any]):
+    def create_snapshot(self, state_type: StateType, data: dict[str, Any]) -> None:
         """
         Create historical snapshot.
 
@@ -223,7 +223,7 @@ class StateManager:
 
         return summary
 
-    def reset_state(self, state_type: StateType | None = None):
+    def reset_state(self, state_type: StateType | None = None) -> None:
         """
         Reset state(s).
 
@@ -323,7 +323,7 @@ class StateManager:
 
         return output_path
 
-    def import_state(self, import_path: Path):
+    def import_state(self, import_path: Path) -> None:
         """
         Import complete project state.
 

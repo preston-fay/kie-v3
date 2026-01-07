@@ -38,9 +38,13 @@ class TableExporter:
         # Convert to DataFrame
         df = pd.DataFrame(config.data)
 
-        # Filter to visible columns
+        # Filter to visible columns (handle empty DataFrame)
         visible_cols = [col.key for col in config.columns if not col.hidden]
-        df = df[visible_cols]
+        if len(df) > 0:
+            df = df[visible_cols]
+        else:
+            # Empty DataFrame - create with correct columns
+            df = pd.DataFrame(columns=visible_cols)
 
         # Rename columns to display names
         rename_map = {col.key: col.header for col in config.columns if not col.hidden}
@@ -82,9 +86,13 @@ class TableExporter:
         # Convert to DataFrame
         df = pd.DataFrame(config.data)
 
-        # Filter to visible columns
+        # Filter to visible columns (handle empty DataFrame)
         visible_cols = [col.key for col in config.columns if not col.hidden]
-        df = df[visible_cols]
+        if len(df) > 0:
+            df = df[visible_cols]
+        else:
+            # Empty DataFrame - create with correct columns
+            df = pd.DataFrame(columns=visible_cols)
 
         # Rename columns
         rename_map = {col.key: col.header for col in config.columns if not col.hidden}
@@ -109,7 +117,7 @@ class TableExporter:
         self, config: TableConfig, output_path: str | Path, include_totals: bool = True
     ) -> Path:
         """
-        Export table to PDF.
+        Export table to PDF with KDS styling.
 
         Args:
             config: TableConfig
@@ -118,10 +126,140 @@ class TableExporter:
 
         Returns:
             Path to saved file
+
+        Raises:
+            ImportError: If reportlab is not installed
         """
-        # This would require reportlab or similar
-        # Simplified implementation for now
-        raise NotImplementedError("PDF export coming soon")
+        try:
+            from reportlab.lib import colors
+            from reportlab.lib.pagesizes import letter, landscape
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
+            from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        except ImportError:
+            raise ImportError(
+                "PDF export requires reportlab. Install with: pip install reportlab"
+            )
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Convert to DataFrame
+        df = pd.DataFrame(config.data)
+
+        # Filter to visible columns (handle empty DataFrame)
+        visible_cols = [col.key for col in config.columns if not col.hidden]
+        if len(df) > 0:
+            df = df[visible_cols]
+        else:
+            # Empty DataFrame - create with correct columns
+            df = pd.DataFrame(columns=visible_cols)
+
+        # Rename columns
+        rename_map = {col.key: col.header for col in config.columns if not col.hidden}
+        df = df.rename(columns=rename_map)
+
+        # Add totals row
+        if include_totals and config.show_totals_row:
+            totals_row = self._calculate_totals(config)
+            df = pd.concat([df, pd.DataFrame([totals_row])], ignore_index=True)
+
+        # Determine page orientation based on column count
+        page_size = landscape(letter) if len(df.columns) > 6 else letter
+
+        # Create PDF document
+        doc = SimpleDocTemplate(
+            str(output_path),
+            pagesize=page_size,
+            topMargin=0.75 * inch,
+            bottomMargin=0.75 * inch,
+            leftMargin=0.75 * inch,
+            rightMargin=0.75 * inch,
+        )
+
+        # Build content
+        story = []
+        styles = getSampleStyleSheet()
+
+        # Add title
+        if config.title:
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=16,
+                textColor=colors.HexColor('#7823DC'),  # KDS purple
+                spaceAfter=12,
+                fontName='Helvetica-Bold'
+            )
+            title = Paragraph(config.title, title_style)
+            story.append(title)
+            story.append(Spacer(1, 0.2 * inch))
+
+        # Prepare table data
+        table_data = [df.columns.tolist()] + df.values.tolist()
+
+        # Create table
+        table = Table(table_data, repeatRows=1)
+
+        # Apply KDS styling
+        table_style = TableStyle([
+            # Header row - KDS purple background, white text
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#7823DC')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+
+            # Data rows
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+            ('LEFTPADDING', (0, 1), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 1), (-1, -1), 8),
+
+            # Alternating row colors (light gray)
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F5F5F5')]),
+
+            # Grid
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#D2D2D2')),
+
+            # Outer border
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#4B4B4B')),
+        ])
+
+        # Style totals row if present
+        if include_totals and config.show_totals_row:
+            last_row_idx = len(table_data) - 1
+            table_style.add('FONTNAME', (0, last_row_idx), (-1, last_row_idx), 'Helvetica-Bold')
+            table_style.add('BACKGROUND', (0, last_row_idx), (-1, last_row_idx),
+                          colors.HexColor('#E0E0E0'))
+
+        table.setStyle(table_style)
+        story.append(table)
+
+        # Add footer with timestamp
+        story.append(Spacer(1, 0.3 * inch))
+        from datetime import datetime
+        footer_style = ParagraphStyle(
+            'Footer',
+            parent=styles['Normal'],
+            fontSize=8,
+            textColor=colors.HexColor('#787878'),
+            alignment=2  # Right align
+        )
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        footer = Paragraph(f"Generated by KIE v3 - {timestamp}", footer_style)
+        story.append(footer)
+
+        # Build PDF
+        doc.build(story)
+        return output_path
 
     def _calculate_totals(self, config: TableConfig) -> dict:
         """
@@ -250,7 +388,8 @@ def export_table(
             try:
                 path = exporter.to_pdf(config, output_dir / f"{base_name}.pdf")
                 output_paths["pdf"] = path
-            except NotImplementedError:
-                print("PDF export not yet implemented")
+            except ImportError:
+                # reportlab not installed - skip PDF export silently
+                pass
 
     return output_paths

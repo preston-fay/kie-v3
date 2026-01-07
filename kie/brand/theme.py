@@ -123,7 +123,7 @@ class ThemeManager:
         """Get current theme colors."""
         return self._themes[self.mode]
 
-    def set_mode(self, mode: ThemeMode):
+    def set_mode(self, mode: ThemeMode) -> None:
         """
         Change theme mode.
 
@@ -349,7 +349,7 @@ def get_theme() -> ThemeManager:
     return _global_theme
 
 
-def set_theme(mode: ThemeMode):
+def set_theme(mode: ThemeMode) -> None:
     """
     Set global theme mode.
 

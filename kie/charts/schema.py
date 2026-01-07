@@ -80,7 +80,7 @@ class LineConfig(BaseModel):
     dataKey: str
     stroke: str
     strokeWidth: int = 2
-    dot: dict[str, Any] = Field(default_factory=lambda: {"r": 4})
+    dot: dict[str, Any] | bool = Field(default_factory=lambda: {"r": 4})
     activeDot: dict[str, Any] = Field(default_factory=lambda: {"r": 6})
     label: DataLabelConfig | None = None
 

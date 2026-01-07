@@ -37,7 +37,7 @@ class KIEClient:
         else:
             self.console = None
 
-    def print_welcome(self):
+    def print_welcome(self) -> None:
         """Print welcome message."""
         # Try to read from CLAUDE.md if available
         self.project_root / "CLAUDE.md"
@@ -86,7 +86,7 @@ Type a command to get started!
             print("  /quit or /exit - Exit KIE")
             print()
 
-    def print_result(self, result: dict):
+    def print_result(self, result: dict) -> None:
         """
         Print command result with rich formatting if available.
 
@@ -99,7 +99,7 @@ Type a command to get started!
             from datetime import date, datetime
 
             # Custom JSON encoder for datetime objects
-            def datetime_handler(obj):
+            def datetime_handler(obj) -> str:
                 if isinstance(obj, datetime | date):
                     return obj.isoformat()
                 raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
@@ -130,7 +130,7 @@ Type a command to get started!
                         from datetime import date, datetime
 
                         # Custom JSON encoder for datetime objects
-                        def datetime_handler(obj):
+                        def datetime_handler(obj) -> str:
                             if isinstance(obj, datetime | date):
                                 return obj.isoformat()
                             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
@@ -231,7 +231,7 @@ Type a command to get started!
             traceback.print_exc()
             return True
 
-    def start(self):
+    def start(self) -> None:
         """Start the interactive REPL."""
         self.print_welcome()
 
@@ -266,7 +266,7 @@ Type a command to get started!
             sys.exit(1)
 
 
-def main():
+def main() -> None:
     """Main entry point for kie CLI."""
     # Check for command-line arguments
     if len(sys.argv) > 1:
