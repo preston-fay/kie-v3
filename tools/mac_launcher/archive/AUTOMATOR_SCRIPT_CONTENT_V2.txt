@@ -1,0 +1,41 @@
+#!/bin/zsh
+# Automator Wrapper for KIE Workspace Launcher (v2)
+# Fixed: Uses NSApplicationPath environment variable
+
+# Automator provides the app bundle path in environment
+if [[ -n "$NSApplicationPath" ]]; then
+    APP_BUNDLE="$NSApplicationPath"
+elif [[ -n "$_" ]] && [[ "$_" == *".app/"* ]]; then
+    APP_BUNDLE="${_%.app/*}.app"
+else
+    # Fallback: Search for the app in common locations
+    for location in "/Applications" "$HOME/Applications" "$HOME/Desktop"; do
+        if [[ -d "$location/Create KIE Workspace.app" ]]; then
+            APP_BUNDLE="$location/Create KIE Workspace.app"
+            break
+        fi
+    done
+fi
+
+# Verify we found the app bundle
+if [[ -z "$APP_BUNDLE" ]] || [[ ! -d "$APP_BUNDLE" ]]; then
+    osascript -e 'display dialog "ERROR: Cannot locate app bundle.\n\nThe wrapper script cannot determine the .app location.\n\nPlease run from: /Applications/Create KIE Workspace.app" with title "App Bundle Error" with icon stop buttons {"OK"} default button "OK"'
+    exit 1
+fi
+
+# Path to the bundled launcher script
+LAUNCHER_SCRIPT="$APP_BUNDLE/Contents/Resources/create_kie_workspace.sh"
+
+# Verify the script exists
+if [[ ! -f "$LAUNCHER_SCRIPT" ]]; then
+    osascript -e "display dialog \"ERROR: Launcher script not found at:\n\n$LAUNCHER_SCRIPT\n\nThe app bundle is incomplete. Please ensure create_kie_workspace.sh is copied to:\n\n$APP_BUNDLE/Contents/Resources/\" with title \"Missing Script\" with icon stop buttons {\"OK\"} default button \"OK\""
+    exit 1
+fi
+
+# Verify the script is executable
+if [[ ! -x "$LAUNCHER_SCRIPT" ]]; then
+    chmod +x "$LAUNCHER_SCRIPT"
+fi
+
+# Execute the bundled launcher script
+exec "$LAUNCHER_SCRIPT" "$@"
