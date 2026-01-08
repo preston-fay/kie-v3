@@ -115,7 +115,7 @@ echo "🔧 Configuring command wrappers for vendored runtime..."
 if [ -d ".claude/commands" ]; then
     for cmd_file in .claude/commands/*.md; do
         if [ -f "$cmd_file" ]; then
-            sed -i.bak 's/python3 -m kie\.cli/PYTHONPATH=".kie\/src" python3 -m kie.cli/g' "$cmd_file"
+            sed -i.bak '/PYTHONPATH="\.kie\/src"/! s/python3 -m kie\.cli/PYTHONPATH=".kie\/src" python3 -m kie.cli/g' "$cmd_file"
             rm -f "${cmd_file}.bak"
             echo "✓ Fixed $(basename "$cmd_file")"
         fi
