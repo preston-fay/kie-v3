@@ -39,7 +39,7 @@ show_dialog() {
         return
     fi
 
-    osascript -e "display dialog \"$message\" with title \"$title\" with icon $icon buttons {\"OK\"} default button \"OK\""
+    osascript -e "tell application \"System Events\" to activate" -e "display dialog \"$message\" with title \"$title\" with icon $icon buttons {\"OK\"} default button \"OK\""
 }
 
 show_error() {
@@ -57,7 +57,7 @@ show_error() {
         return
     fi
 
-    osascript -e "display dialog \"$message\" with title \"$title\" with icon stop buttons {\"OK\"} default button \"OK\""
+    osascript -e "tell application \"System Events\" to activate" -e "display dialog \"$message\" with title \"$title\" with icon stop buttons {\"OK\"} default button \"OK\""
 }
 
 choose_folder() {
@@ -72,9 +72,13 @@ choose_folder() {
     fi
 
     local result
-    result=$(osascript -e 'tell application "Finder"
-        set folderPath to choose folder with prompt "Choose parent folder for new workspace:"
-        return POSIX path of folderPath
+    result=$(osascript -e 'tell application "System Events"
+        activate
+        tell application "Finder"
+            activate
+            set folderPath to choose folder with prompt "Choose parent folder for new workspace:"
+            return POSIX path of folderPath
+        end tell
     end tell' 2>/dev/null)
 
     echo "$result"
@@ -95,7 +99,7 @@ prompt_text() {
     fi
 
     local result
-    result=$(osascript -e "display dialog \"$prompt\" default answer \"$default_value\" buttons {\"Cancel\", \"OK\"} default button \"OK\"" -e 'text returned of result' 2>/dev/null)
+    result=$(osascript -e "tell application \"System Events\" to activate" -e "display dialog \"$prompt\" default answer \"$default_value\" buttons {\"Cancel\", \"OK\"} default button \"OK\"" -e 'text returned of result' 2>/dev/null)
 
     echo "$result"
 }
@@ -124,7 +128,7 @@ choose_file() {
 
     # Ask if user wants to add a data file
     local add_data
-    add_data=$(osascript -e 'display dialog "Add a data file to your workspace?" buttons {"Skip", "Choose File"} default button "Choose File"' -e 'button returned of result' 2>/dev/null || echo "Skip")
+    add_data=$(osascript -e 'tell application "System Events" to activate' -e 'display dialog "Add a data file to your workspace?" buttons {"Skip", "Choose File"} default button "Choose File"' -e 'button returned of result' 2>/dev/null || echo "Skip")
 
     if [[ "$add_data" == "Skip" ]]; then
         echo ""
@@ -133,9 +137,13 @@ choose_file() {
 
     # Choose CSV or Excel file
     local result
-    result=$(osascript -e 'tell application "Finder"
-        set dataFile to choose file with prompt "Choose data file (CSV or Excel):" of type {"public.comma-separated-values-text", "org.openxmlformats.spreadsheetml.sheet", "com.microsoft.excel.xls"}
-        return POSIX path of dataFile
+    result=$(osascript -e 'tell application "System Events"
+        activate
+        tell application "Finder"
+            activate
+            set dataFile to choose file with prompt "Choose data file (CSV or Excel):" of type {"public.comma-separated-values-text", "org.openxmlformats.spreadsheetml.sheet", "com.microsoft.excel.xls"}
+            return POSIX path of dataFile
+        end tell
     end tell' 2>/dev/null || echo "")
 
     echo "$result"
