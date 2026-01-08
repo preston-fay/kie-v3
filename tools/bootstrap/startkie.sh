@@ -59,24 +59,42 @@ echo "✓ KIE runtime vendored to .kie/src/"
 
 # Step 2: Copy workspace skeleton from project_template
 echo "📁 Creating workspace structure..."
-# Copy visible files/dirs
-for item in .kie/src/project_template/*; do
-    basename=$(basename "$item")
-    if [ "$basename" != ".kie" ]; then
-        cp -r "$item" "./$basename"
-        echo "✓ Created $basename"
+TEMPLATE_DIR=".kie/src/project_template"
+
+# Use rsync if available (most reliable), otherwise fall back to tar
+if command -v rsync >/dev/null 2>&1; then
+    echo "Using rsync to copy template..."
+    rsync -a --exclude '.DS_Store' --exclude '__MACOSX' "$TEMPLATE_DIR"/ ./
+else
+    echo "Using tar to copy template..."
+    (cd "$TEMPLATE_DIR" && tar cf - .) | tar xf -
+fi
+
+echo "✓ Copied workspace skeleton"
+
+# Hard assertion: verify critical directories exist
+echo "Verifying workspace structure..."
+CRITICAL_DIRS=("data" "outputs" "exports" "project_state" ".claude/commands")
+MISSING_DIRS=()
+
+for dir in "${CRITICAL_DIRS[@]}"; do
+    if [ ! -d "$dir" ]; then
+        MISSING_DIRS+=("$dir")
     fi
 done
-# Copy hidden files/dirs (like .claude)
-shopt -s dotglob
-for item in .kie/src/project_template/.*; do
-    basename=$(basename "$item")
-    if [ "$basename" != "." ] && [ "$basename" != ".." ] && [ "$basename" != ".kie" ]; then
-        cp -r "$item" "./$basename"
-        echo "✓ Created $basename"
-    fi
-done
-shopt -u dotglob
+
+if [ ${#MISSING_DIRS[@]} -ne 0 ]; then
+    echo ""
+    echo "❌ ERROR: Template copy failed - missing directories:"
+    for dir in "${MISSING_DIRS[@]}"; do
+        echo "   - $dir"
+    done
+    echo ""
+    echo "This is a critical failure. Workspace structure is incomplete."
+    exit 1
+fi
+
+echo "✓ All critical directories present"
 
 # Step 3: Rewrite command wrappers to use vendored runtime
 echo "🔧 Configuring command wrappers for vendored runtime..."

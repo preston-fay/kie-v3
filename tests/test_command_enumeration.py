@@ -39,6 +39,15 @@ def test_bootstrap_enumerates_all_commands():
         assert result.returncode == 0, f"Bootstrap failed with code {result.returncode}"
         assert "AVAILABLE SLASH COMMANDS" in result.stdout, "No command enumeration in output"
 
+        # CRITICAL: Assert all template directories exist after bootstrap
+        print("\nStep 1a: Verifying critical directories exist...")
+        critical_dirs = ["data", "outputs", "exports", "project_state", ".claude/commands"]
+        for dir_name in critical_dirs:
+            dir_path = workspace / dir_name
+            assert dir_path.exists(), f"Critical directory missing after bootstrap: {dir_name}"
+            assert dir_path.is_dir(), f"Path exists but is not a directory: {dir_name}"
+        print(f"✓ All {len(critical_dirs)} critical directories present")
+
         # Verify well-known commands appear
         assert "/startkie" in result.stdout, "/startkie not enumerated"
         assert "/eda" in result.stdout, "/eda not enumerated"
@@ -94,5 +103,68 @@ PYTHONPATH=".kie/src" python3 -m kie.cli doctor
         print(f"{'='*60}\n")
 
 
+def test_railscheck_empty_data():
+    """Test that railscheck PASSES when data/ exists but is empty."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workspace = Path(tmpdir)
+        print(f"\n{'='*60}")
+        print(f"Testing railscheck with empty data/ in: {workspace}")
+        print(f"{'='*60}\n")
+
+        # Get repo root
+        repo_root = Path(__file__).parent.parent
+
+        # Run bootstrap script to create workspace structure
+        print("Step 1: Bootstrapping workspace...")
+        result = subprocess.run(
+            ["bash", str(repo_root / "tools" / "bootstrap" / "startkie.sh")],
+            cwd=workspace,
+            env={"KIE_BOOTSTRAP_SRC_DIR": str(repo_root)},
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, f"Bootstrap failed with code {result.returncode}"
+
+        # Verify data/ exists but is empty
+        data_dir = workspace / "data"
+        assert data_dir.exists(), "data/ directory should exist after bootstrap"
+        assert data_dir.is_dir(), "data/ should be a directory"
+
+        # Remove any sample data files (data/ should be empty)
+        for data_file in data_dir.glob("*"):
+            if data_file.is_file():
+                data_file.unlink()
+
+        print(f"✓ data/ directory exists and is empty")
+
+        # Step 2: Run railscheck and verify it PASSES
+        print("\nStep 2: Running railscheck on workspace with empty data/...")
+        result = subprocess.run(
+            ["bash", "-c", 'PYTHONPATH=".kie/src" python3 -m kie.cli railscheck'],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+        )
+
+        print(result.stdout)
+
+        # CRITICAL: railscheck should PASS (exit code 0) even with empty data/
+        assert result.returncode == 0, f"railscheck should PASS with empty data/, got exit code {result.returncode}"
+
+        # Verify output contains the helpful note about empty data
+        assert "Data directory exists" in result.stdout, "Should check for data directory existence"
+        assert ("No data files found" in result.stdout or "NOTE:" in result.stdout), \
+            "Should contain NOTE about no data files"
+
+        # Should see PASS status (not FAIL)
+        assert "✓ PASS" in result.stdout, "Should show PASS status overall"
+
+        print(f"\n{'='*60}")
+        print("✓ RAILSCHECK EMPTY DATA TEST PASSED")
+        print(f"{'='*60}\n")
+
+
 if __name__ == "__main__":
     test_bootstrap_enumerates_all_commands()
+    test_railscheck_empty_data()

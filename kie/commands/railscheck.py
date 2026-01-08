@@ -171,27 +171,31 @@ class RailsChecker:
             # This is a warning, not a hard failure
 
     def _check_data_available(self):
-        """Check if there's data available in data/ folder."""
+        """Check if data/ directory exists (empty is OK)."""
         if not self.data_dir.exists():
-            self.checks.append(("Data available", "FAIL", "data/ directory missing"))
+            self.checks.append(("Data directory exists", "FAIL", "data/ directory missing"))
             self.failed.append("data/ directory missing")
             return
 
-        csv_files = list(self.data_dir.glob("*.csv"))
-        if csv_files:
+        # Check for supported data files
+        data_files = []
+        for pattern in ["*.csv", "*.xlsx", "*.xls", "*.parquet", "*.json"]:
+            data_files.extend(self.data_dir.glob(pattern))
+
+        if data_files:
             self.checks.append(
                 (
-                    "Data available",
+                    "Data directory exists",
                     "PASS",
-                    f"{len(csv_files)} CSV file(s) found",
+                    f"{len(data_files)} data file(s) found",
                 )
             )
         else:
             self.checks.append(
                 (
-                    "Data available",
-                    "WARN",
-                    "No CSV files in data/ - upload data or use sample_data.csv",
+                    "Data directory exists",
+                    "PASS",
+                    "NOTE: No data files found. Add a file (CSV/Excel/Parquet/JSON) or upload it, then run /eda",
                 )
             )
 
