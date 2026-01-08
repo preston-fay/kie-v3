@@ -197,6 +197,35 @@ project_state/  - Project tracking
         if source_fixture.exists():
             shutil.copy(source_fixture, target_fixture)
 
+        # Print command reference and next steps
+        print("\n" + "="*60)
+        print("KIE WORKSPACE INITIALIZED")
+        print("="*60)
+        print("\nAVAILABLE COMMANDS:")
+        print("  /eda        - Exploratory data analysis")
+        print("  /analyze    - Extract insights from data")
+        print("  /interview  - Start requirements gathering")
+        print("  /map        - Create geographic visualizations")
+        print("  /build      - Generate deliverables")
+        print("  /status     - Show project state")
+        print("  /spec       - View specification")
+        print("  /preview    - Preview outputs")
+        print("  /validate   - Run quality checks")
+        print("\nRECOMMENDED NEXT STEPS:")
+        print("\n  Option 1: Quick Start (Use Sample Data)")
+        print("    1. Type /eda to analyze sample data")
+        print("    2. Type /analyze to extract insights")
+        print("    3. Explore outputs/ folder")
+        print("\n  Option 2: Use Your Own Data")
+        print("    1. Drop CSV file in data/ folder")
+        print("    2. Type /eda to profile it")
+        print("    3. Type /analyze for insights")
+        print("\n  Option 3: Formal Project")
+        print("    1. Type /interview for requirements")
+        print("    2. Choose express (6 Q) or full (11 Q)")
+        print("    3. Follow guided workflow")
+        print("\n" + "="*60 + "\n")
+
         return {
             "success": True,
             "message": "KIE project structure created successfully",
