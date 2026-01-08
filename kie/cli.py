@@ -205,6 +205,12 @@ Type a command to get started!
                 result = self.handler.handle_doctor()
             elif cmd == "/template":
                 result = self.handler.handle_template()
+            elif cmd == "/railscheck":
+                # Handle --fix flag
+                fix = args and "--fix" in args
+                from kie.commands.railscheck import railscheck_cli
+                exit_code = railscheck_cli(self.project_root, fix=fix)
+                return (True, exit_code == 0)
             else:
                 result = {
                     "success": False,
@@ -294,9 +300,9 @@ def main() -> None:
 
         # Check if it's a known command (without slash prefix for CLI)
         known_commands = ["startkie", "status", "spec", "interview", "eda",
-                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help"]
+                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck"]
 
-        if arg in known_commands:
+        if arg in known_commands or arg == "railscheck":
             # It's a command - execute and exit
             client = KIEClient(project_root=Path.cwd())
 
