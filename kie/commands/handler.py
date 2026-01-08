@@ -82,6 +82,18 @@ class CommandHandler:
                 "hint": "Reinstall KIE or clone from repository"
             }
 
+        # Safety check: do not overwrite existing project folders
+        existing_items = [
+            item for item in ["README.md", "CLAUDE.md", ".claude", "data", "outputs", "exports", "project_state"]
+            if (self.project_root / item).exists()
+        ]
+        if existing_items:
+            return {
+                "success": False,
+                "message": f"This folder is not empty. Found existing: {', '.join(existing_items)}",
+                "hint": "Create a new empty folder and run /startkie there"
+            }
+
         # Copy everything from project_template
         for item in project_template.iterdir():
             if item.name in [".git", "__pycache__", ".DS_Store"]:
