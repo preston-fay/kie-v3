@@ -8,24 +8,13 @@ where slash commands deterministically execute CLI commands.
 from pathlib import Path
 from typing import Any
 import shutil
+from .enumerate import enumerate_commands, format_commands_table
 
 
 class RailsChecker:
     """Check and optionally fix KIE workspace Rails configuration."""
 
-    # Required command files that must exist in .claude/commands/
-    REQUIRED_COMMANDS = [
-        "startkie.md",
-        "eda.md",
-        "analyze.md",
-        "interview.md",
-        "map.md",
-        "build.md",
-        "status.md",
-        "spec.md",
-        "preview.md",
-        "validate.md",
-    ]
+    # No longer hardcode required commands - scan dynamically
 
     def __init__(self, project_root: Path):
         self.project_root = project_root
@@ -103,46 +92,42 @@ class RailsChecker:
             self.failed.append(".claude/commands/ directory missing")
 
     def _check_command_wrappers(self, fix: bool):
-        """Check if all required command wrapper files exist."""
-        missing = []
-        for cmd_file in self.REQUIRED_COMMANDS:
-            cmd_path = self.commands_dir / cmd_file
-            if not cmd_path.exists():
-                missing.append(cmd_file)
-
-        if not missing:
-            self.checks.append((f"All {len(self.REQUIRED_COMMANDS)} command wrappers present", "PASS", None))
+        """Check if command wrapper files exist and are valid."""
+        if not self.commands_dir.exists():
+            self.checks.append(("Command wrappers", "SKIP", ".claude/commands/ missing"))
             return
 
-        if fix:
-            # Copy from canonical source
-            fixed = self._fix_missing_commands(missing)
-            if fixed:
-                self.checks.append(
-                    (
-                        f"Command wrappers ({len(missing)} missing)",
-                        "FIXED",
-                        f"Copied {len(fixed)} files from package",
-                    )
-                )
-            else:
-                self.checks.append(
-                    (
-                        f"Command wrappers ({len(missing)} missing)",
-                        "FAIL",
-                        "Could not locate canonical source to copy from",
-                    )
-                )
-                self.failed.append(f"Missing command wrappers: {', '.join(missing)}")
-        else:
+        # Enumerate all commands
+        commands = enumerate_commands(self.commands_dir)
+
+        if not commands:
             self.checks.append(
                 (
-                    f"Command wrappers ({len(missing)} missing)",
+                    "Command wrappers",
                     "FAIL",
-                    f"Missing: {', '.join(missing)}. Run with --fix to repair.",
+                    "No valid command files found in .claude/commands/",
                 )
             )
-            self.failed.append(f"Missing command wrappers: {', '.join(missing)}")
+            self.failed.append("No command wrappers found")
+            return
+
+        # Check that wrappers contain CLI invocation
+        invalid = []
+        for cmd_file in self.commands_dir.glob("*.md"):
+            content = cmd_file.read_text()
+            if "python3 -m kie.cli" not in content and "PYTHONPATH" not in content:
+                invalid.append(cmd_file.name)
+
+        if invalid:
+            self.checks.append(
+                (
+                    f"Command wrappers ({len(commands)} found)",
+                    "WARN",
+                    f"{len(invalid)} wrappers don't contain CLI invocation: {', '.join(invalid)}",
+                )
+            )
+        else:
+            self.checks.append((f"All {len(commands)} command wrappers present", "PASS", None))
 
     def _fix_missing_commands(self, missing: list[str]) -> list[str]:
         """Copy missing command files from canonical source."""
@@ -246,7 +231,18 @@ def format_report(result: dict[str, Any]) -> str:
             lines.append("\nTo attempt automatic repair, run:")
             lines.append("  python3 -m kie.cli railscheck --fix")
 
-    lines.append("=" * 60 + "\n")
+    lines.append("=" * 60)
+
+    # Always show available commands (dynamically enumerated)
+    project_root = Path.cwd()  # Assume we're in project root
+    commands_dir = project_root / ".claude" / "commands"
+    if commands_dir.exists():
+        commands = enumerate_commands(commands_dir)
+        if commands:
+            lines.append("")
+            lines.append(format_commands_table(commands))
+
+    lines.append("")
 
     return "\n".join(lines)
 

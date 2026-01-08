@@ -4,5 +4,5 @@ description: Create deliverables - presentations, dashboards, reports
 ---
 
 ```bash
-python3 -m kie.cli build
+PYTHONPATH=".kie/src" python3 -m kie.cli build
 ```

@@ -4,5 +4,5 @@ description: Run comprehensive quality checks
 ---
 
 ```bash
-python3 -m kie.cli validate
+PYTHONPATH=".kie/src" python3 -m kie.cli validate
 ```

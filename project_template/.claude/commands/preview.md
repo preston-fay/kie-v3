@@ -4,5 +4,5 @@ description: Preview current outputs and deliverables
 ---
 
 ```bash
-python3 -m kie.cli preview
+PYTHONPATH=".kie/src" python3 -m kie.cli preview
 ```

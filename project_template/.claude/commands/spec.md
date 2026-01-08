@@ -4,5 +4,5 @@ description: View current project specification
 ---
 
 ```bash
-python3 -m kie.cli spec
+PYTHONPATH=".kie/src" python3 -m kie.cli spec
 ```

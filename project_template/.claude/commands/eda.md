@@ -4,5 +4,5 @@ description: Exploratory data analysis - profile data, find patterns
 ---
 
 ```bash
-python3 -m kie.cli eda
+PYTHONPATH=".kie/src" python3 -m kie.cli eda
 ```

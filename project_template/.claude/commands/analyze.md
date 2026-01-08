@@ -4,5 +4,5 @@ description: Extract insights from data - find key patterns and recommendations
 ---
 
 ```bash
-python3 -m kie.cli analyze
+PYTHONPATH=".kie/src" python3 -m kie.cli analyze
 ```

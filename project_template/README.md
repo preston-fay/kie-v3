@@ -1,38 +1,31 @@
 # KIE Workspace - Quick Start
 
-## Available Commands (case-sensitive, lowercase only!)
+## Available Commands
 
-| Command | What It Does |
-|---------|-------------|
-| `/eda` | Exploratory data analysis - profile your data |
-| `/analyze` | Extract insights - find key patterns |
-| `/interview` | Start requirements gathering (express or full) |
-| `/map` | Create geographic visualizations |
-| `/build` | Generate deliverables (presentation/dashboard) |
-| `/status` | Show current project state |
-| `/spec` | View your specification |
-| `/preview` | Preview current outputs |
-| `/validate` | Run quality checks |
-| `/railscheck` | Verify Rails configuration |
+All slash commands live in `.claude/commands/` - each command is a minimal wrapper that executes the corresponding KIE CLI function.
 
-⚠️ **Commands are case-sensitive.** Use `/startkie` not `/STARTKIE`
+To see all available commands:
+- Run `/railscheck` and read the enumerated list in the output
+- Or browse `.claude/commands/*.md` to see what's available
+
+⚠️ **Commands are case-sensitive.** Use `/eda` not `/EDA`
 
 ## Recommended Workflows
 
 ### Option 1: I Have Data, Need Quick Analysis
-1. Drop your CSV file in `data/` folder
-2. Type `/eda` to profile your data
-3. Type `/analyze` to extract insights
+1. Drop your data file (CSV/Excel/Parquet/JSON) in `data/` folder
+2. Run `/eda` to profile your data
+3. Run `/analyze` to extract insights
 
 ### Option 2: Need Formal Deliverable (Presentation/Dashboard)
-1. Type `/interview` to gather requirements
+1. Run `/interview` to gather requirements
 2. Choose express (6 questions) or full (11 questions)
 3. Follow the guided workflow
 
 ### Option 3: Just Exploring KIE
 1. Sample data is in `data/sample_data.csv`
-2. Type `/eda` to see how analysis works
-3. Type `/analyze` to see insight extraction
+2. Run `/eda` to see how analysis works
+3. Run `/analyze` to see insight extraction
 
 ---
 

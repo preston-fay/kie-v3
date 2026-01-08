@@ -1,38 +1,31 @@
 # KIE Project - Quick Start
 
-## Available Commands (case-sensitive, lowercase only!)
+## Available Commands
 
-| Command | What It Does |
-|---------|-------------|
-| `/eda` | Exploratory data analysis - profile your data |
-| `/analyze` | Extract insights - find key patterns |
-| `/interview` | Start requirements gathering (express or full) |
-| `/map` | Create geographic visualizations |
-| `/build` | Generate deliverables (presentation/dashboard) |
-| `/status` | Show current project state |
-| `/spec` | View your specification |
-| `/preview` | Preview current outputs |
-| `/validate` | Run quality checks |
-| `/railscheck` | Verify Rails configuration |
+All slash commands live in `.claude/commands/` - each command is a minimal wrapper that executes the corresponding KIE CLI function.
 
-⚠️ **Commands are case-sensitive.** Use `/startkie` not `/STARTKIE`
+To see all available commands:
+- Run `/railscheck` and read the enumerated list in the output
+- Or browse `.claude/commands/*.md` to see what's available
+
+⚠️ **Commands are case-sensitive.** Use `/eda` not `/EDA`
 
 ## Recommended Workflows
 
 ### Option 1: I Have Data, Need Quick Analysis
-1. Drop your CSV file in `data/` folder
-2. Type `/eda` to profile your data
-3. Type `/analyze` to extract insights
+1. Drop your data file (CSV/Excel/Parquet/JSON) in `data/` folder
+2. Run `/eda` to profile your data
+3. Run `/analyze` to extract insights
 
 ### Option 2: Need Formal Deliverable (Presentation/Dashboard)
-1. Type `/interview` to gather requirements
+1. Run `/interview` to gather requirements
 2. Choose express (6 questions) or full (11 questions)
 3. Follow the guided workflow
 
 ### Option 3: Just Exploring KIE
 1. Sample data is in `data/sample_data.csv`
-2. Type `/eda` to see how analysis works
-3. Type `/analyze` to see insight extraction
+2. Run `/eda` to see how analysis works
+3. Run `/analyze` to see insight extraction
 
 ---
 
@@ -90,29 +83,37 @@ natural language requirements into polished, brand-compliant deliverables.
 
 ### Rule 4: Execute KIE Commands Correctly
 
+**CRITICAL: This workspace uses a vendored KIE runtime in `.kie/src/`. All commands MUST use `PYTHONPATH=".kie/src"` prefix.**
+
 When the user types a KIE command:
 
 | User Types | You Execute |
 |------------|-------------|
 | `/startkie` | Use the SlashCommand tool (it's a Claude slash command) |
-| `/eda` | `python3 -m kie.cli eda` |
-| `/status` | `python3 -m kie.cli status` |
-| `/spec` | `python3 -m kie.cli spec` |
-| `/interview` | `python3 -m kie.cli interview` |
-| `/analyze` | `python3 -m kie.cli analyze` |
-| `/map` | `python3 -m kie.cli map` |
-| `/validate` | `python3 -m kie.cli validate` |
-| `/build` | `python3 -m kie.cli build [target]` |
-| `/preview` | `python3 -m kie.cli preview` |
-| `/doctor` | `python3 -m kie.cli doctor` |
+| `/eda` | `PYTHONPATH=".kie/src" python3 -m kie.cli eda` |
+| `/status` | `PYTHONPATH=".kie/src" python3 -m kie.cli status` |
+| `/spec` | `PYTHONPATH=".kie/src" python3 -m kie.cli spec` |
+| `/interview` | `PYTHONPATH=".kie/src" python3 -m kie.cli interview` |
+| `/analyze` | `PYTHONPATH=".kie/src" python3 -m kie.cli analyze` |
+| `/map` | `PYTHONPATH=".kie/src" python3 -m kie.cli map` |
+| `/validate` | `PYTHONPATH=".kie/src" python3 -m kie.cli validate` |
+| `/build` | `PYTHONPATH=".kie/src" python3 -m kie.cli build [target]` |
+| `/preview` | `PYTHONPATH=".kie/src" python3 -m kie.cli preview` |
+| `/doctor` | `PYTHONPATH=".kie/src" python3 -m kie.cli doctor` |
+
+**Why the PYTHONPATH prefix?**
+- This workspace is self-contained and doesn't require pip installation
+- The KIE runtime is vendored into `.kie/src/` during bootstrap
+- The PYTHONPATH tells Python to find the `kie` package in `.kie/src/`
 
 **Do NOT:**
 - Explain what the command does and wait
 - Ask if they want you to run it
 - Describe what will happen
 - Use any other execution method
+- Run commands without the PYTHONPATH prefix
 
-**Just run the Python CLI command immediately.**
+**Just run the Python CLI command immediately with the PYTHONPATH prefix.**
 
 ### Rule 5: Understand Your Control Boundaries
 
@@ -153,44 +154,44 @@ Before claiming something works, ask yourself:
 
 ## Bootstrap Detection (Auto-Setup)
 
-**IMPORTANT**: When you detect you're in a folder that needs KIE setup, automatically bootstrap it.
+**IMPORTANT**: This workspace has already been bootstrapped with a vendored KIE runtime in `.kie/src/`.
 
-### Detection Triggers
+**DO NOT attempt to bootstrap again.** If you see this CLAUDE.md file, the workspace is ready to use.
 
-Bootstrap a KIE project if ALL of these are true:
-1. Current working directory does NOT contain `CLAUDE.md` with "KIE Project" in it
-2. Current working directory does NOT contain `kie/` or `web/` folders (you're not in the KIE v3 repo)
-3. User requests indicate Kearney/KIE work with phrases like:
-   - "KIE project"
-   - "Kearney analysis"
-   - "consulting deliverable"
-   - "need a presentation/dashboard/analysis"
-   - Any mention of Acme, client work, or business analysis
-   - User types `/startkie`
+### Vendored Runtime Architecture
 
-### Bootstrap Process
+This workspace is **self-contained** and does not require pip installation:
 
-When triggered, use the Python CommandHandler:
-
-```python
-from pathlib import Path
-from kie.commands.handler import CommandHandler
-
-handler = CommandHandler(project_root=Path.cwd())
-result = handler.handle_startkie()
-
-if result['success']:
-    print(f"✅ {result['message']}")
-    print(f"Created: {', '.join(result['folders_created'])}")
-else:
-    print(f"❌ {result['message']}")
+```
+.kie/
+  src/
+    kie/                    # The KIE Python package (vendored)
+      cli.py               # CLI entry point
+      commands/            # Command handlers
+      charts/              # Chart generation
+      validation/          # Quality checks
+      ...
+    project_template/      # Template files (used during bootstrap)
 ```
 
-This will create:
-- Folder structure (data/, outputs/, exports/, project_state/)
-- .gitignore
-- README.md
-- CLAUDE.md (project-specific instructions)
+### How Commands Work
+
+All slash commands in `.claude/commands/` use the vendored runtime via `PYTHONPATH=".kie/src"`:
+
+```bash
+# Example: /eda command runs this
+PYTHONPATH=".kie/src" python3 -m kie.cli eda
+```
+
+This tells Python to find the `kie` package in `.kie/src/` instead of requiring a pip installation.
+
+### If Bootstrap is Needed (Empty Folder)
+
+If a user opens an empty folder and types `/startkie`, the command will:
+1. Download KIE source from GitHub: `https://github.com/preston-fay/kie-v3/archive/refs/heads/main.zip`
+2. Extract to `.kie/src/`
+3. Copy template files from `.kie/src/project_template/` to workspace root
+4. Verify setup with `PYTHONPATH=".kie/src" python3 -m kie.cli doctor`
 
 After bootstrapping, begin conversational requirements gathering.
 
@@ -279,28 +280,26 @@ Extract structured requirements from natural language. Only ask targeted follow-
 
 ## Commands
 
-**IMPORTANT: When user types a slash command like `/status` or `/eda`, execute it via terminal:**
+**IMPORTANT: This workspace uses vendored runtime. All commands MUST include `PYTHONPATH=".kie/src"` prefix:**
 ```bash
-python3 -m kie.cli status
+PYTHONPATH=".kie/src" python3 -m kie.cli status
 ```
 
 All commands work in both interactive REPL mode AND one-shot terminal execution.
 
 | Command | Description | Terminal Usage |
 |---------|-------------|----------------|
-| `/kie_setup` | Check workspace health (primary command) | `python3 -m kie.cli doctor` |
-| `/startkie` | Alias for /kie_setup (deprecated) | `python3 -m kie.cli doctor` |
-| `/status` | Show current project state | `python3 -m kie.cli status` |
-| `/spec` | View current specification | `python3 -m kie.cli spec` |
-| `/interview` | Start conversational requirements gathering | `python3 -m kie.cli interview` |
-| `/eda` | Run exploratory data analysis | `python3 -m kie.cli eda` |
-| `/analyze` | Extract insights from data | `python3 -m kie.cli analyze` |
-| `/map` | Create geographic visualizations | `python3 -m kie.cli map` |
-| `/validate` | Run comprehensive quality checks | `python3 -m kie.cli validate` |
-| `/build` | Execute full deliverable generation | `python3 -m kie.cli build` |
-| `/preview` | Generate preview of current outputs | `python3 -m kie.cli preview` |
-| `/doctor` | Check workspace health and detect package collisions | `python3 -m kie.cli doctor` |
-| `/template` | Generate workspace starter ZIP | `python3 -m kie.cli template` |
+| `/startkie` | Bootstrap new workspace (in empty folders) | Use SlashCommand tool |
+| `/status` | Show current project state | `PYTHONPATH=".kie/src" python3 -m kie.cli status` |
+| `/spec` | View current specification | `PYTHONPATH=".kie/src" python3 -m kie.cli spec` |
+| `/interview` | Start conversational requirements gathering | `PYTHONPATH=".kie/src" python3 -m kie.cli interview` |
+| `/eda` | Run exploratory data analysis | `PYTHONPATH=".kie/src" python3 -m kie.cli eda` |
+| `/analyze` | Extract insights from data | `PYTHONPATH=".kie/src" python3 -m kie.cli analyze` |
+| `/map` | Create geographic visualizations | `PYTHONPATH=".kie/src" python3 -m kie.cli map` |
+| `/validate` | Run comprehensive quality checks | `PYTHONPATH=".kie/src" python3 -m kie.cli validate` |
+| `/build` | Execute full deliverable generation | `PYTHONPATH=".kie/src" python3 -m kie.cli build` |
+| `/preview` | Generate preview of current outputs | `PYTHONPATH=".kie/src" python3 -m kie.cli preview` |
+| `/doctor` | Check workspace health | `PYTHONPATH=".kie/src" python3 -m kie.cli doctor` |
 
 ---
 
@@ -442,48 +441,44 @@ project_state/
 
 ## Tool Usage Rules
 
-### Charts
+**CRITICAL: Never import KIE modules directly in Python scripts within the workspace.**
+
+The KIE package is vendored in `.kie/src/` and should ONLY be accessed via the CLI commands with `PYTHONPATH=".kie/src"`.
+
+**DO NOT write Python code like this:**
 ```python
+# ❌ WRONG - This will fail because kie is not installed via pip
 from kie.charts import ChartFactory
-
-# Create chart
-config = ChartFactory.bar(data, x="region", y=["revenue"])
-config.to_json('outputs/charts/revenue.json')
+from kie.validation import ValidationPipeline
 ```
 
-### Interview
-```python
-from kie.interview import InterviewEngine
-
-interview = InterviewEngine()
-response = interview.process_message("I need a sales dashboard")
+**Instead, use the CLI commands:**
+```bash
+# ✅ CORRECT - Use the vendored runtime via CLI
+PYTHONPATH=".kie/src" python3 -m kie.cli analyze
+PYTHONPATH=".kie/src" python3 -m kie.cli validate
+PYTHONPATH=".kie/src" python3 -m kie.cli build
 ```
 
-### Validation
-```python
-from kie.validation import ValidationPipeline, ValidationConfig
-
-pipeline = ValidationPipeline(ValidationConfig(strict=True))
-summary = pipeline.get_pipeline_summary()
-```
+The CLI commands internally use all the KIE modules and provide the same functionality without requiring direct imports.
 
 ---
 
 ## Package Information
 
 **Package name**: `kie` (version 3.0.0)
-**Installation**: `pip install -e ".[all]"`
+**Location**: Vendored in `.kie/src/` (no pip installation required)
 
-**Critical**: NEVER import from `core` or `core_v3` - those are v2 only. Always use `kie`:
+**Critical**: This workspace uses a vendored runtime - do NOT attempt pip installation or direct imports.
 
-```python
-# ✅ Correct
-from kie.charts import ChartFactory
-from kie.validation import validate_chart_output
+**Use the CLI commands only:**
+```bash
+# ✅ Correct - Use CLI with vendored runtime
+PYTHONPATH=".kie/src" python3 -m kie.cli eda
+PYTHONPATH=".kie/src" python3 -m kie.cli analyze
 
-# ❌ Wrong
-from core.charts import Chart  # v2 only
-from core_v3.charts import ChartFactory  # old name
+# ❌ Wrong - Don't import directly
+from kie.charts import ChartFactory  # This will fail - kie not in pip
 ```
 
 ---
