@@ -21,8 +21,22 @@ if [ -d "kie" ] && [ -d "web" ]; then
 fi
 
 # Check 3: Folder not empty check
-if [ -e "README.md" ] || [ -e "CLAUDE.md" ] || [ -e ".claude" ] || [ -e "data" ] || [ -e "outputs" ]; then
-    echo "❌ This folder is not empty. Create a new empty folder and run this script there."
+# Allow .claude/ (created by Claude Code) and .DS_Store (macOS artifact)
+# Block if any other files/dirs exist
+EXISTING_ITEMS=()
+for item in * .[^.]*; do
+    # Skip if glob didn't match anything
+    [ -e "$item" ] || continue
+    # Skip allowed items
+    if [ "$item" = ".claude" ] || [ "$item" = ".DS_Store" ]; then
+        continue
+    fi
+    EXISTING_ITEMS+=("$item")
+done
+
+if [ ${#EXISTING_ITEMS[@]} -gt 0 ]; then
+    echo "❌ This folder is not empty. Found existing: ${EXISTING_ITEMS[*]}"
+    echo "   Hint: Create a new empty folder and run this script there."
     exit 1
 fi
 

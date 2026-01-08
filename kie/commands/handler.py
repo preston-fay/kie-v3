@@ -315,21 +315,30 @@ class CommandHandler:
             "kie_package_location": str(kie_package_root),
         }
 
-    def handle_interview(self) -> dict[str, Any]:
+    def handle_interview(self, from_wrapper: bool = False) -> dict[str, Any]:
         """
         Handle /interview command.
 
         NOTE: /interview is now Claude-orchestrated (not CLI-driven).
-        This method is deprecated - Claude conducts the interview directly.
+        This method prints guidance for Claude to conduct the interview.
+
+        Args:
+            from_wrapper: If True, suppress the hint about using slash commands
 
         Returns:
             Informational message
         """
-        return {
+        message = "The /interview command is Claude-orchestrated. Claude will conduct the interview by asking questions one at a time in chat. Just respond normally - no CLI interaction needed."
+
+        result = {
             "success": True,
-            "message": "The /interview command is Claude-orchestrated. Claude will conduct the interview by asking questions one at a time in chat. Just respond normally - no CLI interaction needed.",
-            "hint": "If you're seeing this from CLI, use the /interview slash command in Claude Code instead.",
+            "message": message,
         }
+
+        if not from_wrapper:
+            result["hint"] = "If you're seeing this from CLI, use the /interview slash command in Claude Code instead."
+
+        return result
 
     def handle_validate(self, target: str | None = None) -> dict[str, Any]:
         """

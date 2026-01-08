@@ -165,6 +165,64 @@ def test_railscheck_empty_data():
         print(f"{'='*60}\n")
 
 
+def test_bootstrap_allows_preexisting_claude_dir():
+    """Test that bootstrap succeeds when only .claude/ pre-exists (Claude Code creates this)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workspace = Path(tmpdir)
+        print(f"\n{'='*60}")
+        print(f"Testing bootstrap with pre-existing .claude/ in: {workspace}")
+        print(f"{'='*60}\n")
+
+        # Pre-create .claude directory (simulating Claude Code behavior)
+        claude_dir = workspace / ".claude"
+        claude_dir.mkdir()
+        print(f"✓ Pre-created .claude/ directory")
+
+        # Also add .DS_Store to test it's ignored
+        (workspace / ".DS_Store").write_text("")
+        print(f"✓ Pre-created .DS_Store file")
+
+        # Get repo root
+        repo_root = Path(__file__).parent.parent
+
+        # Run bootstrap script - should succeed despite .claude existing
+        print("\nStep 1: Running bootstrap with pre-existing .claude/...")
+        result = subprocess.run(
+            ["bash", str(repo_root / "tools" / "bootstrap" / "startkie.sh")],
+            cwd=workspace,
+            env={"KIE_BOOTSTRAP_SRC_DIR": str(repo_root)},
+            capture_output=True,
+            text=True,
+        )
+
+        print(result.stdout)
+
+        # CRITICAL: Bootstrap should succeed (not fail due to .claude existing)
+        assert result.returncode == 0, f"Bootstrap should succeed with pre-existing .claude/, got exit code {result.returncode}"
+
+        # Verify all critical directories exist
+        critical_dirs = ["data", "outputs", "exports", "project_state", ".claude/commands"]
+        for dir_name in critical_dirs:
+            dir_path = workspace / dir_name
+            assert dir_path.exists(), f"Critical directory missing after bootstrap: {dir_name}"
+
+        # Verify railscheck passes
+        print("\nStep 2: Running railscheck...")
+        result = subprocess.run(
+            ["bash", "-c", 'PYTHONPATH=".kie/src" python3 -m kie.cli railscheck'],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, f"railscheck should PASS after bootstrap with pre-existing .claude/"
+
+        print(f"\n{'='*60}")
+        print("✓ BOOTSTRAP WITH PRE-EXISTING .CLAUDE/ TEST PASSED")
+        print(f"{'='*60}\n")
+
+
 if __name__ == "__main__":
     test_bootstrap_enumerates_all_commands()
     test_railscheck_empty_data()
+    test_bootstrap_allows_preexisting_claude_dir()

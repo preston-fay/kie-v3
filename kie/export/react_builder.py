@@ -592,6 +592,10 @@ export { Tabs, TabsList, TabsTrigger, TabsContent };
         # Schema should always exist by this point (auto-inferred in build_dashboard if needed)
         assert self.data_schema is not None, "Schema should have been inferred in build_dashboard"
 
+        # Initialize variables to avoid UnboundLocalError
+        categorical_cols = []
+        numeric_cols = []
+
         # PHASE 5: Use intelligent column mapping if provided, otherwise fallback to naive selection
         if self.column_mapping:
             # Intelligently selected columns from DataLoader
