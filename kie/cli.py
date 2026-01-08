@@ -173,10 +173,26 @@ Type a command to get started!
                 print("Goodbye!")
             return (False, True)
 
-        # Handle help
-        if cmd in ["/help", "help"]:
-            self.print_welcome()
-            return (True, True)
+        # Handle help (including --help flag for any command)
+        if cmd in ["/help", "help"] or (args and "--help" in args):
+            if cmd in ["/build", "build"] and args and "--help" in args:
+                print("Usage: build [target]")
+                print("\nTargets:")
+                print("  all          - Build all deliverables (default)")
+                print("  dashboard    - Build React dashboard")
+                print("  presentation - Build PowerPoint presentation")
+                print("  charts       - Build charts only")
+                return (True, True)
+            elif cmd in ["/spec", "spec"] and args and "--help" in args:
+                print("Usage: spec [--init | --repair]")
+                print("\nOptions:")
+                print("  --init       - Create/update spec.yaml with defaults")
+                print("  --repair     - Fix stale data_source references")
+                print("  (no args)    - Display current spec.yaml")
+                return (True, True)
+            else:
+                self.print_welcome()
+                return (True, True)
 
         # Dispatch to handler
         try:
@@ -185,7 +201,10 @@ Type a command to get started!
             elif cmd == "/status":
                 result = self.handler.handle_status()
             elif cmd == "/spec":
-                result = self.handler.handle_spec()
+                # Handle --init and --repair flags
+                init_mode = args and "--init" in args
+                repair_mode = args and "--repair" in args
+                result = self.handler.handle_spec(init=init_mode, repair=repair_mode)
             elif cmd == "/interview":
                 result = self.handler.handle_interview()
             elif cmd == "/eda":
@@ -315,7 +334,11 @@ def main() -> None:
                     sys.exit(0 if result["success"] else 1)
 
             # Add slash prefix for internal process_command (REPL compatibility)
-            should_continue, command_succeeded = client.process_command(f"/{arg}")
+            # Pass any additional flags (e.g., spec --init, build all)
+            full_command = f"/{arg}"
+            if len(sys.argv) > 2:
+                full_command += " " + " ".join(sys.argv[2:])
+            should_continue, command_succeeded = client.process_command(full_command)
             sys.exit(0 if command_succeeded else 1)
         elif arg.startswith("/"):
             # Reject slash-prefixed commands in CLI

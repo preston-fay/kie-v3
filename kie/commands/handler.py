@@ -379,15 +379,28 @@ class CommandHandler:
         Returns:
             Build results
         """
+        # Auto-init spec if missing
         if not self.spec_path.exists():
-            return {
-                "success": False,
-                "message": "No spec.yaml found. Run /interview first.",
-            }
+            init_result = self.handle_spec(init=True, show=False)
+            if not init_result.get("success"):
+                return {
+                    "success": False,
+                    "message": f"Could not initialize spec.yaml: {init_result.get('message')}",
+                }
 
         # Load spec
         with open(self.spec_path) as f:
             spec = yaml.safe_load(f)
+
+        # Auto-repair stale data_source if present
+        if 'data_source' in spec:
+            data_source_path = self.project_root / "data" / spec['data_source']
+            if not data_source_path.exists():
+                repair_result = self.handle_spec(repair=True, show=False)
+                if repair_result.get("success"):
+                    # Reload spec after repair
+                    with open(self.spec_path) as f:
+                        spec = yaml.safe_load(f)
 
         # CRITICAL: Check theme is set before building (Codex requirement)
         from kie.config.theme_config import ProjectThemeConfig
@@ -961,17 +974,131 @@ class CommandHandler:
             ]),
         }
 
-    def handle_spec(self) -> dict[str, Any]:
+    def handle_spec(self, init: bool = False, repair: bool = False, show: bool = True) -> dict[str, Any]:
         """
-        Handle /spec command - show current specification.
+        Handle /spec command - show, initialize, or repair specification.
+
+        Args:
+            init: If True, create minimal spec if missing
+            repair: If True, fix stale data_source references
+            show: If True, return spec content (default)
 
         Returns:
             Specification dict
         """
+        # REPAIR MODE: Fix stale data_source references
+        if repair:
+            if not self.spec_path.exists():
+                return {
+                    "success": False,
+                    "message": "No spec.yaml found. Run 'kie spec --init' to create one.",
+                }
+
+            # Load existing spec
+            with open(self.spec_path) as f:
+                spec = yaml.safe_load(f) or {}
+
+            # Check if data_source exists
+            repaired = False
+            if 'data_source' in spec:
+                data_source_path = self.project_root / "data" / spec['data_source']
+                if not data_source_path.exists():
+                    # Data source is stale - auto-detect new one
+                    data_dir = self.project_root / "data"
+                    if data_dir.exists():
+                        data_files = list(data_dir.glob("*.csv")) + list(data_dir.glob("*.xlsx"))
+                        if len(data_files) == 1:
+                            old_data_source = spec['data_source']
+                            spec['data_source'] = data_files[0].name
+                            repaired = True
+                            repair_msg = f"Repaired data_source: {old_data_source} → {data_files[0].name}"
+                        elif len(data_files) == 0:
+                            # No data files found - remove data_source
+                            old_data_source = spec['data_source']
+                            del spec['data_source']
+                            repaired = True
+                            repair_msg = f"Removed stale data_source: {old_data_source} (no data files found)"
+                        else:
+                            return {
+                                "success": False,
+                                "message": f"Multiple data files found: {[f.name for f in data_files]}. Please manually set data_source in spec.yaml.",
+                            }
+
+            if repaired:
+                # Write repaired spec
+                with open(self.spec_path, "w") as f:
+                    yaml.dump(spec, f, default_flow_style=False, sort_keys=False)
+                return {
+                    "success": True,
+                    "message": repair_msg,
+                    "spec": spec,
+                }
+            else:
+                return {
+                    "success": True,
+                    "message": "No repairs needed - data_source is valid or not set.",
+                    "spec": spec,
+                }
+
+        # INIT MODE: Create minimal spec if missing
+        if init:
+            if self.spec_path.exists():
+                # Spec exists - fill missing fields only
+                with open(self.spec_path) as f:
+                    spec = yaml.safe_load(f) or {}
+            else:
+                # No spec - create minimal one
+                spec = {}
+
+            # Fill in defaults for missing fields
+            if 'project_name' not in spec:
+                spec['project_name'] = self.project_root.name or "Analysis"
+
+            if 'objective' not in spec:
+                spec['objective'] = "Analysis"
+
+            if 'project_type' not in spec:
+                spec['project_type'] = "analytics"
+
+            if 'deliverable_format' not in spec:
+                spec['deliverable_format'] = "report"
+
+            # Auto-detect data source if exactly one supported file exists
+            if 'data_source' not in spec:
+                data_dir = self.project_root / "data"
+                if data_dir.exists():
+                    data_files = list(data_dir.glob("*.csv")) + list(data_dir.glob("*.xlsx"))
+                    if len(data_files) == 1:
+                        spec['data_source'] = data_files[0].name
+
+            # Apply theme config
+            if 'preferences' not in spec:
+                spec['preferences'] = {}
+            if 'theme' not in spec['preferences']:
+                spec['preferences']['theme'] = {}
+            if 'mode' not in spec['preferences']['theme']:
+                from kie.config.theme_config import ProjectThemeConfig
+                theme_config = ProjectThemeConfig(self.project_root)
+                theme_mode = theme_config.load_theme() or "dark"
+                spec['preferences']['theme']['mode'] = theme_mode
+
+            # Write spec
+            self.spec_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.spec_path, "w") as f:
+                yaml.dump(spec, f, default_flow_style=False, sort_keys=False)
+
+            return {
+                "success": True,
+                "message": f"Initialized spec.yaml with defaults at {self.spec_path}",
+                "spec": spec,
+                "created": not self.spec_path.exists(),
+            }
+
+        # SHOW MODE: Display existing spec
         if not self.spec_path.exists():
             return {
                 "success": False,
-                "message": "No spec.yaml found. Run /interview to create one.",
+                "message": "No spec.yaml found. Run 'kie spec --init' to create one.",
             }
 
         with open(self.spec_path) as f:
