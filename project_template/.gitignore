@@ -1,0 +1,32 @@
+# Data files
+data/*
+!data/.gitkeep
+
+# Outputs
+outputs/*
+!outputs/.gitkeep
+
+# Exports
+exports/*
+!exports/.gitkeep
+
+# Project state (keep structure, not content)
+project_state/*.yaml
+project_state/*.json
+!project_state/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

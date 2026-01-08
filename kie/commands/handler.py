@@ -70,128 +70,36 @@ class CommandHandler:
                 "message": "You're in the KIE repository itself - no need to bootstrap",
             }
 
-        # Create folder structure
-        folders = ["data", "outputs", "exports", "project_state"]
-        for folder in folders:
-            (self.project_root / folder).mkdir(exist_ok=True)
-
-        # Create subdirectories
-        (self.project_root / "outputs" / "charts").mkdir(exist_ok=True)
-        (self.project_root / "outputs" / "tables").mkdir(exist_ok=True)
-        (self.project_root / "outputs" / "maps").mkdir(exist_ok=True)
-        (self.project_root / "project_state" / "validation_reports").mkdir(exist_ok=True)
-
-        # Create .gitignore
-        gitignore_content = """# Data files
-data/*
-!data/.gitkeep
-
-# Outputs
-outputs/*
-!outputs/.gitkeep
-
-# Exports
-exports/*
-!exports/.gitkeep
-
-# Project state (keep structure, not content)
-project_state/*.yaml
-project_state/*.json
-project_state/validation_reports/*
-
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
-
-# Node
-node_modules/
-.next/
-build/
-dist/
-"""
-
-        (self.project_root / ".gitignore").write_text(gitignore_content)
-
-        # Create README.md
-        readme_content = """# KIE Project
-
-## Quick Start
-
-1. **Drop your data file** into the chat or `data/` folder
-2. **Describe what you want** in plain English
-3. **Let Claude (KIE)** create brand-compliant deliverables
-
-That's it! Claude will guide you through the rest.
-
-## Folder Structure
-
-```
-data/           - Put your data files here
-outputs/        - Generated charts, tables, maps
-  charts/       - Chart outputs
-  tables/       - Table configurations
-  maps/         - Map outputs
-exports/        - Final deliverables (PPTX, etc.)
-project_state/  - Project tracking
-  spec.yaml     - Requirements (source of truth)
-  status.json   - Build status
-  validation_reports/ - QC reports
-```
-
-## Commands
-
-- `/status` - Show project status
-- `/interview` - Start requirements gathering
-- `/validate` - Run quality checks
-- `/build` - Build deliverables
-- `/preview` - Preview outputs
-
-## Tips
-
-- Just describe what you need naturally
-- Say "preview" to see what's been generated
-- Say "export" when ready for final deliverables
-- KIE enforces Kearney brand standards automatically
-- All outputs are validated before delivery
-"""
-
-        (self.project_root / "README.md").write_text(readme_content)
-
-        # Copy CLAUDE.md from KIE repo (don't hardcode - keep it in sync!)
+        # Copy workspace skeleton from project_template (single source of truth)
         import shutil
         kie_repo_root = Path(__file__).parent.parent.parent  # Go up to kie-v3/
-        source_claude_md = kie_repo_root / "CLAUDE.md"
-        target_claude_md = self.project_root / "CLAUDE.md"
+        project_template = kie_repo_root / "project_template"
 
-        if source_claude_md.exists():
-            shutil.copy(source_claude_md, target_claude_md)
-        else:
-            # Fallback: create minimal CLAUDE.md if source doesn't exist
-            target_claude_md.write_text("# KIE Project\n\nKIE (Kearney Insight Engine) v3 project.")
+        if not project_template.exists():
+            return {
+                "success": False,
+                "message": "project_template not found - KIE installation may be corrupted",
+                "hint": "Reinstall KIE or clone from repository"
+            }
 
-        # Copy slash commands from package (cross-platform compatible)
-        import shutil
-        kie_package_dir = Path(__file__).parent.parent  # kie/ package directory
-        source_commands = kie_package_dir / "commands" / "slash_commands"
-        target_commands = self.project_root / ".claude" / "commands"
+        # Copy everything from project_template
+        for item in project_template.iterdir():
+            if item.name in [".git", "__pycache__", ".DS_Store"]:
+                continue
 
-        commands_copied = False
-        if source_commands.exists():
-            target_commands.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(source_commands, target_commands, dirs_exist_ok=True)
-            commands_copied = True
-        else:
-            # Fallback: try repo location (for development)
-            kie_repo_root = Path(__file__).parent.parent.parent  # Go up to kie-v3/
-            source_commands_fallback = kie_repo_root / ".claude" / "commands"
-            if source_commands_fallback.exists():
-                target_commands.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copytree(source_commands_fallback, target_commands, dirs_exist_ok=True)
-                commands_copied = True
+            target_item = self.project_root / item.name
+
+            if item.is_dir():
+                shutil.copytree(item, target_item, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, target_item)
+
+        # Track what was created
+        folders = ["data", "outputs", "exports", "project_state"]
+        commands_copied = (self.project_root / ".claude" / "commands").exists()
 
         # Copy fixture dataset so EDA can run on day 1
+        kie_package_dir = Path(__file__).parent.parent  # kie/ package directory
         source_fixture = kie_package_dir / "templates" / "fixture_data.csv"
         target_fixture = self.project_root / "data" / "sample_data.csv"
         if source_fixture.exists():
