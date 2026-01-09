@@ -106,6 +106,9 @@ class ObservabilityHooks:
             # Record outputs
             self._observe_outputs(ledger, result)
 
+            # STEP 3: Generate next steps (WOW FACTOR)
+            self._generate_next_steps(ledger, result)
+
         except Exception as e:
             # Log but do not fail
             ledger.warnings.append(f"Post-command observation warning: {e}")
@@ -194,6 +197,27 @@ class ObservabilityHooks:
             # Record artifacts
             if artifact_paths:
                 record_artifacts(ledger, artifact_paths, artifact_type="output")
+
+        except Exception:
+            pass  # Silent failure
+
+    def _generate_next_steps(self, ledger: EvidenceLedger, result: dict[str, Any]) -> None:
+        """
+        Generate decision-ready next steps (STEP 3: WOW FACTOR).
+
+        Uses NextStepsAdvisor to generate CLI-executable next actions.
+        NEVER raises exceptions.
+        """
+        try:
+            from kie.consultant import NextStepsAdvisor
+            advisor = NextStepsAdvisor(self.project_root)
+
+            # Generate next steps based on command and result
+            next_steps = advisor.generate_next_steps(ledger.command, result)
+
+            # Add next steps to result (advisory only, never blocking)
+            if next_steps and "next_steps" not in result:
+                result["next_steps"] = next_steps
 
         except Exception:
             pass  # Silent failure
