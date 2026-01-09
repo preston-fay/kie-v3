@@ -5,6 +5,7 @@ Executes KIE v3 slash commands.
 """
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,13 @@ from kie.data import EDA, DataLoader
 from kie.insights import InsightCatalog, InsightEngine
 from kie.powerpoint import SlideBuilder
 from kie.validation import ValidationConfig, ValidationPipeline
+
+# Observability imports (STEP 1: OBSERVABILITY)
+try:
+    from kie.observability import EvidenceLedger, ObservabilityHooks, create_ledger
+    HAS_OBSERVABILITY = True
+except ImportError:
+    HAS_OBSERVABILITY = False
 
 
 class CommandHandler:
@@ -45,6 +53,69 @@ class CommandHandler:
         from kie.config.theme_config import ProjectThemeConfig
         theme_config = ProjectThemeConfig(self.project_root)
         theme_config.apply_theme()  # Applies theme if set, does nothing if not
+
+        # Initialize observability (STEP 1: OBSERVABILITY)
+        self._observability_enabled = HAS_OBSERVABILITY and os.getenv("KIE_DISABLE_OBSERVABILITY") != "1"
+        if self._observability_enabled:
+            self._obs_hooks = ObservabilityHooks(self.project_root)
+        else:
+            self._obs_hooks = None
+
+    def _with_observability(
+        self,
+        command: str,
+        args: dict[str, Any],
+        executor: callable
+    ) -> dict[str, Any]:
+        """
+        Execute a command with observability hooks.
+
+        CRITICAL: This method NEVER fails the command. If observability fails,
+        it logs the issue but allows the command to proceed.
+
+        Args:
+            command: Command name
+            args: Command arguments
+            executor: Function to execute (returns result dict)
+
+        Returns:
+            Command result dictionary
+        """
+        ledger = None
+
+        try:
+            if self._observability_enabled:
+                # Create ledger
+                ledger = create_ledger(command, args, self.project_root)
+
+                # Pre-command hook
+                self._obs_hooks.pre_command(ledger, command, args)
+
+        except Exception as e:
+            # Log but do not fail
+            print(f"Warning: Observability pre-command failed: {e}")
+
+        # Execute command (always runs regardless of observability)
+        result = executor()
+
+        try:
+            if self._observability_enabled and ledger:
+                # Post-command hook
+                self._obs_hooks.post_command(ledger, result)
+
+                # Save ledger
+                ledger_dir = self.project_root / "project_state" / "evidence_ledger"
+                ledger.save(ledger_dir)
+
+                # Add evidence reference to result (non-intrusive)
+                if "evidence_ledger_id" not in result:
+                    result["evidence_ledger_id"] = ledger.run_id
+
+        except Exception as e:
+            # Log but do not fail
+            print(f"Warning: Observability post-command failed: {e}")
+
+        return result
 
     def handle_startkie(self) -> dict[str, Any]:
         """
