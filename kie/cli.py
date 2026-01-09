@@ -184,11 +184,20 @@ Type a command to get started!
                 print("  charts       - Build charts only")
                 return (True, True)
             elif cmd in ["/spec", "spec"] and args and "--help" in args:
-                print("Usage: spec [--init | --repair]")
+                print("Usage: spec [--init | --repair | --set key=value [...]]")
                 print("\nOptions:")
-                print("  --init       - Create/update spec.yaml with defaults")
-                print("  --repair     - Fix stale data_source references")
-                print("  (no args)    - Display current spec.yaml")
+                print("  --init                    - Create/update spec.yaml with defaults")
+                print("  --repair                  - Fix stale data_source references")
+                print("  --set key=value           - Update spec field (can repeat)")
+                print("  --force                   - Skip data_source validation (use with --set)")
+                print("  (no args)                 - Display current spec.yaml")
+                print("\nAllowed keys for --set:")
+                print("  project_name, client_name, objective, project_type,")
+                print("  deliverable_format, data_source, preferences.theme.mode")
+                print("\nExamples:")
+                print("  spec --set client_name=AcmeCorp --set objective=\"Q4 Analysis\"")
+                print("  spec --set data_source=sales.csv")
+                print("  spec --set preferences.theme.mode=light")
                 return (True, True)
             else:
                 self.print_welcome()
@@ -201,10 +210,38 @@ Type a command to get started!
             elif cmd == "/status":
                 result = self.handler.handle_status()
             elif cmd == "/spec":
-                # Handle --init and --repair flags
+                # Handle --init, --repair, --set, and --force flags
                 init_mode = args and "--init" in args
                 repair_mode = args and "--repair" in args
-                result = self.handler.handle_spec(init=init_mode, repair=repair_mode)
+                force_mode = args and "--force" in args
+
+                # Parse --set key=value pairs (handle quoted values)
+                set_values = {}
+                if args and "--set" in args:
+                    import shlex
+                    try:
+                        parts = shlex.split(args)
+                    except ValueError:
+                        # Fallback to simple split if shlex fails
+                        parts = args.split()
+
+                    i = 0
+                    while i < len(parts):
+                        if parts[i] == "--set" and i + 1 < len(parts):
+                            kv = parts[i + 1]
+                            if "=" in kv:
+                                key, value = kv.split("=", 1)
+                                set_values[key] = value
+                            i += 2
+                        else:
+                            i += 1
+
+                result = self.handler.handle_spec(
+                    init=init_mode,
+                    repair=repair_mode,
+                    set_values=set_values if set_values else None,
+                    force=force_mode
+                )
             elif cmd == "/interview":
                 result = self.handler.handle_interview()
             elif cmd == "/eda":
@@ -332,6 +369,35 @@ def main() -> None:
                     result = client.handler.handle_template(output_path=output_path)
                     client.print_result(result)
                     sys.exit(0 if result["success"] else 1)
+
+            # Special handling for spec command to preserve argument structure
+            if arg == "spec" and len(sys.argv) > 2:
+                # Parse spec arguments directly from sys.argv to preserve quotes
+                init_mode = "--init" in sys.argv
+                repair_mode = "--repair" in sys.argv
+                force_mode = "--force" in sys.argv
+
+                # Parse --set key=value pairs from sys.argv
+                set_values = {}
+                i = 2  # Start after "spec"
+                while i < len(sys.argv):
+                    if sys.argv[i] == "--set" and i + 1 < len(sys.argv):
+                        kv = sys.argv[i + 1]
+                        if "=" in kv:
+                            key, value = kv.split("=", 1)
+                            set_values[key] = value
+                        i += 2
+                    else:
+                        i += 1
+
+                result = client.handler.handle_spec(
+                    init=init_mode,
+                    repair=repair_mode,
+                    set_values=set_values if set_values else None,
+                    force=force_mode
+                )
+                client.print_result(result)
+                sys.exit(0 if result["success"] else 1)
 
             # Add slash prefix for internal process_command (REPL compatibility)
             # Pass any additional flags (e.g., spec --init, build all)

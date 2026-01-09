@@ -974,14 +974,16 @@ class CommandHandler:
             ]),
         }
 
-    def handle_spec(self, init: bool = False, repair: bool = False, show: bool = True) -> dict[str, Any]:
+    def handle_spec(self, init: bool = False, repair: bool = False, show: bool = True, set_values: dict[str, Any] | None = None, force: bool = False) -> dict[str, Any]:
         """
-        Handle /spec command - show, initialize, or repair specification.
+        Handle /spec command - show, initialize, repair, or update specification.
 
         Args:
             init: If True, create minimal spec if missing
             repair: If True, fix stale data_source references
             show: If True, return spec content (default)
+            set_values: Dict of key=value pairs to set in spec
+            force: If True, skip validation when setting data_source
 
         Returns:
             Specification dict
@@ -1092,6 +1094,74 @@ class CommandHandler:
                 "message": f"Initialized spec.yaml with defaults at {self.spec_path}",
                 "spec": spec,
                 "created": not self.spec_path.exists(),
+            }
+
+        # SET MODE: Update spec with key=value pairs
+        if set_values:
+            # Auto-init if spec doesn't exist
+            if not self.spec_path.exists():
+                init_result = self.handle_spec(init=True, show=False)
+                if not init_result["success"]:
+                    return init_result
+
+            # Load existing spec
+            with open(self.spec_path) as f:
+                spec = yaml.safe_load(f) or {}
+
+            # Allowed keys (whitelist for safety)
+            allowed_keys = {
+                'project_name', 'client_name', 'objective', 'project_type',
+                'deliverable_format', 'data_source', 'preferences.theme.mode'
+            }
+
+            updated_fields = []
+            warnings = []
+
+            for key, value in set_values.items():
+                if key not in allowed_keys:
+                    return {
+                        "success": False,
+                        "message": f"Invalid key: {key}. Allowed keys: {', '.join(sorted(allowed_keys))}",
+                    }
+
+                # Handle nested keys (e.g., preferences.theme.mode)
+                if '.' in key:
+                    parts = key.split('.')
+                    current = spec
+                    for part in parts[:-1]:
+                        if part not in current:
+                            current[part] = {}
+                        current = current[part]
+                    current[parts[-1]] = value
+                else:
+                    # Special validation for data_source
+                    if key == 'data_source' and not force:
+                        data_source_path = self.project_root / "data" / value
+                        if not data_source_path.exists():
+                            warnings.append(
+                                f"Warning: data_source '{value}' not found in data/ directory. "
+                                "Use --force to set anyway."
+                            )
+                            continue
+
+                    spec[key] = value
+
+                updated_fields.append(f"{key}={value}")
+
+            # Write updated spec
+            with open(self.spec_path, "w") as f:
+                yaml.dump(spec, f, default_flow_style=False, sort_keys=False)
+
+            message = f"Updated spec.yaml: {', '.join(updated_fields)}"
+            if warnings:
+                message += f"\n{'; '.join(warnings)}"
+
+            return {
+                "success": True,
+                "message": message,
+                "spec": spec,
+                "updated_fields": updated_fields,
+                "warnings": warnings,
             }
 
         # SHOW MODE: Display existing spec
