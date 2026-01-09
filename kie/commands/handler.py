@@ -237,11 +237,16 @@ class CommandHandler:
         """
         Handle /doctor command.
 
-        Checks workspace health and detects package name collision risks.
+        Comprehensive environment + rails + dashboard readiness check.
+        Cross-platform diagnostics for Mac and Windows.
 
         Returns:
-            Status dict with warnings
+            Status dict with checks, warnings, errors, and next_steps
         """
+        import json
+        import os
+        import platform
+        import subprocess
         import sys
         from importlib.util import find_spec
 
@@ -250,42 +255,151 @@ class CommandHandler:
         warnings = []
         errors = []
         checks = []
+        next_steps = []
 
-        # 1. Check resolved kie module path
+        # Detect OS
+        current_os = platform.system()  # 'Darwin' for Mac, 'Windows' for Windows
+
+        # ===== 1. Rails Health =====
+        rails_state_path = self.project_root / "project_state" / "rails_state.json"
+        rails_command_path = self.project_root / ".claude" / "commands" / "rails.md"
+
+        if rails_state_path.exists():
+            try:
+                with open(rails_state_path) as f:
+                    rails_data = json.load(f)
+                checks.append("✓ Rails state tracking active (rails_state.json)")
+            except (json.JSONDecodeError, OSError):
+                warnings.append("⚠️  rails_state.json exists but is invalid JSON")
+        else:
+            warnings.append("⚠️  Rails state tracking not found. Run /startkie to initialize.")
+
+        if rails_command_path.exists():
+            checks.append("✓ Rails workflow command available (/rails)")
+        else:
+            warnings.append("⚠️  /rails command not found in .claude/commands/")
+
+        # ===== 2. Python Runtime =====
+        python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        checks.append(f"✓ Python version: {python_version}")
+
+        # Test vendored runtime import
         kie_file = Path(kie.__file__).resolve()
         kie_package_root = kie_file.parent
-        checks.append(f"✓ Resolved kie module: {kie_package_root}")
 
-        # 2. Check if we're in the right kie package
-        # Expected: either editable install from this repo or site-packages
-        expected_repo_root = Path("/Users/pfay01/Projects/kie-v3")
-        is_editable_from_this_repo = expected_repo_root in kie_package_root.parents
+        # Check if using vendored runtime (.kie/src pattern)
+        if ".kie" in str(kie_package_root) and "src" in str(kie_package_root):
+            checks.append(f"✓ Using vendored KIE runtime: {kie_package_root}")
+        else:
+            # Check if from expected repo or site-packages
+            expected_repo_root = Path("/Users/pfay01/Projects/kie-v3")
+            is_editable_from_this_repo = expected_repo_root in kie_package_root.parents
 
-        # Get site-packages location
-        site_packages = None
-        for path in sys.path:
-            if "site-packages" in path:
-                site_packages = Path(path)
-                break
+            site_packages = None
+            for path in sys.path:
+                if "site-packages" in path:
+                    site_packages = Path(path)
+                    break
 
-        is_from_site_packages = site_packages and site_packages in kie_package_root.parents
+            is_from_site_packages = site_packages and site_packages in kie_package_root.parents
 
-        if not (is_editable_from_this_repo or is_from_site_packages):
-            warnings.append(
-                "⚠️  WARNING: The 'kie' module is being imported from an unexpected location. "
-                f"Found at: {kie_package_root}. "
-                "This may indicate a naming collision with another 'kie' package. "
-                "Ensure only one 'kie' package is installed and KIE v3 is properly installed."
-            )
+            if is_editable_from_this_repo or is_from_site_packages:
+                checks.append(f"✓ KIE package location: {kie_package_root}")
+            else:
+                warnings.append(
+                    f"⚠️  Unexpected KIE import location: {kie_package_root}. "
+                    "This may indicate a package collision."
+                )
 
-        # 3. Check for CLI entrypoint to verify it's the right package
+        # Check CLI entrypoint
         cli_spec = find_spec("kie.cli")
         if cli_spec is None:
-            errors.append("❌ ERROR: kie.cli module not found - wrong package installed")
+            errors.append("❌ kie.cli module not found - wrong package installed")
         else:
-            checks.append(f"✓ CLI entrypoint: {cli_spec.origin}")
+            checks.append("✓ CLI entrypoint verified")
 
-        # 4. Check workspace structure
+        # ===== 3. Node/Vite Readiness =====
+        node_version_str = None
+        node_major = None
+
+        # Try to detect Node version (allow env var override for testing)
+        if "TEST_NODE_VERSION" in os.environ:
+            node_version_str = os.environ["TEST_NODE_VERSION"]
+            try:
+                node_major = int(node_version_str.split(".")[0])
+            except (ValueError, IndexError):
+                node_major = 0
+        else:
+            try:
+                result = subprocess.run(
+                    ["node", "--version"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    node_version_str = result.stdout.strip().lstrip("v")
+                    try:
+                        node_major = int(node_version_str.split(".")[0])
+                    except (ValueError, IndexError):
+                        node_major = 0
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                node_version_str = None
+
+        if node_version_str:
+            if node_major >= 20:
+                checks.append(f"✓ Node.js version: {node_version_str} (compatible)")
+            else:
+                errors.append(f"❌ Node.js version {node_version_str} is too old (minimum: 20.19)")
+
+                # OS-specific fix instructions
+                if current_os == "Darwin":  # Mac
+                    next_steps.append("# Mac: Upgrade Node.js")
+                    next_steps.append("brew install node@22")
+                    next_steps.append('echo \'export PATH="/opt/homebrew/opt/node@22/bin:$PATH"\' >> ~/.zshrc')
+                    next_steps.append("source ~/.zshrc")
+                elif current_os == "Windows":
+                    next_steps.append("# Windows: Upgrade Node.js")
+                    next_steps.append("# Option 1: Use winget (Windows Package Manager)")
+                    next_steps.append("winget install OpenJS.NodeJS.LTS")
+                    next_steps.append("")
+                    next_steps.append("# Option 2: Download installer")
+                    next_steps.append("# Visit https://nodejs.org/ and download Node 22 LTS")
+                    next_steps.append("# After install, restart your terminal")
+        else:
+            errors.append("❌ Node.js not found")
+
+            # OS-specific installation instructions
+            if current_os == "Darwin":  # Mac
+                next_steps.append("# Mac: Install Node.js")
+                next_steps.append("brew install node@22")
+                next_steps.append('echo \'export PATH="/opt/homebrew/opt/node@22/bin:$PATH"\' >> ~/.zshrc')
+                next_steps.append("source ~/.zshrc")
+            elif current_os == "Windows":
+                next_steps.append("# Windows: Install Node.js")
+                next_steps.append("winget install OpenJS.NodeJS.LTS")
+                next_steps.append("# Or download from https://nodejs.org/")
+                next_steps.append("# Restart your terminal after installation")
+
+        # ===== 4. Dashboard Readiness =====
+        dashboard_path = self.project_root / "exports" / "dashboard"
+        dashboard_package_json = dashboard_path / "package.json"
+
+        if dashboard_package_json.exists():
+            checks.append("✓ Dashboard generated (exports/dashboard/)")
+
+            # Provide launch instructions
+            next_steps.append("")
+            next_steps.append("# Launch dashboard:")
+            next_steps.append(f"cd {dashboard_path}")
+            next_steps.append("npm install  # (first time only)")
+            next_steps.append("npm run dev")
+            next_steps.append("# Then open http://localhost:5173")
+        else:
+            # No dashboard yet - not an error, just informational
+            pass
+
+        # ===== 5. Workspace Structure =====
         required_dirs = ["data", "outputs", "exports", "project_state"]
         missing_dirs = [d for d in required_dirs if not (self.project_root / d).exists()]
 
@@ -297,30 +411,42 @@ class CommandHandler:
         else:
             checks.append("✓ Workspace structure valid")
 
-        # 5. Check for commands
+        # ===== 6. Slash Commands =====
         commands_dir = self.project_root / ".claude" / "commands"
         if not commands_dir.exists() or not list(commands_dir.glob("*.md")):
             warnings.append(
-                "⚠️  Slash commands not found in .claude/commands/. "
-                "Run /startkie to provision commands."
+                "⚠️  Slash commands not found. Run /startkie to provision."
             )
         else:
             checks.append(f"✓ Slash commands provisioned ({len(list(commands_dir.glob('*.md')))} commands)")
 
-        # 6. Check for spec.yaml
-        if self.spec_path.exists():
-            checks.append("✓ Project spec found (project_state/spec.yaml)")
-        else:
-            warnings.append(
-                "⚠️  No project spec found. Run /interview to create spec.yaml."
-            )
+        # ===== 7. Smart Hints (Context-Aware Next Steps) =====
+        has_spec = self.spec_path.exists()
+        has_data = (self.project_root / "data").exists() and \
+                   any((self.project_root / "data").iterdir())
+
+        if not has_spec:
+            next_steps.append("")
+            next_steps.append("# No project spec found - get started:")
+            next_steps.append("/spec --init    # Create default spec")
+            next_steps.append("# OR")
+            next_steps.append("/interview      # Conversational requirements gathering")
+        elif not has_data:
+            next_steps.append("")
+            next_steps.append("# Add data to get started:")
+            next_steps.append(f"# 1. Drop your CSV/Excel/Parquet file into: {self.project_root / 'data'}/")
+            next_steps.append("# 2. Run /eda to profile your data")
 
         return {
             "success": len(errors) == 0,
             "checks": checks,
             "warnings": warnings,
             "errors": errors,
+            "next_steps": next_steps,
             "kie_package_location": str(kie_package_root),
+            "os": current_os,
+            "python_version": python_version,
+            "node_version": node_version_str,
         }
 
     def handle_interview(self, from_wrapper: bool = False) -> dict[str, Any]:
