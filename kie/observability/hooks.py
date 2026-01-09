@@ -115,6 +115,9 @@ class ObservabilityHooks:
             # PRIME-TIME STEP 2: Generate Trust Bundle
             self._generate_trust_bundle(ledger, result)
 
+            # PRIME-TIME STEP 3: Generate Recovery Plan (if needed)
+            self._generate_recovery_plan(ledger, result)
+
         except Exception as e:
             # Log but do not fail
             ledger.warnings.append(f"Post-command observation warning: {e}")
@@ -305,3 +308,58 @@ class ObservabilityHooks:
 
         except Exception:
             pass  # Silent failure - trust bundle is advisory only
+
+    def _generate_recovery_plan(self, ledger: EvidenceLedger, result: dict[str, Any]) -> None:
+        """
+        Generate Recovery Plan artifact (PRIME-TIME STEP 3).
+
+        Creates deterministic recovery guidance when commands WARN, BLOCK, or FAIL.
+        NEVER raises exceptions or blocks execution.
+        """
+        try:
+            from kie.observability.recovery_plan import (
+                should_generate_recovery_plan,
+                generate_recovery_plan,
+                save_recovery_plan,
+                get_recovery_message,
+            )
+
+            # Check if recovery plan should be generated
+            if not should_generate_recovery_plan(ledger, result):
+                return
+
+            # Generate recovery plan
+            markdown = generate_recovery_plan(ledger, result, self.project_root)
+
+            # Save recovery plan
+            plan_path = save_recovery_plan(markdown, self.project_root)
+
+            # Extract first Tier 1 command for console message
+            tier1_start = markdown.find("## 3. Fix it now (Tier 1)")
+            if tier1_start > 0:
+                tier1_section = markdown[tier1_start:tier1_start + 500]
+                # Find first command in bash block
+                bash_start = tier1_section.find("```bash")
+                if bash_start > 0:
+                    bash_end = tier1_section.find("```", bash_start + 7)
+                    bash_block = tier1_section[bash_start + 7:bash_end].strip()
+                    # Get first non-comment line
+                    for line in bash_block.split("\n"):
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            tier1_command = line
+                            break
+                    else:
+                        tier1_command = "python3 -m kie.cli status"
+                else:
+                    tier1_command = "python3 -m kie.cli status"
+            else:
+                tier1_command = "python3 -m kie.cli status"
+
+            # Print recovery message to console
+            if plan_path:
+                recovery_msg = get_recovery_message(plan_path, tier1_command)
+                print(recovery_msg)
+
+        except Exception:
+            pass  # Silent failure - recovery plan is advisory only

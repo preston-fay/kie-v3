@@ -10,6 +10,7 @@ Key components:
 - Run Summary: Human-readable output formatter (STEP 1)
 - Policy Engine: Enforcement of Rails invariants (STEP 2)
 - Trust Bundle: Consultant-facing auditable artifact (PRIME-TIME STEP 2)
+- Recovery Plan: Deterministic recovery guidance (PRIME-TIME STEP 3)
 
 CRITICAL: Enforcement blocks INVALID actions only. Valid failures are permitted.
 """
@@ -17,6 +18,7 @@ CRITICAL: Enforcement blocks INVALID actions only. Valid failures are permitted.
 from kie.observability.evidence_ledger import EvidenceLedger, create_ledger
 from kie.observability.hooks import ObservabilityHooks
 from kie.observability.policy_engine import PolicyEngine, PolicyResult, PolicyDecision, generate_recovery_message
+from kie.observability.recovery_plan import generate_recovery_plan, save_recovery_plan, should_generate_recovery_plan
 from kie.observability.run_summary import RunSummary
 from kie.observability.trust_bundle import generate_trust_bundle, save_trust_bundle
 
@@ -31,4 +33,7 @@ __all__ = [
     "RunSummary",
     "generate_trust_bundle",
     "save_trust_bundle",
+    "generate_recovery_plan",
+    "save_recovery_plan",
+    "should_generate_recovery_plan",
 ]
