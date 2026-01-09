@@ -112,6 +112,9 @@ class ObservabilityHooks:
             # SKILLS REALIZATION: Execute applicable skills for stage
             self._execute_skills(ledger, result)
 
+            # PRIME-TIME STEP 2: Generate Trust Bundle
+            self._generate_trust_bundle(ledger, result)
+
         except Exception as e:
             # Log but do not fail
             ledger.warnings.append(f"Post-command observation warning: {e}")
@@ -283,3 +286,22 @@ class ObservabilityHooks:
 
         except Exception:
             pass  # Silent failure - skills NEVER block
+
+    def _generate_trust_bundle(self, ledger: EvidenceLedger, result: dict[str, Any]) -> None:
+        """
+        Generate Trust Bundle artifact (PRIME-TIME STEP 2).
+
+        Creates deterministic, consultant-facing artifact from evidence ledger.
+        NEVER raises exceptions or blocks execution.
+        """
+        try:
+            from kie.observability.trust_bundle import generate_trust_bundle, save_trust_bundle
+
+            # Generate trust bundle
+            markdown, json_data = generate_trust_bundle(ledger, result, self.project_root)
+
+            # Save trust bundle
+            save_trust_bundle(markdown, json_data, self.project_root)
+
+        except Exception:
+            pass  # Silent failure - trust bundle is advisory only
