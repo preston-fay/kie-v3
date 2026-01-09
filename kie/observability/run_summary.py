@@ -58,6 +58,21 @@ class RunSummary:
                     lines.append(f"  ⚠️  {path} (unreadable)")
             lines.append("")
 
+        # Skills executed (SKILLS REALIZATION)
+        if "skills_executed" in ledger.proof_references:
+            skills = ledger.proof_references["skills_executed"]
+            if skills:
+                lines.append("Skills:")
+                for skill_result in skills:
+                    skill_id = skill_result.get("skill_id", "unknown")
+                    success = skill_result.get("success", False)
+                    status = "✓" if success else "✗"
+                    lines.append(f"  {status} {skill_id}")
+                    artifacts = skill_result.get("artifacts", {})
+                    for name, path in artifacts.items():
+                        lines.append(f"      → {name}: {path}")
+                lines.append("")
+
         # Warnings
         if ledger.warnings:
             lines.append("Warnings:")

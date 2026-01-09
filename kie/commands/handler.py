@@ -1241,17 +1241,9 @@ class CommandHandler:
                 result["map_generated"] = str(map_path)
                 result["map_type"] = map_type
 
-            # STEP 3: Generate Insight Brief (WOW FACTOR)
-            try:
-                from kie.consultant import InsightBriefGenerator
-                brief_gen = InsightBriefGenerator(self.project_root)
-                brief_result = brief_gen.generate()
-                if brief_result.get("success"):
-                    result["insight_brief"] = brief_result["brief_markdown"]
-                    result["insight_brief_json"] = brief_result["brief_json"]
-            except Exception as e:
-                # Brief generation is optional - don't fail analysis
-                result["warnings"] = result.get("warnings", []) + [f"Insight Brief generation failed: {e}"]
+            # NOTE: Skills (Insight Brief, Run Story) now invoked via ObservabilityHooks
+            # This removes hardcoded skill logic from handler.py
+            # Skills execute based on stage_scope declared in registry
 
             # Update Rails state
             from kie.state import update_rails_state

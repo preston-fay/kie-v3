@@ -109,6 +109,9 @@ class ObservabilityHooks:
             # STEP 3: Generate next steps (WOW FACTOR)
             self._generate_next_steps(ledger, result)
 
+            # SKILLS REALIZATION: Execute applicable skills for stage
+            self._execute_skills(ledger, result)
+
         except Exception as e:
             # Log but do not fail
             ledger.warnings.append(f"Post-command observation warning: {e}")
@@ -221,3 +224,62 @@ class ObservabilityHooks:
 
         except Exception:
             pass  # Silent failure
+
+    def _execute_skills(self, ledger: EvidenceLedger, result: dict[str, Any]) -> None:
+        """
+        Execute applicable skills for the current stage (SKILLS REALIZATION).
+
+        Skills are stage-scoped and executed via registry.
+        NEVER raises exceptions. Skills NEVER block execution.
+        """
+        try:
+            from kie.skills import SkillContext, get_registry
+            from kie.observability.evidence_ledger import read_rails_stage
+
+            # Get current stage
+            current_stage = read_rails_stage(self.project_root)
+            if not current_stage:
+                return
+
+            # Build skill context
+            outputs_dir = self.project_root / "outputs"
+            artifacts = {}
+
+            # Check common artifacts
+            if (outputs_dir / "insights_catalog.json").exists():
+                artifacts["insights_catalog"] = outputs_dir / "insights_catalog.json"
+            if (outputs_dir / "eda_profile.json").exists():
+                artifacts["eda_profile"] = outputs_dir / "eda_profile.json"
+
+            context = SkillContext(
+                project_root=self.project_root,
+                current_stage=current_stage,
+                artifacts=artifacts,
+                evidence_ledger_id=ledger.run_id,
+            )
+
+            # Execute skills for this stage
+            registry = get_registry()
+            skill_results = registry.execute_skills_for_stage(current_stage, context)
+
+            # Record skill execution in ledger
+            ledger.proof_references["skills_executed"] = skill_results["skills_executed"]
+
+            # Add skill artifacts to result
+            if skill_results["artifacts_produced"]:
+                result.setdefault("skill_artifacts", {}).update(
+                    skill_results["artifacts_produced"]
+                )
+
+            # Add skill warnings
+            if skill_results["warnings"]:
+                ledger.warnings.extend(skill_results["warnings"])
+
+            # Add skill errors (non-blocking)
+            if skill_results["errors"]:
+                ledger.warnings.extend(
+                    [f"Skill error (non-blocking): {e}" for e in skill_results["errors"]]
+                )
+
+        except Exception:
+            pass  # Silent failure - skills NEVER block
