@@ -24,6 +24,13 @@ try:
 except ImportError:
     HAS_OBSERVABILITY = False
 
+# Enforcement imports (STEP 2: ENFORCEMENT)
+try:
+    from kie.observability import PolicyEngine, generate_recovery_message
+    HAS_ENFORCEMENT = True
+except ImportError:
+    HAS_ENFORCEMENT = False
+
 
 class CommandHandler:
     """
@@ -61,6 +68,39 @@ class CommandHandler:
         else:
             self._obs_hooks = None
 
+        # Initialize enforcement (STEP 2: ENFORCEMENT)
+        self._enforcement_enabled = HAS_ENFORCEMENT and os.getenv("KIE_DISABLE_ENFORCEMENT") != "1"
+        if self._enforcement_enabled:
+            self._policy_engine = PolicyEngine(self.project_root)
+        else:
+            self._policy_engine = None
+
+    def _build_policy_context(self) -> dict[str, Any]:
+        """
+        Build context for policy evaluation.
+
+        Returns:
+            Context dictionary with workspace state
+        """
+        context = {}
+
+        # Check for spec
+        spec_path = self.project_root / "project_state" / "spec.yaml"
+        context["has_spec"] = spec_path.exists()
+
+        # Check for data
+        data_dir = self.project_root / "data"
+        if data_dir.exists():
+            data_files = [
+                f for f in data_dir.iterdir()
+                if f.is_file() and f.name != ".gitkeep"
+            ]
+            context["has_data"] = len(data_files) > 0
+        else:
+            context["has_data"] = False
+
+        return context
+
     def _with_observability(
         self,
         command: str,
@@ -68,10 +108,10 @@ class CommandHandler:
         executor: callable
     ) -> dict[str, Any]:
         """
-        Execute a command with observability hooks.
+        Execute a command with observability hooks and enforcement.
 
-        CRITICAL: This method NEVER fails the command. If observability fails,
-        it logs the issue but allows the command to proceed.
+        STEP 1: Observability hooks observe state (never fail commands)
+        STEP 2: Enforcement policies block INVALID actions only
 
         Args:
             command: Command name
@@ -88,20 +128,98 @@ class CommandHandler:
                 # Create ledger
                 ledger = create_ledger(command, args, self.project_root)
 
-                # Pre-command hook
+                # Pre-command hook (STEP 1: OBSERVABILITY)
                 self._obs_hooks.pre_command(ledger, command, args)
 
         except Exception as e:
             # Log but do not fail
             print(f"Warning: Observability pre-command failed: {e}")
 
-        # Execute command (always runs regardless of observability)
+        # STEP 2: Evaluate preconditions (ENFORCEMENT)
+        if self._enforcement_enabled and self._policy_engine:
+            try:
+                # Read current Rails stage
+                rails_state_path = self.project_root / "project_state" / "rails_state.json"
+                current_stage = None
+                if rails_state_path.exists():
+                    rails_state = json.loads(rails_state_path.read_text())
+                    current_stage = rails_state.get("current_stage")
+
+                # Build context
+                context = self._build_policy_context()
+
+                # Evaluate preconditions
+                policy_result = self._policy_engine.evaluate_preconditions(
+                    command, current_stage, context
+                )
+
+                # If blocked, return error immediately WITHOUT executing
+                if policy_result.is_blocked:
+                    # Record block in ledger
+                    if ledger:
+                        ledger.success = False
+                        ledger.errors.append(policy_result.message)
+                        if policy_result.violated_invariant:
+                            ledger.proof_references["violated_invariant"] = policy_result.violated_invariant
+                        if policy_result.missing_prerequisite:
+                            ledger.proof_references["missing_prerequisite"] = policy_result.missing_prerequisite
+
+                        # Save ledger
+                        ledger_dir = self.project_root / "project_state" / "evidence_ledger"
+                        ledger.save(ledger_dir)
+
+                    # Generate and print recovery message
+                    recovery_msg = generate_recovery_message(policy_result)
+                    print(recovery_msg)
+
+                    # Return error result
+                    return {
+                        "success": False,
+                        "errors": [policy_result.message],
+                        "violated_invariant": policy_result.violated_invariant,
+                        "missing_prerequisite": policy_result.missing_prerequisite,
+                        "recovery_steps": policy_result.recovery_steps,
+                        "evidence_ledger_id": ledger.run_id if ledger else None,
+                    }
+
+            except Exception as e:
+                # Enforcement failures do not block commands
+                print(f"Warning: Enforcement precondition check failed: {e}")
+
+        # Execute command (only if not blocked)
         result = executor()
 
         try:
             if self._observability_enabled and ledger:
-                # Post-command hook
+                # Post-command hook (STEP 1: OBSERVABILITY)
                 self._obs_hooks.post_command(ledger, result)
+
+                # STEP 2: Evaluate evidence completeness (ENFORCEMENT)
+                if self._enforcement_enabled and self._policy_engine:
+                    # Get artifacts from ledger
+                    artifacts = ledger.outputs
+
+                    # Validate evidence completeness
+                    evidence_result = self._policy_engine.evaluate_evidence_completeness(
+                        command, result, artifacts
+                    )
+
+                    # If blocked, override result
+                    if evidence_result.is_blocked:
+                        ledger.success = False
+                        ledger.errors.append(evidence_result.message)
+                        if evidence_result.violated_invariant:
+                            ledger.proof_references["violated_invariant"] = evidence_result.violated_invariant
+
+                        # Generate and print recovery message
+                        recovery_msg = generate_recovery_message(evidence_result)
+                        print(recovery_msg)
+
+                        # Override result
+                        result["success"] = False
+                        result["errors"] = result.get("errors", []) + [evidence_result.message]
+                        result["violated_invariant"] = evidence_result.violated_invariant
+                        result["recovery_steps"] = evidence_result.recovery_steps
 
                 # Save ledger
                 ledger_dir = self.project_root / "project_state" / "evidence_ledger"
