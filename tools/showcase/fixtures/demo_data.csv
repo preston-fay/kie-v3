@@ -1,0 +1,17 @@
+Region,Product,Revenue,Cost,Margin,Quarter
+North,Widget A,125000,75000,0.40,Q1
+North,Widget B,98000,68000,0.31,Q1
+South,Widget A,145000,82000,0.43,Q1
+South,Widget B,112000,74000,0.34,Q1
+East,Widget A,168000,95000,0.43,Q1
+East,Widget B,134000,89000,0.34,Q1
+West,Widget A,103000,65000,0.37,Q1
+West,Widget B,87000,61000,0.30,Q1
+North,Widget A,138000,79000,0.43,Q2
+North,Widget B,106000,71000,0.33,Q2
+South,Widget A,159000,88000,0.45,Q2
+South,Widget B,121000,78000,0.36,Q2
+East,Widget A,182000,101000,0.45,Q2
+East,Widget B,145000,93000,0.36,Q2
+West,Widget A,115000,69000,0.40,Q2
+West,Widget B,94000,64000,0.32,Q2

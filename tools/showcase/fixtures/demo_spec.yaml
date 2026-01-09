@@ -1,0 +1,11 @@
+# SHOWCASE DEMO SPECIFICATION
+# This is demo data for KIE's first-run showcase mode.
+
+project_name: "Regional Performance Analysis (DEMO)"
+client_name: "Demo Client Corp"
+objective: "Analyze regional sales performance and identify growth opportunities"
+project_type: dashboard
+theme: light
+
+# This specification uses demo data only
+showcase_mode: true

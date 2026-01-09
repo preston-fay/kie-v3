@@ -1700,6 +1700,18 @@ class CommandHandler:
         Returns:
             Result dict with executed_command, evidence_ledger_id, and next_step
         """
+        # Check for Showcase Mode FIRST (before any other logic)
+        from kie.showcase import should_activate_showcase, run_showcase, mark_showcase_completed
+
+        if should_activate_showcase(self.project_root):
+            # Run showcase mode
+            result = run_showcase(self.project_root)
+
+            # Mark as completed
+            mark_showcase_completed(self.project_root)
+
+            return result
+
         def executor() -> dict[str, Any]:
             """Execute /go logic (wrapped by observability + enforcement)."""
             from kie.state import load_rails_state
