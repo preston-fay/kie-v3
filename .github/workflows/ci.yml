@@ -1,4 +1,4 @@
-name: CI
+name: CI - Production Verification
 
 on:
   pull_request:
@@ -19,9 +19,26 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Set up Node.js 20.19
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+
+      - name: Verify Node.js version (BLOCKING)
+        run: |
+          NODE_VERSION=$(node --version | sed 's/v//')
+          REQUIRED_VERSION="20.19.0"
+          echo "Node.js version: $NODE_VERSION"
+          if [ "$(printf '%s\n' "$REQUIRED_VERSION" "$NODE_VERSION" | sort -V | head -n1)" != "$REQUIRED_VERSION" ]; then
+            echo "❌ ERROR: Node.js version must be >= $REQUIRED_VERSION"
+            echo "Current version: $NODE_VERSION"
+            exit 1
+          fi
+          echo "✓ Node.js version check passed"
+
       - name: Install dependencies
         run: |
-          pip install -e .
+          pip install -e ".[all]"
 
       - name: Check invariants (BLOCKING)
         run: |
@@ -30,6 +47,40 @@ jobs:
       - name: Run stable tests (BLOCKING)
         run: |
           python -m pytest tests/test_interview_routing.py -v
+
+  # Smoke harness - production verification
+  smoke-test:
+    name: Smoke Harness (Blocking)
+    runs-on: ubuntu-latest
+    needs: required-checks
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js 20.19
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[all]"
+
+      - name: Run smoke harness (BLOCKING)
+        run: |
+          python3 tools/verify/verify_kie.py
+
+      - name: Upload smoke test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: smoke_artifacts/
+          if-no-files-found: ignore
 
   # NON-BLOCKING checks - allowed to fail for now
   full-test-suite:
@@ -46,8 +97,43 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e .
+          pip install -e ".[all]"
 
       - name: Run all tests
         run: |
           python -m pytest -v
+
+  # Release readiness check
+  release-check:
+    name: Release Readiness
+    runs-on: ubuntu-latest
+    needs: [required-checks, smoke-test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify release artifacts
+        run: |
+          echo "Checking release readiness..."
+
+          # Check critical files exist
+          test -f "kie/observability/evidence_ledger.py" || { echo "Missing evidence_ledger.py"; exit 1; }
+          test -f "kie/observability/trust_bundle.py" || { echo "Missing trust_bundle.py"; exit 1; }
+          test -f "kie/observability/recovery_plan.py" || { echo "Missing recovery_plan.py"; exit 1; }
+          test -f "kie/commands/handler.py" || { echo "Missing handler.py"; exit 1; }
+          test -f "tools/verify/verify_kie.py" || { echo "Missing verify_kie.py"; exit 1; }
+          test -f "docs/PRODUCTION_VERIFICATION.md" || { echo "Missing PRODUCTION_VERIFICATION.md"; exit 1; }
+
+          echo "✓ All critical files present"
+
+      - name: Summary
+        run: |
+          echo "=================================="
+          echo "✅ CI PASSED - RELEASE READY"
+          echo "=================================="
+          echo ""
+          echo "Verification Complete:"
+          echo "  ✓ Unit tests passed"
+          echo "  ✓ Smoke harness passed"
+          echo "  ✓ Node.js >= 20.19"
+          echo "  ✓ Critical files present"
+          echo ""
