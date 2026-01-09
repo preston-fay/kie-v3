@@ -48,6 +48,8 @@ class KIEClient:
 **Kearney Insight Engine** - AI-powered consulting delivery platform
 
 ## Available Commands:
+- `/go` - Execute next workflow step (Golden Path)
+- `/go --full` - Execute all workflow steps until complete or blocked
 - `/startkie` - Bootstrap new KIE project
 - `/status` - Show project status
 - `/spec` - View current specification
@@ -71,6 +73,8 @@ Type a command to get started!
             print("Kearney Insight Engine - AI-powered consulting delivery")
             print("=" * 60)
             print("\nAvailable Commands:")
+            print("  /go            - Execute next workflow step (Golden Path)")
+            print("  /go --full     - Execute all workflow steps until complete or blocked")
             print("  /startkie      - Bootstrap new KIE project")
             print("  /status        - Show project status")
             print("  /spec          - View current specification")
@@ -205,7 +209,11 @@ Type a command to get started!
 
         # Dispatch to handler
         try:
-            if cmd == "/startkie":
+            if cmd == "/go":
+                # Handle --full flag
+                full_mode = args and "--full" in args
+                result = self.handler.handle_go(full=full_mode)
+            elif cmd == "/startkie":
                 result = self.handler.handle_startkie()
             elif cmd == "/status":
                 result = self.handler.handle_status()
@@ -340,6 +348,8 @@ def main() -> None:
         if arg in ["-h", "--help"]:
             print("Usage: kie [command | project_directory]")
             print("\nOne-shot command execution:")
+            print("  kie go           - Execute next workflow step and exit")
+            print("  kie go --full    - Execute all workflow steps until complete or blocked")
             print("  kie status       - Show project status and exit")
             print("  kie eda          - Run EDA and exit")
             print("  kie analyze      - Run analysis and exit")
@@ -355,7 +365,7 @@ def main() -> None:
             sys.exit(0)
 
         # Check if it's a known command (without slash prefix for CLI)
-        known_commands = ["startkie", "status", "spec", "interview", "eda",
+        known_commands = ["go", "startkie", "status", "spec", "interview", "eda",
                         "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck"]
 
         if arg in known_commands or arg == "railscheck":

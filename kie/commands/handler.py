@@ -1687,6 +1687,215 @@ class CommandHandler:
                 "message": f"Map creation failed: {str(e)}",
             }
 
+    def handle_go(self, full: bool = False) -> dict[str, Any]:
+        """
+        Handle /go command - Golden Path consultant entrypoint.
+
+        Routes consultant through workflow based on rails_state.json.
+
+        Args:
+            full: If True, execute sequential stages until preview or blocked.
+                  If False (default), execute EXACTLY ONE next action.
+
+        Returns:
+            Result dict with executed_command, evidence_ledger_id, and next_step
+        """
+        def executor() -> dict[str, Any]:
+            """Execute /go logic (wrapped by observability + enforcement)."""
+            from kie.state import load_rails_state
+
+            # Load rails_state to determine next action
+            rails_state = load_rails_state(self.project_root)
+            completed = rails_state.get("completed_stages", [])
+            workflow_started = rails_state.get("workflow_started", False)
+
+            # FULL MODE: Chain stages until preview or blocked
+            if full:
+                return self._execute_full_mode(completed, workflow_started)
+
+            # DEFAULT MODE: Execute EXACTLY ONE next action
+            return self._execute_single_step(completed, workflow_started)
+
+        # Wrap with observability + enforcement like other commands
+        return self._with_observability("go", {"full": full}, executor)
+
+    def _execute_single_step(self, completed: list[str], workflow_started: bool) -> dict[str, Any]:
+        """
+        Execute EXACTLY ONE next action based on rails_state.
+
+        Args:
+            completed: List of completed stages from rails_state
+            workflow_started: Whether workflow has started
+
+        Returns:
+            Result dict with executed_command and next_step
+        """
+        # CASE 1: Project not bootstrapped
+        if not workflow_started:
+            result = self.handle_startkie()
+            result["executed_command"] = "startkie"
+            return result
+
+        # CASE 2: Startkie complete, spec not initialized
+        if "startkie" in completed and "spec" not in completed:
+            result = self.handle_spec(init=True)
+            result["executed_command"] = "spec"
+            return result
+
+        # CASE 3: Spec complete, check if data present
+        if "spec" in completed and "eda" not in completed:
+            # Check for data files (read-only signal, NOT workflow authority)
+            data_dir = self.project_root / "data"
+            has_data = False
+            if data_dir.exists():
+                data_files = [
+                    f for f in data_dir.iterdir()
+                    if f.is_file() and f.name != ".gitkeep"
+                ]
+                has_data = len(data_files) > 0
+
+            if not has_data:
+                # EMIT GUIDANCE (do NOT run EDA without data)
+                return {
+                    "success": True,
+                    "executed_command": "guidance",
+                    "message": "Spec complete. Add data files to data/ directory to continue.",
+                    "next_step": "Add CSV/Excel files to data/ folder, then run /go again (or /eda directly)",
+                }
+
+            # Data present - execute EDA
+            result = self.handle_eda()
+            result["executed_command"] = "eda"
+            return result
+
+        # CASE 4: EDA complete, ready for analyze
+        if "eda" in completed and "analyze" not in completed:
+            result = self.handle_analyze()
+            result["executed_command"] = "analyze"
+            return result
+
+        # CASE 5: Analyze complete, ready for build
+        if "analyze" in completed and "build" not in completed:
+            result = self.handle_build(target="all")
+            result["executed_command"] = "build"
+            return result
+
+        # CASE 6: Build complete, ready for preview
+        if "build" in completed and "preview" not in completed:
+            result = self.handle_preview()
+            result["executed_command"] = "preview"
+            return result
+
+        # CASE 7: All stages complete
+        return {
+            "success": True,
+            "executed_command": "complete",
+            "message": "Workflow complete! All stages finished.",
+            "next_step": "Run /preview to review outputs, or /validate for quality checks",
+        }
+
+    def _execute_full_mode(self, completed: list[str], workflow_started: bool) -> dict[str, Any]:
+        """
+        Execute sequential stages until preview or blocked.
+
+        Args:
+            completed: List of completed stages from rails_state
+            workflow_started: Whether workflow has started
+
+        Returns:
+            Result dict with stages_executed list
+        """
+        from kie.state import load_rails_state
+
+        stages_executed = []
+        current_completed = completed.copy()
+
+        # Define stage execution order
+        stage_order = ["startkie", "spec", "eda", "analyze", "build", "preview"]
+
+        for stage in stage_order:
+            # Skip already completed stages
+            if stage in current_completed:
+                continue
+
+            # Execute next stage
+            try:
+                if stage == "startkie":
+                    result = self.handle_startkie()
+                elif stage == "spec":
+                    result = self.handle_spec(init=True)
+                elif stage == "eda":
+                    # Check for data before running EDA
+                    data_dir = self.project_root / "data"
+                    has_data = False
+                    if data_dir.exists():
+                        data_files = [
+                            f for f in data_dir.iterdir()
+                            if f.is_file() and f.name != ".gitkeep"
+                        ]
+                        has_data = len(data_files) > 0
+
+                    if not has_data:
+                        # BLOCKED: No data
+                        return {
+                            "success": True,
+                            "executed_command": "full",
+                            "stages_executed": stages_executed,
+                            "blocked_at": "eda",
+                            "message": "Stopped: No data files in data/ directory",
+                            "next_step": "Add CSV/Excel files to data/ folder, then run /go --full again",
+                        }
+
+                    result = self.handle_eda()
+                elif stage == "analyze":
+                    result = self.handle_analyze()
+                elif stage == "build":
+                    result = self.handle_build(target="all")
+                elif stage == "preview":
+                    result = self.handle_preview()
+
+                # Check if stage succeeded
+                if not result.get("success", False):
+                    # BLOCKED: Stage failed
+                    return {
+                        "success": True,
+                        "executed_command": "full",
+                        "stages_executed": stages_executed,
+                        "blocked_at": stage,
+                        "message": f"Stopped at {stage}: {result.get('message', 'Stage failed')}",
+                        "next_step": f"Fix issues with /{stage}, then run /go --full again",
+                    }
+
+                # Stage succeeded
+                stages_executed.append({
+                    "stage": stage,
+                    "success": True,
+                })
+
+                # Reload rails_state to get updated completed list
+                rails_state = load_rails_state(self.project_root)
+                current_completed = rails_state.get("completed_stages", [])
+
+            except Exception as e:
+                # BLOCKED: Exception during stage
+                return {
+                    "success": True,
+                    "executed_command": "full",
+                    "stages_executed": stages_executed,
+                    "blocked_at": stage,
+                    "message": f"Stopped at {stage}: {str(e)}",
+                    "next_step": f"Fix issues with /{stage}, then run /go --full again",
+                }
+
+        # All stages completed
+        return {
+            "success": True,
+            "executed_command": "full",
+            "stages_executed": stages_executed,
+            "message": f"Full workflow complete! Executed {len(stages_executed)} stages.",
+            "next_step": "Run /validate for quality checks, or /preview to review outputs",
+        }
+
     def handle_template(self, output_path: Path | None = None) -> dict[str, Any]:
         """
         Generate KIE Workspace Starter Template ZIP.

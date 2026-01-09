@@ -54,9 +54,9 @@ def test_bootstrap_enumerates_all_commands():
         assert "/analyze" in result.stdout, "/analyze not enumerated"
         assert "/build" in result.stdout, "/build not enumerated"
 
-        # Count commands (should be 10 from project_template)
+        # Count commands (should be 12 from project_template - includes /go)
         command_lines = [line for line in result.stdout.split("\n") if line.strip().startswith("/")]
-        assert len(command_lines) >= 10, f"Expected at least 10 commands, found {len(command_lines)}"
+        assert len(command_lines) >= 12, f"Expected at least 12 commands, found {len(command_lines)}"
 
         print(f"✓ Bootstrap enumerated {len(command_lines)} commands")
 
@@ -94,9 +94,9 @@ PYTHONPATH=".kie/src" python3 -m kie.cli doctor
         assert "/eda" in result.stdout, "/eda disappeared after adding dummy"
         assert "/analyze" in result.stdout, "/analyze disappeared after adding dummy"
 
-        # Count commands again (should be 11 now)
+        # Count commands again (should be 13 now - 12 base commands including /go + dummy)
         command_lines = [line for line in result.stdout.split("\n") if line.strip().startswith("/")]
-        assert len(command_lines) == 11, f"Expected 11 commands after adding dummy, found {len(command_lines)}"
+        assert len(command_lines) == 13, f"Expected 13 commands after adding dummy, found {len(command_lines)}"
 
         print(f"\n{'='*60}")
         print("✓ COMMAND ENUMERATION TEST PASSED")
