@@ -9,8 +9,95 @@ echo "🚀 Bootstrapping KIE workspace..."
 # Check 1: Already a KIE project?
 if [ -f "CLAUDE.md" ]; then
     if grep -q "KIE Project" "CLAUDE.md"; then
-        echo "✓ This is already a KIE project. Ready to start working!"
-        exit 0
+        # REFRESH MODE: Upgrade existing workspace if requested
+        if [ "$KIE_BOOTSTRAP_REFRESH" = "1" ]; then
+            echo "🔄 REFRESH MODE: Upgrading existing KIE workspace..."
+
+            # Ensure vendored runtime exists
+            if [ ! -d ".kie/src" ]; then
+                echo "📦 Downloading KIE runtime from GitHub..."
+                mkdir -p .kie/tmp
+
+                if [ -n "$KIE_BOOTSTRAP_SRC_DIR" ]; then
+                    echo "Using local source: $KIE_BOOTSTRAP_SRC_DIR"
+                    cp -r "$KIE_BOOTSTRAP_SRC_DIR" .kie/src
+                else
+                    curl -L https://github.com/preston-fay/kie-v3/archive/refs/heads/main.zip -o .kie/tmp/kie-v3.zip
+                    cd .kie/tmp
+                    unzip -q kie-v3.zip
+                    cd ../..
+                    mv .kie/tmp/kie-v3-main .kie/src
+                fi
+
+                rm -rf .kie/tmp
+                echo "✓ KIE runtime vendored to .kie/src/"
+            else
+                echo "✓ Using existing vendored runtime at .kie/src/"
+            fi
+
+            # Verify critical paths
+            if [ ! -d ".kie/src/project_template" ]; then
+                echo "❌ ERROR: .kie/src/project_template not found"
+                exit 1
+            fi
+
+            # Update command pack from vendored template
+            echo "📝 Updating command pack..."
+            TEMPLATE_CMD_DIR=".kie/src/project_template/.claude/commands"
+            WORKSPACE_CMD_DIR=".claude/commands"
+
+            if [ -d "$TEMPLATE_CMD_DIR" ]; then
+                mkdir -p "$WORKSPACE_CMD_DIR"
+
+                # Copy all commands from template (overwrite existing)
+                cp "$TEMPLATE_CMD_DIR"/*.md "$WORKSPACE_CMD_DIR"/
+                echo "✓ Copied latest command pack"
+
+                # Remove legacy command files
+                LEGACY_FILES=("interview_v3.md" "status_v3.md" "validate_v3.md" "help.md" "start.md")
+                for legacy_file in "${LEGACY_FILES[@]}"; do
+                    if [ -f "$WORKSPACE_CMD_DIR/$legacy_file" ]; then
+                        rm "$WORKSPACE_CMD_DIR/$legacy_file"
+                        echo "✓ Removed legacy file: $legacy_file"
+                    fi
+                done
+
+                # Fix command wrappers to use vendored runtime
+                for cmd_file in "$WORKSPACE_CMD_DIR"/*.md; do
+                    if [ -f "$cmd_file" ]; then
+                        sed -i.bak '/PYTHONPATH="\.kie\/src"/! s/python3 -m kie\.cli/PYTHONPATH=".kie\/src" python3 -m kie.cli/g' "$cmd_file"
+                        rm -f "${cmd_file}.bak"
+                    fi
+                done
+                echo "✓ Fixed command wrappers for vendored runtime"
+            fi
+
+            # Ensure rails_state.json exists
+            if [ ! -f "project_state/rails_state.json" ]; then
+                mkdir -p project_state
+                if [ -f ".kie/src/project_template/project_state/rails_state.json" ]; then
+                    cp ".kie/src/project_template/project_state/rails_state.json" "project_state/"
+                    echo "✓ Added rails_state.json"
+                fi
+            else
+                echo "✓ rails_state.json already exists"
+            fi
+
+            echo ""
+            echo "✅ Workspace upgraded successfully!"
+            echo ""
+            echo "CHANGES MADE:"
+            echo "  - Updated command pack from latest template"
+            echo "  - Removed legacy *_v3.md commands"
+            echo "  - Added/verified rails_state.json"
+            echo "  - Configured commands for vendored runtime"
+            echo ""
+            exit 0
+        else
+            echo "✓ This is already a KIE project. Ready to start working!"
+            echo "   (Use KIE_BOOTSTRAP_REFRESH=1 to upgrade command pack)"
+            exit 0
+        fi
     fi
 fi
 
