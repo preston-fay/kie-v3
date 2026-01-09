@@ -148,6 +148,10 @@ class CommandHandler:
         print("    3. Type /analyze to see insight extraction")
         print("\n" + "="*60 + "\n")
 
+        # Update Rails state
+        from kie.state import update_rails_state
+        update_rails_state(self.project_root, "startkie", success=True)
+
         return {
             "success": True,
             "message": "KIE project structure created successfully",
@@ -199,6 +203,10 @@ class CommandHandler:
         reports_dir = self.project_root / "project_state" / "validation_reports"
         if reports_dir.exists():
             status["validation_reports"] = [f.name for f in reports_dir.glob("*.txt")]
+
+        # Add Rails progress
+        from kie.state import get_rails_progress
+        status["rails_progress"] = get_rails_progress(self.project_root)
 
         if brief:
             return {"brief_status": self._format_brief_status(status)}
@@ -447,6 +455,10 @@ class CommandHandler:
             with open(self.state_path, "w") as f:
                 json.dump(status, f, indent=2)
 
+            # Update Rails state
+            from kie.state import update_rails_state
+            update_rails_state(self.project_root, "build", success=True)
+
             return {
                 "success": True,
                 "message": "Build completed successfully",
@@ -664,6 +676,11 @@ class CommandHandler:
             log(f"Generated {len(suggestions)} analysis suggestions")
 
             log("EDA command completed successfully")
+
+            # Update Rails state
+            from kie.state import update_rails_state
+            update_rails_state(self.project_root, "eda", success=True)
+
             return {
                 "success": True,
                 "profile": profile.to_dict(),
@@ -909,6 +926,10 @@ class CommandHandler:
                 result["map_generated"] = str(map_path)
                 result["map_type"] = map_type
 
+            # Update Rails state
+            from kie.state import update_rails_state
+            update_rails_state(self.project_root, "analyze", success=True)
+
             return result
 
         except Exception as e:
@@ -962,6 +983,10 @@ class CommandHandler:
                 previews["dashboard_instruction"] = f"Run 'cd {web_dir} && npm run dev' to launch React dashboard"
             else:
                 previews["dashboard_instruction"] = "React dashboard not found (web/ directory missing)"
+
+        # Update Rails state
+        from kie.state import update_rails_state
+        update_rails_state(self.project_root, "preview", success=True)
 
         return {
             **previews,
@@ -1089,6 +1114,10 @@ class CommandHandler:
             with open(self.spec_path, "w") as f:
                 yaml.dump(spec, f, default_flow_style=False, sort_keys=False)
 
+            # Update Rails state
+            from kie.state import update_rails_state
+            update_rails_state(self.project_root, "spec", success=True)
+
             return {
                 "success": True,
                 "message": f"Initialized spec.yaml with defaults at {self.spec_path}",
@@ -1155,6 +1184,10 @@ class CommandHandler:
             message = f"Updated spec.yaml: {', '.join(updated_fields)}"
             if warnings:
                 message += f"\n{'; '.join(warnings)}"
+
+            # Update Rails state
+            from kie.state import update_rails_state
+            update_rails_state(self.project_root, "spec", success=True)
 
             return {
                 "success": True,
