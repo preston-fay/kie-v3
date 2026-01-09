@@ -16,10 +16,12 @@ from kie.skills.registry import SkillRegistry, get_registry, register_skill
 
 # Import and register skills
 from kie.skills.insight_brief import InsightBriefSkill
+from kie.skills.insight_triage import InsightTriageSkill
 from kie.skills.run_story import RunStorySkill
 
 # Auto-register skills
 register_skill(InsightBriefSkill())
+register_skill(InsightTriageSkill())
 register_skill(RunStorySkill())
 
 __all__ = [
@@ -30,5 +32,6 @@ __all__ = [
     "get_registry",
     "register_skill",
     "InsightBriefSkill",
+    "InsightTriageSkill",
     "RunStorySkill",
 ]
