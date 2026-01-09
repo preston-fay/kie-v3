@@ -107,3 +107,6 @@ debug_api.py
 # Automator development artifacts (should be in tools/mac_launcher/archive/)
 tools/mac_launcher/AUTOMATOR_*.sh
 tools/mac_launcher/AUTOMATOR_*.txt
+
+# CC local verification scratch
+.tmp_cc_verify_pydup/
