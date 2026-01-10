@@ -641,67 +641,41 @@ class CommandHandler:
             checks.append("✓ CLI entrypoint verified")
 
         # ===== 3. Node/Vite Readiness =====
+        # Use node_provider for detection (without auto-install)
+        from kie.tooling import NodeProvider
+
+        provider = NodeProvider(self.project_root)
+
+        # Check system Node
+        system_ok, system_version, system_msg = provider.detect_system_node()
+
+        # Check bundled Node
+        bundled_exists, bundled_version, bundled_bin = provider.detect_bundled_node()
+
+        # Determine node_source and dashboard_ready
+        node_source = "none"
         node_version_str = None
-        node_major = None
+        dashboard_ready = False
 
-        # Try to detect Node version (allow env var override for testing)
-        if "TEST_NODE_VERSION" in os.environ:
-            node_version_str = os.environ["TEST_NODE_VERSION"]
-            try:
-                node_major = int(node_version_str.split(".")[0])
-            except (ValueError, IndexError):
-                node_major = 0
+        if system_ok and system_version:
+            node_source = "system"
+            node_version_str = system_version
+            dashboard_ready = True
+            checks.append(f"✓ Node.js source: system")
+            checks.append(f"✓ Node.js version: {system_version} (compatible)")
+        elif bundled_exists and bundled_version:
+            node_source = "bundled"
+            node_version_str = bundled_version
+            dashboard_ready = True
+            checks.append(f"✓ Node.js source: bundled (workspace-local)")
+            checks.append(f"✓ Node.js version: {bundled_version} (compatible)")
         else:
-            try:
-                result = subprocess.run(
-                    ["node", "--version"],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
-                if result.returncode == 0:
-                    node_version_str = result.stdout.strip().lstrip("v")
-                    try:
-                        node_major = int(node_version_str.split(".")[0])
-                    except (ValueError, IndexError):
-                        node_major = 0
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                node_version_str = None
+            node_source = "none"
+            dashboard_ready = False
+            checks.append(f"ℹ️  Node.js source: none (will auto-install on first /build)")
+            checks.append(f"ℹ️  Dashboard generation: ready (auto-provisioning available)")
 
-        if node_version_str:
-            if node_major >= 20:
-                checks.append(f"✓ Node.js version: {node_version_str} (compatible)")
-            else:
-                errors.append(f"❌ Node.js version {node_version_str} is too old (minimum: 20.19)")
-
-                # OS-specific fix instructions
-                if current_os == "Darwin":  # Mac
-                    next_steps.append("# Mac: Upgrade Node.js")
-                    next_steps.append("brew install node@22")
-                    next_steps.append('echo \'export PATH="/opt/homebrew/opt/node@22/bin:$PATH"\' >> ~/.zshrc')
-                    next_steps.append("source ~/.zshrc")
-                elif current_os == "Windows":
-                    next_steps.append("# Windows: Upgrade Node.js")
-                    next_steps.append("# Option 1: Use winget (Windows Package Manager)")
-                    next_steps.append("winget install OpenJS.NodeJS.LTS")
-                    next_steps.append("")
-                    next_steps.append("# Option 2: Download installer")
-                    next_steps.append("# Visit https://nodejs.org/ and download Node 22 LTS")
-                    next_steps.append("# After install, restart your terminal")
-        else:
-            errors.append("❌ Node.js not found")
-
-            # OS-specific installation instructions
-            if current_os == "Darwin":  # Mac
-                next_steps.append("# Mac: Install Node.js")
-                next_steps.append("brew install node@22")
-                next_steps.append('echo \'export PATH="/opt/homebrew/opt/node@22/bin:$PATH"\' >> ~/.zshrc')
-                next_steps.append("source ~/.zshrc")
-            elif current_os == "Windows":
-                next_steps.append("# Windows: Install Node.js")
-                next_steps.append("winget install OpenJS.NodeJS.LTS")
-                next_steps.append("# Or download from https://nodejs.org/")
-                next_steps.append("# Restart your terminal after installation")
+            # Note: We don't add errors or next_steps because auto-install handles it
 
         # ===== 4. Dashboard Readiness =====
         dashboard_path = self.project_root / "exports" / "dashboard"
@@ -769,6 +743,8 @@ class CommandHandler:
             "os": current_os,
             "python_version": python_version,
             "node_version": node_version_str,
+            "node_source": node_source,
+            "dashboard_ready": dashboard_ready,
         }
 
     def handle_interview(self, from_wrapper: bool = False) -> dict[str, Any]:
@@ -888,23 +864,28 @@ class CommandHandler:
             # Build dashboard FIRST (generates Recharts HTML)
             # This is what users actually want to see!
             if target in ["all", "dashboard", "charts"]:
-                # Check Node version before attempting dashboard build
-                node_ok, node_version, node_msg = self._check_node_version()
+                # Get Node runtime with automatic provisioning
+                from kie.tooling import get_node_bin
 
-                if node_ok:
-                    dashboard_path = self._build_dashboard(spec)
+                node_source, node_bin, node_msg = get_node_bin(self.project_root)
+
+                if node_source != "none" and node_bin:
+                    dashboard_path = self._build_dashboard(spec, node_bin=node_bin)
                     results["dashboard"] = str(dashboard_path)
                     results["message"] = f"Dashboard built at {dashboard_path}. Open index.html in browser or run 'npm install && npm run dev'"
+                    results["node_source"] = node_source
                 else:
-                    # Skip dashboard gracefully, still build other outputs
+                    # Auto-install failed - provide manual guidance
                     results["dashboard_skipped"] = node_msg
                     if target == "dashboard":
                         # Dashboard was explicitly requested but can't be built
                         return {
                             "success": False,
-                            "message": f"Cannot build dashboard: {node_msg}",
+                            "message": f"Cannot build dashboard: {node_msg}\n\nManual installation:\n- Visit https://nodejs.org/ and install Node.js 20+\n- Or run: brew install node@22 (macOS) / winget install OpenJS.NodeJS.LTS (Windows)",
                         }
                     # Otherwise continue with presentation
+                    print(f"⚠️  Dashboard skipped: {node_msg}")
+                    print(f"   Install Node.js 20+ from https://nodejs.org/ to enable dashboards.")
 
             # Build presentation if requested
             if target in ["all", "presentation"]:
@@ -999,12 +980,13 @@ class CommandHandler:
 
         return output_path
 
-    def _build_dashboard(self, spec: dict[str, Any]) -> Path:
+    def _build_dashboard(self, spec: dict[str, Any], node_bin: Path | None = None) -> Path:
         """
         Build React dashboard from spec and data.
 
         Args:
             spec: Project specification
+            node_bin: Path to Node.js binary (optional, for bundled Node)
 
         Returns:
             Path to generated dashboard
@@ -1070,14 +1052,34 @@ class CommandHandler:
         charts_dir = self.project_root / "outputs" / "charts"
 
         # Build React dashboard (KDS COMPLIANT)
-        dashboard_path = builder.build_dashboard(
-            data_path=data_path,
-            charts_dir=charts_dir,
-            output_dir=exports_dir,
-            theme_mode=spec.get("preferences", {}).get("theme", {}).get("mode", "dark")
-        )
+        # If using bundled Node, temporarily add to PATH for npm commands
+        env_override = None
+        if node_bin and node_bin != Path("node"):
+            # Bundled Node - add bin dir to PATH
+            node_bin_dir = node_bin.parent
+            current_path = os.environ.get("PATH", "")
+            env_override = os.environ.copy()
+            env_override["PATH"] = f"{node_bin_dir}{os.pathsep}{current_path}"
 
-        return dashboard_path
+        # Store original env and apply override if needed
+        original_env = None
+        if env_override:
+            original_env = os.environ.copy()
+            os.environ.update(env_override)
+
+        try:
+            dashboard_path = builder.build_dashboard(
+                data_path=data_path,
+                charts_dir=charts_dir,
+                output_dir=exports_dir,
+                theme_mode=spec.get("preferences", {}).get("theme", {}).get("mode", "dark")
+            )
+            return dashboard_path
+        finally:
+            # Restore original environment
+            if original_env:
+                os.environ.clear()
+                os.environ.update(original_env)
 
     def handle_eda(self, data_file: str | None = None) -> dict[str, Any]:
         """
