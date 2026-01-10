@@ -1,0 +1,17 @@
+Region,Product,Quarter,Revenue,Cost,Units_Sold,Customer_Segment
+North,Widget A,Q1,125000,75000,450,Enterprise
+North,Widget A,Q2,138000,78000,492,Enterprise
+North,Widget B,Q1,98000,68000,380,SMB
+North,Widget B,Q2,105000,70000,402,SMB
+South,Widget A,Q1,142000,82000,512,Enterprise
+South,Widget A,Q2,156000,86000,558,Enterprise
+South,Widget B,Q1,88000,62000,335,SMB
+South,Widget B,Q2,94000,64000,358,SMB
+East,Widget A,Q1,168000,92000,598,Enterprise
+East,Widget A,Q2,182000,96000,642,Enterprise
+East,Widget B,Q1,112000,74000,425,SMB
+East,Widget B,Q2,118000,76000,445,SMB
+West,Widget A,Q1,134000,80000,478,Enterprise
+West,Widget A,Q2,145000,82000,512,Enterprise
+West,Widget B,Q1,96000,66000,368,SMB
+West,Widget B,Q2,102000,68000,388,SMB

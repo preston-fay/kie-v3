@@ -1,6 +1,7 @@
 # Data files
 data/*
 !data/.gitkeep
+!data/sample_data.csv
 
 # Outputs
 outputs/*

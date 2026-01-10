@@ -101,6 +101,139 @@ class CommandHandler:
 
         return context
 
+    def _select_data_file(self) -> Path | None:
+        """
+        Select the current data file deterministically.
+
+        Priority:
+        1. User-provided files (non-sample, prefer non-CSV over CSV if both exist)
+        2. sample_data.csv
+        3. None if no files
+
+        Supports: CSV, XLSX, Parquet, JSON
+
+        Returns:
+            Path to selected data file, or None if no data exists
+        """
+        data_dir = self.project_root / "data"
+        if not data_dir.exists():
+            return None
+
+        # Supported extensions (in priority order for user files)
+        supported_exts = [".xlsx", ".parquet", ".json", ".csv"]
+
+        # Collect all data files
+        all_files = []
+        for ext in supported_exts:
+            all_files.extend(data_dir.glob(f"*{ext}"))
+
+        # Filter out .gitkeep
+        all_files = [f for f in all_files if f.name != ".gitkeep"]
+
+        if not all_files:
+            return None
+
+        # Separate sample from user files
+        sample_file = None
+        user_files = []
+
+        for f in all_files:
+            if f.name == "sample_data.csv":
+                sample_file = f
+            else:
+                user_files.append(f)
+
+        # Priority 1: User files (prefer non-CSV)
+        if user_files:
+            # Sort by extension priority (xlsx, parquet, json, csv)
+            ext_priority = {".xlsx": 0, ".parquet": 1, ".json": 2, ".csv": 3}
+            user_files.sort(key=lambda f: ext_priority.get(f.suffix, 99))
+            return user_files[0]
+
+        # Priority 2: sample_data.csv
+        if sample_file:
+            return sample_file
+
+        return None
+
+    def _save_data_file_selection(self, data_file: Path) -> None:
+        """
+        Save the selected data file to project state for consistency.
+
+        Args:
+            data_file: Path to selected data file
+        """
+        state_dir = self.project_root / "project_state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+
+        selection_file = state_dir / "current_data_file.txt"
+        selection_file.write_text(str(data_file.relative_to(self.project_root)))
+
+    def _load_data_file_selection(self) -> Path | None:
+        """
+        Load the previously selected data file from project state.
+
+        Returns:
+            Path to previously selected file, or None
+        """
+        selection_file = self.project_root / "project_state" / "current_data_file.txt"
+        if not selection_file.exists():
+            return None
+
+        try:
+            rel_path = selection_file.read_text().strip()
+            abs_path = self.project_root / rel_path
+            if abs_path.exists():
+                return abs_path
+        except Exception:
+            pass
+
+        return None
+
+    def _check_node_version(self) -> tuple[bool, str | None, str]:
+        """
+        Check if Node.js is installed and meets minimum version requirement.
+
+        Returns:
+            Tuple of (is_compatible, version_string, message)
+        """
+        import subprocess
+
+        # Allow test override
+        if "TEST_NODE_VERSION" in os.environ:
+            node_version_str = os.environ["TEST_NODE_VERSION"]
+            try:
+                node_major = int(node_version_str.split(".")[0])
+                if node_major >= 20:
+                    return (True, node_version_str, f"Node.js {node_version_str} detected (compatible)")
+                else:
+                    return (False, node_version_str, f"Node.js {node_version_str} is too old (minimum: 20.19)")
+            except Exception:
+                return (False, node_version_str, f"Could not parse Node.js version: {node_version_str}")
+
+        # Try to detect Node
+        try:
+            result = subprocess.run(
+                ["node", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                node_version_str = result.stdout.strip().lstrip("v")
+                try:
+                    node_major = int(node_version_str.split(".")[0])
+                    if node_major >= 20:
+                        return (True, node_version_str, f"Node.js {node_version_str} detected (compatible)")
+                    else:
+                        return (False, node_version_str, f"Node.js {node_version_str} is too old (minimum: 20.19). Install Node 20+ from https://nodejs.org/")
+                except Exception:
+                    return (False, node_version_str, f"Could not parse Node.js version: {node_version_str}")
+        except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+            pass
+
+        return (False, None, "Node.js not found. Install Node 20+ from https://nodejs.org/ to enable dashboard generation.")
+
     def _with_observability(
         self,
         command: str,
@@ -755,9 +888,23 @@ class CommandHandler:
             # Build dashboard FIRST (generates Recharts HTML)
             # This is what users actually want to see!
             if target in ["all", "dashboard", "charts"]:
-                dashboard_path = self._build_dashboard(spec)
-                results["dashboard"] = str(dashboard_path)
-                results["message"] = f"Dashboard built at {dashboard_path}. Open index.html in browser or run 'npm install && npm run dev'"
+                # Check Node version before attempting dashboard build
+                node_ok, node_version, node_msg = self._check_node_version()
+
+                if node_ok:
+                    dashboard_path = self._build_dashboard(spec)
+                    results["dashboard"] = str(dashboard_path)
+                    results["message"] = f"Dashboard built at {dashboard_path}. Open index.html in browser or run 'npm install && npm run dev'"
+                else:
+                    # Skip dashboard gracefully, still build other outputs
+                    results["dashboard_skipped"] = node_msg
+                    if target == "dashboard":
+                        # Dashboard was explicitly requested but can't be built
+                        return {
+                            "success": False,
+                            "message": f"Cannot build dashboard: {node_msg}",
+                        }
+                    # Otherwise continue with presentation
 
             # Build presentation if requested
             if target in ["all", "presentation"]:
@@ -864,14 +1011,17 @@ class CommandHandler:
         """
         from kie.export.react_builder import ReactDashboardBuilder
 
-        # Find data file
-        data_dir = self.project_root / "data"
-        data_files = list(data_dir.glob("*.csv"))
+        # Use deterministic data file selection (same as EDA/analyze)
+        selected_file = self._load_data_file_selection() or self._select_data_file()
 
-        if not data_files:
-            raise ValueError("No CSV data files found in data/ directory")
+        if not selected_file:
+            raise ValueError(
+                "No data files found in data/ directory. "
+                "Supported formats: CSV, XLSX, Parquet, JSON. "
+                "Run /eda first to analyze your data."
+            )
 
-        data_path = data_files[0]
+        data_path = selected_file
 
         # PHASE 3+4+5: Apply FULL INTELLIGENCE (same as handle_analyze)
         loader = DataLoader()
@@ -954,18 +1104,18 @@ class CommandHandler:
 
         log("EDA command started")
 
-        # Find data file
+        # Find data file using deterministic selection
         if not data_file:
-            data_dir = self.project_root / "data"
-            data_files = list(data_dir.glob("*.csv")) + list(data_dir.glob("*.xlsx"))
-            if not data_files:
+            selected_file = self._select_data_file()
+            if not selected_file:
                 log("ERROR: No data files found in data/ folder")
                 return {
                     "success": False,
-                    "message": "No data files found in data/ folder",
+                    "message": "No data files found in data/ folder. Add CSV, XLSX, Parquet, or JSON file to data/ directory.",
                 }
-            data_file = str(data_files[0])
-            log(f"Auto-detected data file: {data_file}")
+            data_file = str(selected_file)
+            self._save_data_file_selection(selected_file)
+            log(f"Auto-selected data file: {data_file}")
         else:
             data_file = str(self.project_root / data_file)
             log(f"Using specified data file: {data_file}")
@@ -1274,23 +1424,39 @@ class CommandHandler:
             "charts": [],
             "tables": [],
             "maps": [],
+            "deliverables": [],
             "exports": [],
         }
 
         outputs_dir = self.project_root / "outputs"
 
+        # Check for chart JSON configs
         if (outputs_dir / "charts").exists():
-            previews["charts"] = [f.name for f in (outputs_dir / "charts").glob("*")]
+            previews["charts"] = [f.name for f in (outputs_dir / "charts").glob("*.json")]
 
+        # Check for table JSON
         if (outputs_dir / "tables").exists():
             previews["tables"] = [f.name for f in (outputs_dir / "tables").glob("*.json")]
 
+        # Check for map HTML
         if (outputs_dir / "maps").exists():
             previews["maps"] = [f.name for f in (outputs_dir / "maps").glob("*.html")]
 
+        # Check for deliverables (PPT, dashboard)
+        if outputs_dir.exists():
+            # PowerPoint presentations
+            ppt_files = list(outputs_dir.glob("*.pptx"))
+            if ppt_files:
+                previews["deliverables"].extend([str(f.relative_to(self.project_root)) for f in ppt_files])
+
+            # Dashboard build
+            dashboard_index = outputs_dir / "dashboard" / "index.html"
+            if dashboard_index.exists():
+                previews["deliverables"].append(str(dashboard_index.relative_to(self.project_root)))
+
         exports_dir = self.project_root / "exports"
         if exports_dir.exists():
-            previews["exports"] = [f.name for f in exports_dir.glob("*")]
+            previews["exports"] = [f.name for f in exports_dir.glob("*") if f.is_file()]
 
         # Launch React dashboard if requested
         dashboard_url = None
@@ -1314,6 +1480,7 @@ class CommandHandler:
                 len(previews["charts"]),
                 len(previews["tables"]),
                 len(previews["maps"]),
+                len(previews["deliverables"]),
                 len(previews["exports"]),
             ]),
         }
