@@ -35,6 +35,24 @@ class TestKIEClient:
         assert command_succeeded is True
         client.handler.handle_status.assert_called_once()
 
+    def test_process_command_rails(self, tmp_path):
+        """Test /rails command (alias for /status)."""
+        client = KIEClient(project_root=tmp_path)
+
+        # Mock handler
+        client.handler.handle_status = Mock(return_value={
+            "has_spec": False,
+            "has_data": False,
+            "outputs": {},
+            "rails_progress": {}
+        })
+
+        # /rails should call handle_status
+        should_continue, command_succeeded = client.process_command("/rails")
+        assert should_continue is True
+        assert command_succeeded is True
+        client.handler.handle_status.assert_called_once()
+
     def test_process_command_exit(self, tmp_path):
         """Test exit commands."""
         client = KIEClient(project_root=tmp_path)
@@ -304,3 +322,31 @@ def test_main_default_directory(mock_input, tmp_path):
     with patch('sys.argv', ['kie']):
         with patch('kie.cli.Path.cwd', return_value=tmp_path):
             main()
+
+
+def test_main_with_rails_command(tmp_path, capsys):
+    """Test main() with rails command (should not treat it as directory)."""
+    # Create test workspace structure
+    (tmp_path / "project_state").mkdir()
+
+    with patch('sys.argv', ['kie', 'rails']):
+        with patch('kie.cli.Path.cwd', return_value=tmp_path):
+            with patch('kie.commands.handler.CommandHandler.handle_status') as mock_status:
+                mock_status.return_value = {
+                    "success": True,
+                    "has_spec": False,
+                    "has_data": False,
+                    "rails_progress": {}
+                }
+                with pytest.raises(SystemExit) as exc_info:
+                    main()
+
+                # Should exit with 0 (success)
+                assert exc_info.value.code == 0
+
+                # Should have called handle_status, not tried to open directory
+                mock_status.assert_called_once()
+
+                # Should NOT show "Directory does not exist" error
+                captured = capsys.readouterr()
+                assert "Directory does not exist" not in captured.out

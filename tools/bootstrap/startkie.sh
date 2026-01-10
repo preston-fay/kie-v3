@@ -92,6 +92,9 @@ if [ -f "CLAUDE.md" ]; then
             echo "  - Added/verified rails_state.json"
             echo "  - Configured commands for vendored runtime"
             echo ""
+            echo "⚠️  IMPORTANT: Restart your Claude Code session to reload slash commands"
+            echo "   (Claude Code only loads commands on session start)"
+            echo ""
             exit 0
         else
             echo "✓ This is already a KIE project. Ready to start working!"
@@ -260,3 +263,6 @@ fi
 
 echo ""
 echo "✅ KIE workspace bootstrapped successfully!"
+echo ""
+echo "⚠️  IMPORTANT: Restart your Claude Code session to load slash commands"
+echo "   (Claude Code only loads commands on session start)"

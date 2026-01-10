@@ -215,7 +215,8 @@ Type a command to get started!
                 result = self.handler.handle_go(full=full_mode)
             elif cmd == "/startkie":
                 result = self.handler.handle_startkie()
-            elif cmd == "/status":
+            elif cmd == "/status" or cmd == "/rails":
+                # /rails is an alias for /status (shows rails progress)
                 result = self.handler.handle_status()
             elif cmd == "/spec":
                 # Handle --init, --repair, --set, and --force flags
@@ -366,7 +367,7 @@ def main() -> None:
 
         # Check if it's a known command (without slash prefix for CLI)
         known_commands = ["go", "startkie", "status", "spec", "interview", "eda",
-                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck"]
+                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck", "rails"]
 
         if arg in known_commands or arg == "railscheck":
             # It's a command - execute and exit

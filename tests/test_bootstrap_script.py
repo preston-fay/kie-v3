@@ -44,3 +44,33 @@ def test_bootstrap_script_copies_full_template_dirs(tmp_path: Path):
     # railscheck should PASS even if data/ is empty (should warn, not fail)
     p2 = run(["bash", "-lc", 'PYTHONPATH=".kie/src" python3 -m kie.cli railscheck'], cwd=tmp_path, env=env)
     assert p2.returncode == 0, f"railscheck failed\nSTDOUT:\n{p2.stdout}\nSTDERR:\n{p2.stderr}"
+
+
+def test_bootstrap_includes_mandatory_command_wrappers(tmp_path: Path):
+    """
+    Ensure mandatory command wrappers (doctor, rails, go) are present after bootstrap.
+    This prevents regressions where critical commands are silently missing from fresh workspaces.
+    """
+    repo_root = Path(__file__).resolve().parents[1]
+    script = repo_root / "tools" / "bootstrap" / "startkie.sh"
+
+    env = os.environ.copy()
+    env["KIE_BOOTSTRAP_SRC_DIR"] = str(repo_root)
+
+    # Run bootstrap
+    p = run(["bash", str(script)], cwd=tmp_path, env=env)
+    assert p.returncode == 0, f"bootstrap failed\nSTDOUT:\n{p.stdout}\nSTDERR:\n{p.stderr}"
+
+    cmd_dir = tmp_path / ".claude" / "commands"
+
+    # Mandatory commands that MUST be present
+    mandatory_commands = ["doctor.md", "rails.md", "go.md", "status.md"]
+
+    for cmd_file in mandatory_commands:
+        cmd_path = cmd_dir / cmd_file
+        assert cmd_path.exists(), f"CRITICAL: {cmd_file} missing from fresh workspace after bootstrap"
+
+        # Verify it has content
+        content = cmd_path.read_text(encoding="utf-8", errors="ignore")
+        assert len(content) > 0, f"{cmd_file} is empty"
+        assert "python3 -m kie.cli" in content, f"{cmd_file} doesn't call CLI"
