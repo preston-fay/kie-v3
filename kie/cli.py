@@ -339,6 +339,83 @@ Type a command to get started!
             sys.exit(1)
 
 
+def install_commands() -> None:
+    """
+    Install KIE slash commands to user-level ~/.claude/commands directory.
+
+    This is a one-time operation that makes KIE commands available in Claude Code
+    without requiring restart after /startkie bootstrap.
+    """
+    import shutil
+    import subprocess
+    from datetime import datetime
+
+    # Detect user home directory (cross-platform)
+    user_commands_dir = Path.home() / ".claude" / "commands"
+    user_commands_dir.mkdir(parents=True, exist_ok=True)
+
+    # Find source commands directory
+    # Try package location first, fall back to repo location
+    try:
+        import kie
+        package_dir = Path(kie.__file__).parent.parent
+        source_dir = package_dir / "tools" / "claude_user_commands"
+        if not source_dir.exists():
+            # Fall back to repo location if running from development
+            source_dir = Path(__file__).parent.parent / "tools" / "claude_user_commands"
+    except Exception:
+        source_dir = Path(__file__).parent.parent / "tools" / "claude_user_commands"
+
+    if not source_dir.exists():
+        print(f"❌ Error: Could not find command templates at {source_dir}")
+        sys.exit(1)
+
+    # Get current git commit (best effort)
+    source_commit = "unknown"
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=source_dir.parent.parent,
+            timeout=2
+        )
+        if result.returncode == 0:
+            source_commit = result.stdout.strip()[:8]
+    except Exception:
+        pass
+
+    # Install commands
+    installed_count = 0
+    for cmd_file in source_dir.glob("*.md"):
+        dest_file = user_commands_dir / cmd_file.name
+
+        # Skip startkie.md if it already exists (don't overwrite user version)
+        if cmd_file.name == "startkie.md" and dest_file.exists():
+            continue
+
+        # Read source content
+        content = cmd_file.read_text()
+
+        # Add header comment
+        header = f"""<!--
+installed_from_repo: preston-fay/kie-v3
+installed_at: {datetime.now().isoformat()}
+source_commit: {source_commit}
+-->
+
+"""
+
+        # Write with header
+        dest_file.write_text(header + content)
+        installed_count += 1
+
+    print(f"✅ KIE slash commands installed to {user_commands_dir}")
+    print(f"   Installed {installed_count} commands")
+    print()
+    print("Restart Claude Code once to load them.")
+
+
 def main() -> None:
     """Main entry point for kie CLI."""
     # Check for command-line arguments
@@ -363,6 +440,11 @@ def main() -> None:
         elif arg in ["-v", "--version"]:
             from kie import __version__
             print(f"KIE v{__version__}")
+            sys.exit(0)
+
+        # Handle install_commands special command
+        if arg in ["install_commands", "install-commands"]:
+            install_commands()
             sys.exit(0)
 
         # Check if it's a known command (without slash prefix for CLI)

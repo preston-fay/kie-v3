@@ -44,6 +44,14 @@ jobs:
         run: |
           python scripts/check_invariants.py
 
+      - name: Verify Claude user commands (BLOCKING)
+        run: |
+          python tools/verify/verify_claude_user_commands.py
+
+      - name: Run install_commands tests (BLOCKING)
+        run: |
+          python -m pytest tests/test_install_commands.py -v
+
       - name: Run stable tests (BLOCKING)
         run: |
           python -m pytest tests/test_interview_routing.py -v

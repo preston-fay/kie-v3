@@ -262,7 +262,34 @@ if [ $exit_code -ne 0 ]; then
 fi
 
 echo ""
-echo "✅ KIE workspace bootstrapped successfully!"
-echo ""
-echo "⚠️  IMPORTANT: Restart your Claude Code session to load slash commands"
-echo "   (Claude Code only loads commands on session start)"
+
+# Step 7: Check for user-level commands installation
+echo "Checking for user-level slash commands..."
+
+# Count required commands (excluding startkie which is separately managed)
+REQUIRED_COMMANDS=("eda" "rails" "go" "spec" "status" "interview" "analyze" "build" "preview" "validate" "map" "doctor")
+USER_CMD_DIR="$HOME/.claude/commands"
+MISSING_COUNT=0
+
+for cmd in "${REQUIRED_COMMANDS[@]}"; do
+    if [ ! -f "$USER_CMD_DIR/${cmd}.md" ]; then
+        MISSING_COUNT=$((MISSING_COUNT + 1))
+    fi
+done
+
+if [ $MISSING_COUNT -gt 0 ]; then
+    echo "📦 Installing user-level commands (one-time setup)..."
+    PYTHONPATH=".kie/src" python3 -m kie.cli install_commands
+
+    echo ""
+    echo "✅ KIE workspace bootstrapped successfully!"
+    echo ""
+    echo "⚠️  ONE-TIME: Restart Claude Code to load slash commands"
+    echo "   (This restart is only needed once after installing commands)"
+else
+    echo "✓ User-level commands already installed"
+    echo ""
+    echo "✅ KIE workspace bootstrapped successfully!"
+    echo ""
+    echo "✓ No restart needed - slash commands are ready to use"
+fi
