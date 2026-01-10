@@ -1129,14 +1129,24 @@ class CommandHandler:
             profile = eda.analyze(data_file)
             log(f"Analysis complete: {profile.rows} rows, {profile.columns} columns")
 
-            # Save profile
+            # Save profile (both YAML and JSON for compatibility)
             profile_path = self.project_root / "outputs" / "eda_profile.yaml"
             profile_path.parent.mkdir(parents=True, exist_ok=True)
 
             import yaml
+            profile_dict = profile.to_dict()
+
+            # Save YAML
             with open(profile_path, "w") as f:
-                yaml.dump(profile.to_dict(), f, default_flow_style=False)
+                yaml.dump(profile_dict, f, default_flow_style=False)
             log(f"Profile saved to: {profile_path}")
+
+            # Also save JSON (for better compatibility with skills)
+            import json
+            json_path = self.project_root / "outputs" / "eda_profile.json"
+            with open(json_path, "w") as f:
+                json.dump(profile_dict, f, indent=2, default=str)
+            log(f"Profile also saved as JSON: {json_path}")
 
             # Get suggestions
             suggestions = eda.suggest_analysis()
@@ -1148,6 +1158,41 @@ class CommandHandler:
             from kie.state import update_rails_state
             update_rails_state(self.project_root, "eda", success=True)
 
+            # Execute EDA stage skills
+            skill_results = {}
+            try:
+                from kie.skills import get_registry, SkillContext
+
+                registry = get_registry()
+
+                # Build skill context
+                skill_context = SkillContext(
+                    project_root=self.project_root,
+                    current_stage="eda",
+                    artifacts={
+                        "selected_data_file": data_file,
+                        "eda_profile": str(profile_path),
+                    },
+                    evidence_ledger_id=None,  # No ledger for direct calls
+                )
+
+                # Execute skills for eda stage
+                results = registry.execute_skills_for_stage("eda", skill_context)
+                skill_results = results
+
+                log(f"Executed {len(results)} skills for eda stage")
+                for skill_id, result in results.items():
+                    if result.success:
+                        log(f"  ✓ {skill_id}: {list(result.artifacts.keys())}")
+                    else:
+                        log(f"  ✗ {skill_id}: {result.errors}")
+
+            except Exception as e:
+                log(f"Warning: Skill execution failed: {e}")
+                # Don't fail the command if skills fail
+                import traceback
+                log(f"Traceback: {traceback.format_exc()}")
+
             return {
                 "success": True,
                 "profile": profile.to_dict(),
@@ -1155,6 +1200,7 @@ class CommandHandler:
                 "profile_saved": str(profile_path),
                 "data_file": data_file,
                 "log_file": str(log_file),
+                "skill_results": skill_results,
             }
 
         except Exception as e:
