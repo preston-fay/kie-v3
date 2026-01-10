@@ -111,6 +111,9 @@ def _build_trust_bundle_data(
                 "stage_after": ledger.rails_stage_after or "None",
                 "rails_state_file": "project_state/rails_state.json",
             },
+            "output_preferences": {
+                "theme": _get_output_theme(project_root),
+            },
             "what_executed": {
                 "command": f"/{ledger.command}",
                 "success": ledger.success,
@@ -514,3 +517,21 @@ def _minimal_trust_bundle(ledger: EvidenceLedger, error_msg: str) -> str:
 
     except Exception:
         return "# Trust Bundle\n\nCritical error in trust bundle generation"
+
+
+def _get_output_theme(project_root: Path) -> str:
+    """
+    Get output theme preference.
+
+    Returns:
+        Theme value ('light', 'dark', or 'not_set')
+
+    NEVER raises exceptions.
+    """
+    try:
+        from kie.preferences import OutputPreferences
+        prefs = OutputPreferences(project_root)
+        theme = prefs.get_theme()
+        return theme if theme else "not_set"
+    except Exception:
+        return "not_set"

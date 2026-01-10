@@ -449,7 +449,7 @@ def main() -> None:
 
         # Check if it's a known command (without slash prefix for CLI)
         known_commands = ["go", "startkie", "status", "spec", "interview", "eda",
-                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck", "rails"]
+                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck", "rails", "theme"]
 
         if arg in known_commands or arg == "railscheck":
             # It's a command - execute and exit
@@ -462,6 +462,13 @@ def main() -> None:
                     result = client.handler.handle_template(output_path=output_path)
                     client.print_result(result)
                     sys.exit(0 if result["success"] else 1)
+
+            # Special handling for theme command with theme argument
+            if arg == "theme":
+                set_theme_value = sys.argv[2] if len(sys.argv) > 2 else None
+                result = client.handler.handle_theme(set_theme=set_theme_value)
+                client.print_result(result)
+                sys.exit(0 if result["success"] else 1)
 
             # Special handling for spec command to preserve argument structure
             if arg == "spec" and len(sys.argv) > 2:

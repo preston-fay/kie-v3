@@ -530,6 +530,12 @@ class CommandHandler:
         from kie.state import get_rails_progress
         status["rails_progress"] = get_rails_progress(self.project_root)
 
+        # Add output theme preference
+        from kie.preferences import OutputPreferences
+        prefs = OutputPreferences(self.project_root)
+        output_theme = prefs.get_theme()
+        status["output_theme"] = output_theme
+
         if brief:
             return {"brief_status": self._format_brief_status(status)}
 
@@ -747,6 +753,93 @@ class CommandHandler:
             "dashboard_ready": dashboard_ready,
         }
 
+    def handle_theme(self, set_theme: str | None = None) -> dict[str, Any]:
+        """
+        Handle /theme command - view or change output theme preference.
+
+        Args:
+            set_theme: Optional theme to set ('light' or 'dark')
+
+        Returns:
+            Theme preference information
+        """
+        from kie.preferences import OutputPreferences
+
+        prefs = OutputPreferences(self.project_root)
+
+        # If setting theme
+        if set_theme:
+            if set_theme not in ["light", "dark"]:
+                return {
+                    "success": False,
+                    "message": f"Invalid theme: {set_theme}. Must be 'light' or 'dark'",
+                }
+
+            # Save preference
+            prefs.set_theme(set_theme, source="theme_command")
+
+            print()
+            print("=" * 70)
+            print(f"✓ Output theme updated to: {set_theme}")
+            print("=" * 70)
+            print()
+            print("Theme updated. Re-run /build to apply the new theme.")
+            print()
+
+            return {
+                "success": True,
+                "theme": set_theme,
+                "message": f"Theme set to {set_theme}. Re-run /build to apply.",
+            }
+
+        # Otherwise, show current theme
+        current_theme = prefs.get_theme()
+
+        if current_theme is None:
+            print()
+            print("=" * 70)
+            print("NO THEME SET")
+            print("=" * 70)
+            print()
+            print("Output theme has not been set yet.")
+            print("It will be requested when you run /build.")
+            print()
+            print("To set manually:")
+            print("  python3 -m kie.cli theme light")
+            print("  python3 -m kie.cli theme dark")
+            print()
+
+            return {
+                "success": True,
+                "theme": None,
+                "message": "No theme set - will be prompted during /build",
+            }
+
+        # Show current theme
+        print()
+        print("=" * 70)
+        print(f"CURRENT OUTPUT THEME: {current_theme.upper()}")
+        print("=" * 70)
+        print()
+
+        theme_descriptions = {
+            "light": "Light backgrounds (#FFFFFF) with dark text\nTraditional document appearance",
+            "dark": "Dark backgrounds (#1E1E1E) with white text\nReduces eye strain in low light",
+        }
+
+        print(theme_descriptions.get(current_theme, ""))
+        print()
+        print("To change theme:")
+        print("  python3 -m kie.cli theme light")
+        print("  python3 -m kie.cli theme dark")
+        print()
+
+        return {
+            "success": True,
+            "theme": current_theme,
+            "message": f"Current theme: {current_theme}",
+        }
+
     def handle_interview(self, from_wrapper: bool = False) -> dict[str, Any]:
         """
         Handle /interview command.
@@ -834,18 +927,60 @@ class CommandHandler:
                     with open(self.spec_path) as f:
                         spec = yaml.safe_load(f)
 
-        # CRITICAL: Check theme is set before building (Codex requirement)
-        from kie.config.theme_config import ProjectThemeConfig
-        theme_config = ProjectThemeConfig(self.project_root)
-        theme_mode = theme_config.load_theme()
-        if theme_mode is None:
-            # Default theme for non-interactive/test build flows
-            theme_mode = "dark"
-            try:
-                theme_config.save_theme(theme_mode)
-            except Exception:
-                pass
+        # CRITICAL: Check output theme preference is set before building
+        # User must explicitly choose theme - no silent defaults
+        from kie.preferences import OutputPreferences
 
+        prefs = OutputPreferences(self.project_root)
+        output_theme = prefs.get_theme()
+
+        if output_theme is None:
+            # Theme not set - prompt user
+            print()
+            print("=" * 70)
+            print("OUTPUT THEME REQUIRED")
+            print("=" * 70)
+            print()
+            print("Which output theme do you want for formatted deliverables?")
+            print()
+            print("1) Light")
+            print("   • Light backgrounds (#FFFFFF)")
+            print("   • Dark text on light surfaces")
+            print("   • Traditional document appearance")
+            print()
+            print("2) Dark")
+            print("   • Dark backgrounds (#1E1E1E)")
+            print("   • White text on dark surfaces")
+            print("   • Reduces eye strain in low light")
+            print()
+
+            while True:
+                choice = input("Choose theme (1 or 2): ").strip()
+
+                if choice == "1":
+                    output_theme = "light"
+                    break
+                elif choice == "2":
+                    output_theme = "dark"
+                    break
+                elif choice.lower() in ["q", "quit", "cancel", "exit"]:
+                    print()
+                    print("Build cancelled - no theme selected")
+                    return {
+                        "success": False,
+                        "message": "Build cancelled by user - theme selection required",
+                    }
+                else:
+                    print("Invalid choice. Please enter 1 or 2 (or 'q' to cancel).")
+
+            # Save preference
+            prefs.set_theme(output_theme, source="user_prompt")
+            print()
+            print(f"✓ Output theme set to: {output_theme}")
+            print("  (To change: run /theme command)")
+            print()
+            print("Continuing build...")
+            print()
 
         # Update status
         status = {
@@ -870,7 +1005,7 @@ class CommandHandler:
                 node_source, node_bin, node_msg = get_node_bin(self.project_root)
 
                 if node_source != "none" and node_bin:
-                    dashboard_path = self._build_dashboard(spec, node_bin=node_bin)
+                    dashboard_path = self._build_dashboard(spec, node_bin=node_bin, theme=output_theme)
                     results["dashboard"] = str(dashboard_path)
                     results["message"] = f"Dashboard built at {dashboard_path}. Open index.html in browser or run 'npm install && npm run dev'"
                     results["node_source"] = node_source
@@ -889,7 +1024,7 @@ class CommandHandler:
 
             # Build presentation if requested
             if target in ["all", "presentation"]:
-                pres_path = self._build_presentation(spec)
+                pres_path = self._build_presentation(spec, theme=output_theme)
                 results["presentation"] = str(pres_path)
 
             # Update status
@@ -919,12 +1054,13 @@ class CommandHandler:
                 "message": f"Build failed: {str(e)}",
             }
 
-    def _build_presentation(self, spec: dict[str, Any]) -> Path:
+    def _build_presentation(self, spec: dict[str, Any], theme: str = "dark") -> Path:
         """
         Build PowerPoint presentation from spec and insights.
 
         Args:
             spec: Project specification
+            theme: Output theme ('light' or 'dark')
 
         Returns:
             Path to generated presentation
@@ -936,8 +1072,8 @@ class CommandHandler:
             catalog = InsightCatalog.load(str(insights_path))
             insights = catalog.insights
 
-        # Create presentation
-        builder = SlideBuilder(title=spec.get("project_name", "Analysis"))
+        # Create presentation with theme
+        builder = SlideBuilder(title=spec.get("project_name", "Analysis"), theme=theme)
 
         # Title slide
         builder.add_title_slide(
@@ -980,13 +1116,14 @@ class CommandHandler:
 
         return output_path
 
-    def _build_dashboard(self, spec: dict[str, Any], node_bin: Path | None = None) -> Path:
+    def _build_dashboard(self, spec: dict[str, Any], node_bin: Path | None = None, theme: str = "dark") -> Path:
         """
         Build React dashboard from spec and data.
 
         Args:
             spec: Project specification
             node_bin: Path to Node.js binary (optional, for bundled Node)
+            theme: Output theme ('light' or 'dark')
 
         Returns:
             Path to generated dashboard
@@ -1042,7 +1179,8 @@ class CommandHandler:
             client_name=spec.get("client_name", "Client"),
             objective=spec.get("objective", "Analysis"),
             data_schema=schema,
-            column_mapping=column_mapping  # Phase 5: Pass intelligent selections + overrides
+            column_mapping=column_mapping,  # Phase 5: Pass intelligent selections + overrides
+            theme=theme  # Apply user-selected output theme
         )
 
         # Output directory
