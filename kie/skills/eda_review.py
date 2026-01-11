@@ -82,10 +82,11 @@ class EDAReviewSkill(Skill):
 
         # Get data file reference from context
         data_file = context.artifacts.get("selected_data_file", "Unknown data source")
+        is_sample_data = context.artifacts.get("is_sample_data", False)
 
         # Generate review content
-        review_content = self._generate_review_content(profile, data_file)
-        review_data = self._generate_review_data(profile, data_file)
+        review_content = self._generate_review_content(profile, data_file, is_sample_data)
+        review_data = self._generate_review_data(profile, data_file, is_sample_data)
 
         # Save as markdown
         review_path = outputs_dir / "eda_review.md"
@@ -139,12 +140,20 @@ Run /eda to generate profiling artifacts first.
             warnings=["Generated failure document - EDA profiling incomplete"],
         )
 
-    def _generate_review_content(self, profile: dict, data_file: str) -> str:
+    def _generate_review_content(self, profile: dict, data_file: str, is_sample_data: bool = False) -> str:
         """Generate markdown review content."""
         lines = []
 
         lines.append("# EDA Review (Internal)")
         lines.append("")
+
+        # Add DEMO warning if using sample data
+        if is_sample_data:
+            lines.append("⚠️ **DEMO MODE - Using sample_data.csv**")
+            lines.append("")
+            lines.append("This analysis uses demonstration data. Add your real data to data/ folder.")
+            lines.append("")
+
         lines.append("**INTERNAL THINKING ARTIFACT - Not for client delivery**")
         lines.append("")
         lines.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -362,7 +371,7 @@ Run /eda to generate profiling artifacts first.
 
         return "\n".join(lines)
 
-    def _generate_review_data(self, profile: dict, data_file: str) -> dict:
+    def _generate_review_data(self, profile: dict, data_file: str, is_sample_data: bool = False) -> dict:
         """Generate structured JSON review data."""
         shape = profile.get("shape", {})
         column_types = profile.get("column_types", {})
@@ -372,6 +381,7 @@ Run /eda to generate profiling artifacts first.
         return {
             "generated_at": datetime.now().isoformat(),
             "data_source": str(data_file),
+            "is_sample_data": is_sample_data,
             "internal_only": True,
             "overview": {
                 "rows": shape.get("rows", 0),

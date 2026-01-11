@@ -116,6 +116,7 @@ def _build_trust_bundle_data(
                 "theme": _get_output_theme(project_root),
             },
             "execution_mode": _get_execution_mode(project_root),
+            "is_sample_data": _is_using_sample_data(project_root),
             "what_executed": {
                 "command": f"/{ledger.command}",
                 "success": ledger.success,
@@ -362,6 +363,12 @@ def _format_trust_bundle_markdown(bundle_data: dict[str, Any]) -> str:
         lines.append(f"- **Rails State File**: `{workflow.get('rails_state_file', 'None')}`")
         intent = bundle_data.get("intent", "NOT SET")
         lines.append(f"- **Intent**: {intent}")
+
+        # Show DEMO warning if using sample data
+        if bundle_data.get("is_sample_data", False):
+            lines.append("")
+            lines.append("⚠️ **DEMO MODE** - Using sample_data.csv. Add real data to data/ folder.")
+
         lines.append("")
 
         # 3) What Executed
@@ -576,3 +583,23 @@ def _get_execution_mode(project_root: Path) -> str:
         return mode
     except Exception:
         return "rails"
+
+
+def _is_using_sample_data(project_root: Path) -> bool:
+    """
+    Check if using sample data by reading eda_review.json.
+
+    Returns:
+        True if using sample data, False otherwise
+
+    NEVER raises exceptions.
+    """
+    try:
+        eda_review_path = project_root / "outputs" / "eda_review.json"
+        if eda_review_path.exists():
+            with open(eda_review_path) as f:
+                review_data = json.load(f)
+                return review_data.get("is_sample_data", False)
+        return False
+    except Exception:
+        return False

@@ -432,13 +432,6 @@ class CommandHandler:
         folders = ["data", "outputs", "exports", "project_state"]
         commands_copied = (self.project_root / ".claude" / "commands").exists()
 
-        # Copy fixture dataset so EDA can run on day 1
-        kie_package_dir = Path(__file__).parent.parent  # kie/ package directory
-        source_fixture = kie_package_dir / "templates" / "fixture_data.csv"
-        target_fixture = self.project_root / "data" / "sample_data.csv"
-        if source_fixture.exists():
-            shutil.copy(source_fixture, target_fixture)
-
         # Print command reference and next steps
         print("\n" + "="*60)
         print("KIE WORKSPACE INITIALIZED")
@@ -453,6 +446,7 @@ class CommandHandler:
         print("  /spec       - View specification")
         print("  /preview    - Preview outputs")
         print("  /validate   - Run quality checks")
+        print("  /sampledata - Install/manage demo data")
         print("  /railscheck - Verify Rails configuration")
         print("\n⚠ NOTE: Commands are case-sensitive. Use /startkie not /STARTKIE")
         print("\nRECOMMENDED WORKFLOWS:")
@@ -465,7 +459,7 @@ class CommandHandler:
         print("    2. Choose express (6 questions) or full (11 questions)")
         print("    3. I'll guide you through the rest")
         print("\n  Option 3: Just Exploring KIE")
-        print("    1. Sample data is in data/sample_data.csv")
+        print("    1. Type /sampledata install to get demo data")
         print("    2. Type /eda to see how analysis works")
         print("    3. Type /analyze to see insight extraction")
         print("\n" + "="*60 + "\n")
@@ -481,6 +475,151 @@ class CommandHandler:
             "files_created": ["README.md", "CLAUDE.md", ".gitignore"],
             "commands_copied": commands_copied,
         }
+
+    def handle_sampledata(self, subcommand: str = "status") -> dict[str, Any]:
+        """
+        Handle /sampledata command - manage demo data.
+
+        Args:
+            subcommand: One of 'status', 'install', 'remove'
+
+        Returns:
+            Result dict
+        """
+        import shutil
+        import yaml
+        from datetime import datetime
+
+        sample_file = self.project_root / "data" / "sample_data.csv"
+        tracking_file = self.project_root / "project_state" / "sampledata.yaml"
+
+        if subcommand == "status":
+            # Check if sample data is installed
+            if sample_file.exists():
+                print()
+                print("Sample Data: INSTALLED")
+                print(f"  Location: data/sample_data.csv")
+                print()
+
+                # Check tracking file
+                if tracking_file.exists():
+                    with open(tracking_file) as f:
+                        tracking = yaml.safe_load(f)
+                        if tracking and tracking.get("installed_at"):
+                            print(f"  Installed: {tracking['installed_at']}")
+                            print()
+
+                return {
+                    "success": True,
+                    "installed": True,
+                    "location": "data/sample_data.csv",
+                }
+            else:
+                print()
+                print("Sample Data: NOT INSTALLED")
+                print()
+                print("Install with: /sampledata install")
+                print()
+                return {
+                    "success": True,
+                    "installed": False,
+                }
+
+        elif subcommand == "install":
+            # Install sample data
+            if sample_file.exists():
+                print()
+                print("Sample data already installed at data/sample_data.csv")
+                print()
+                return {
+                    "success": True,
+                    "message": "Sample data already installed",
+                }
+
+            # Copy from package templates
+            kie_package_dir = Path(__file__).parent.parent
+            source_fixture = kie_package_dir / "templates" / "fixture_data.csv"
+
+            if not source_fixture.exists():
+                print()
+                print("Error: Sample data template not found")
+                print()
+                return {
+                    "success": False,
+                    "message": "Sample data template not found in package",
+                }
+
+            # Copy sample data
+            shutil.copy(source_fixture, sample_file)
+
+            # Record installation
+            tracking_file.parent.mkdir(parents=True, exist_ok=True)
+            tracking_data = {
+                "installed": True,
+                "installed_at": datetime.now().isoformat(),
+            }
+            with open(tracking_file, "w") as f:
+                yaml.dump(tracking_data, f, default_flow_style=False)
+
+            print()
+            print("✓ Sample data installed at data/sample_data.csv")
+            print()
+            print("Try it:")
+            print("  /eda      - Profile the demo data")
+            print("  /analyze  - Extract insights")
+            print()
+
+            return {
+                "success": True,
+                "message": "Sample data installed",
+                "location": "data/sample_data.csv",
+            }
+
+        elif subcommand == "remove":
+            # Remove sample data
+            if not sample_file.exists():
+                print()
+                print("Sample data is not installed")
+                print()
+                return {
+                    "success": True,
+                    "message": "Sample data not installed",
+                }
+
+            # Remove sample file
+            sample_file.unlink()
+
+            # Update tracking
+            if tracking_file.exists():
+                tracking_data = {
+                    "installed": False,
+                    "removed_at": datetime.now().isoformat(),
+                }
+                with open(tracking_file, "w") as f:
+                    yaml.dump(tracking_data, f, default_flow_style=False)
+
+            print()
+            print("✓ Sample data removed")
+            print()
+
+            return {
+                "success": True,
+                "message": "Sample data removed",
+            }
+
+        else:
+            print()
+            print(f"Error: Unknown subcommand '{subcommand}'")
+            print()
+            print("Usage:")
+            print("  /sampledata status   Show sample data status")
+            print("  /sampledata install  Install demo data")
+            print("  /sampledata remove   Remove demo data")
+            print()
+            return {
+                "success": False,
+                "message": f"Unknown subcommand: {subcommand}",
+            }
 
     def handle_intent(self, subcommand: str = "status", objective: str | None = None) -> dict[str, Any]:
         """
@@ -1500,15 +1639,28 @@ class CommandHandler:
             selected_file = self._select_data_file()
             if not selected_file:
                 log("ERROR: No data files found in data/ folder")
+                print()
+                print("No data files found.")
+                print()
+                print("Options:")
+                print("  1. Add your data file to data/ folder")
+                print("  2. Run /sampledata install for demo data")
+                print()
                 return {
                     "success": False,
-                    "message": "No data files found in data/ folder. Add CSV, XLSX, Parquet, or JSON file to data/ directory.",
+                    "message": "No data files found. Add a file to data/ or run /sampledata install.",
                 }
             data_file = str(selected_file)
             self._save_data_file_selection(selected_file)
             log(f"Auto-selected data file: {data_file}")
+
+            # Check if using sample data
+            is_sample_data = selected_file.name == "sample_data.csv"
+            if is_sample_data:
+                log("WARNING: Using sample data (DEMO mode)")
         else:
             data_file = str(self.project_root / data_file)
+            is_sample_data = Path(data_file).name == "sample_data.csv"
             log(f"Using specified data file: {data_file}")
 
         # Run EDA
@@ -1561,6 +1713,7 @@ class CommandHandler:
                     artifacts={
                         "selected_data_file": data_file,
                         "eda_profile": str(profile_path),
+                        "is_sample_data": is_sample_data,
                     },
                     evidence_ledger_id=None,  # No ledger for direct calls
                 )
@@ -1588,6 +1741,7 @@ class CommandHandler:
                 "suggestions": suggestions,
                 "profile_saved": str(profile_path),
                 "data_file": data_file,
+                "is_sample_data": is_sample_data,
                 "log_file": str(log_file),
                 "skill_results": skill_results,
             }

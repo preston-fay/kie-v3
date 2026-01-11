@@ -300,6 +300,15 @@ Type a command to get started!
                         objective = " ".join(parts[1:]) if len(parts) > 1 else None
 
                 result = self.handler.handle_intent(subcommand=subcommand, objective=objective)
+            elif cmd == "/sampledata":
+                # Parse subcommand
+                subcommand = "status"
+                if args:
+                    parts = args.split()
+                    if parts[0] in ["status", "install", "remove"]:
+                        subcommand = parts[0]
+
+                result = self.handler.handle_sampledata(subcommand=subcommand)
             elif cmd == "/railscheck":
                 # Handle --fix flag
                 fix = args and "--fix" in args
