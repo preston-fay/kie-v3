@@ -577,10 +577,10 @@ def _get_execution_mode(project_root: Path) -> str:
     NEVER raises exceptions.
     """
     try:
-        from kie.execution_policy import ExecutionPolicy
+        from kie.state import ExecutionPolicy
         policy = ExecutionPolicy(project_root)
         mode = policy.get_mode()
-        return mode
+        return mode.value  # Return string value of enum
     except Exception:
         return "rails"
 

@@ -509,10 +509,10 @@ def main() -> None:
                 client.print_result(result)
                 sys.exit(0 if result["success"] else 1)
 
-            # Special handling for freeform command with action argument
+            # Special handling for freeform command with subcommand argument
             if arg == "freeform":
-                action_value = sys.argv[2] if len(sys.argv) > 2 else None
-                result = client.handler.handle_freeform(action=action_value)
+                subcommand = sys.argv[2] if len(sys.argv) > 2 else "status"
+                result = client.handler.handle_freeform(subcommand=subcommand)
                 client.print_result(result)
                 sys.exit(0 if result["success"] else 1)
 

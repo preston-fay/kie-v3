@@ -1,5 +1,12 @@
 """KIE State Management"""
 
+from .execution_policy import (
+    ExecutionMode,
+    ExecutionPolicy,
+    get_execution_mode,
+    is_freeform_enabled,
+    print_mode_restriction_message,
+)
 from .intent import (
     IntentStorage,
     capture_intent,
@@ -26,4 +33,9 @@ __all__ = [
     "capture_intent",
     "get_intent",
     "print_intent_required_message",
+    "ExecutionMode",
+    "ExecutionPolicy",
+    "get_execution_mode",
+    "is_freeform_enabled",
+    "print_mode_restriction_message",
 ]

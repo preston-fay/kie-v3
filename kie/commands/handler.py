@@ -834,10 +834,10 @@ class CommandHandler:
         status["output_theme"] = output_theme
 
         # Add execution mode
-        from kie.execution_policy import ExecutionPolicy
+        from kie.state import ExecutionPolicy
         policy = ExecutionPolicy(self.project_root)
         execution_mode = policy.get_mode()
-        status["execution_mode"] = execution_mode
+        status["execution_mode"] = execution_mode.value  # Use enum value
 
         # Add intent status
         from kie.state import get_intent
@@ -2922,4 +2922,114 @@ project_state/  - Project tracking
             return {
                 "success": False,
                 "message": f"Template generation failed: {str(e)}",
+            }
+
+    def handle_freeform(self, subcommand: str = "status") -> dict[str, Any]:
+        """
+        Handle /freeform command - manage execution mode.
+
+        Args:
+            subcommand: One of: status, enable, disable
+
+        Returns:
+            Mode management result
+        """
+        from kie.state import ExecutionPolicy, ExecutionMode
+
+        policy = ExecutionPolicy(self.project_root)
+
+        if subcommand == "status":
+            # Show current mode
+            mode = policy.get_mode()
+            policy_info = policy.get_policy_info()
+
+            print()
+            print("=" * 70)
+            print("EXECUTION MODE STATUS")
+            print("=" * 70)
+            print()
+            print(f"Current Mode: {mode.value.upper()}")
+            print()
+
+            if mode == ExecutionMode.RAILS:
+                print("Rails Mode (Default):")
+                print("  • Only KIE commands are allowed")
+                print("  • Custom scripts and ad-hoc analysis are blocked")
+                print("  • Ensures deterministic, audit-ready execution")
+                print()
+                print("To enable off-rails execution:")
+                print("  /freeform enable")
+            else:
+                print("Freeform Mode (Enabled):")
+                print("  • Custom analysis and ad-hoc scripts are allowed")
+                print("  • Outputs labeled as exploratory")
+                print("  • Not promoted to client deliverables automatically")
+                print()
+                print("To return to Rails Mode:")
+                print("  /freeform disable")
+
+            print()
+            if policy_info.get("set_at"):
+                print(f"Set at: {policy_info['set_at']}")
+                print(f"Set by: {policy_info.get('set_by', 'unknown')}")
+            print("=" * 70)
+            print()
+
+            return {
+                "success": True,
+                "mode": mode.value,
+                **policy_info
+            }
+
+        elif subcommand == "enable":
+            # Enable freeform mode
+            result = policy.set_mode(ExecutionMode.FREEFORM)
+
+            print()
+            print("=" * 70)
+            print("FREEFORM MODE ENABLED")
+            print("=" * 70)
+            print()
+            print("Off-rails execution is now allowed.")
+            print()
+            print("Guidelines:")
+            print("  • Custom analysis outputs go to outputs/")
+            print("  • Freeform outputs are exploratory by default")
+            print("  • Not automatically promoted to client deliverables")
+            print("  • All execution is tracked in Evidence Ledger")
+            print()
+            print("To return to Rails Mode:")
+            print("  /freeform disable")
+            print()
+            print("=" * 70)
+            print()
+
+            return result
+
+        elif subcommand == "disable":
+            # Disable freeform mode (return to rails)
+            result = policy.set_mode(ExecutionMode.RAILS)
+
+            print()
+            print("=" * 70)
+            print("RAILS MODE RESTORED")
+            print("=" * 70)
+            print()
+            print("Execution has returned to Rails Mode.")
+            print()
+            print("Only KIE commands are now allowed:")
+            print("  /eda        # Exploratory data analysis")
+            print("  /analyze    # Extract insights")
+            print("  /build      # Create deliverables")
+            print("  /preview    # View outputs")
+            print()
+            print("=" * 70)
+            print()
+
+            return result
+
+        else:
+            return {
+                "success": False,
+                "message": f"Unknown subcommand: {subcommand}. Use: status, enable, or disable"
             }

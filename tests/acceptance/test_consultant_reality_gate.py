@@ -129,12 +129,19 @@ class ConsultantRealityGate:
         assert self.kie_src.exists(), ".kie/src/ directory missing"
         assert (self.kie_src / "kie").exists(), ".kie/src/kie package missing"
 
+        # Verify execution mode defaults to rails
+        from kie.state import ExecutionPolicy
+        policy = ExecutionPolicy(self.workspace)
+        mode = policy.get_mode()
+        assert mode.value == "rails", "Execution mode must default to 'rails'"
+
         print("✓ Workspace bootstrapped successfully")
         print(f"  - data/ exists: {self.data_dir.exists()}")
         print(f"  - outputs/ exists: {self.outputs_dir.exists()}")
         print(f"  - exports/ exists: {self.exports_dir.exists()}")
         print(f"  - project_state/ exists: {self.project_state_dir.exists()}")
         print(f"  - .kie/src/kie exists: {(self.kie_src / 'kie').exists()}")
+        print(f"  - execution_mode: {mode.value} (rails enforced)")
 
     def test_no_data_behavior(self):
         """Test EDA behavior with no data files."""

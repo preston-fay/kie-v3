@@ -31,6 +31,7 @@ class EvidenceLedger:
     timestamp: str
     command: str
     args: dict[str, Any] = field(default_factory=dict)
+    execution_mode: str = "rails"  # Mode Gate: track if rails or freeform
     rails_stage_before: str | None = None
     rails_stage_after: str | None = None
     environment: dict[str, Any] = field(default_factory=dict)
@@ -48,6 +49,7 @@ class EvidenceLedger:
             "timestamp": self.timestamp,
             "command": self.command,
             "args": self.args,
+            "execution_mode": self.execution_mode,
             "rails_stage_before": self.rails_stage_before,
             "rails_stage_after": self.rails_stage_after,
             "environment": self.environment,
@@ -113,14 +115,23 @@ def create_ledger(
 
     # Capture Rails state if available
     rails_stage_before = None
+    execution_mode = "rails"  # Default
     if project_root:
         rails_stage_before = read_rails_stage(project_root)
+        # Capture execution mode
+        try:
+            from kie.state import ExecutionPolicy
+            policy = ExecutionPolicy(project_root)
+            execution_mode = policy.get_mode().value
+        except Exception:
+            execution_mode = "rails"
 
     ledger = EvidenceLedger(
         run_id=run_id,
         timestamp=timestamp,
         command=command,
         args=args or {},
+        execution_mode=execution_mode,
         rails_stage_before=rails_stage_before,
         environment=environment,
     )
