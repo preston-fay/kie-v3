@@ -52,6 +52,7 @@ class KIEClient:
 - `/go --full` - Execute all workflow steps until complete or blocked
 - `/startkie` - Bootstrap new KIE project
 - `/status` - Show project status
+- `/intent` - Manage user intent (status, set, clear)
 - `/spec` - View current specification
 - `/interview` - Start requirements gathering
 - `/eda` - Run exploratory data analysis
@@ -77,6 +78,7 @@ Type a command to get started!
             print("  /go --full     - Execute all workflow steps until complete or blocked")
             print("  /startkie      - Bootstrap new KIE project")
             print("  /status        - Show project status")
+            print("  /intent        - Manage user intent (status, set, clear)")
             print("  /spec          - View current specification")
             print("  /interview     - Start requirements gathering")
             print("  /eda           - Run exploratory data analysis")
@@ -270,6 +272,34 @@ Type a command to get started!
                 result = self.handler.handle_doctor()
             elif cmd == "/template":
                 result = self.handler.handle_template()
+            elif cmd == "/intent":
+                # Parse subcommand and objective
+                if not args:
+                    subcommand = "status"
+                    objective = None
+                else:
+                    import shlex
+                    try:
+                        parts = shlex.split(args)
+                    except ValueError:
+                        parts = args.split()
+
+                    if len(parts) == 0:
+                        subcommand = "status"
+                        objective = None
+                    elif parts[0] in ["status", "clear"]:
+                        subcommand = parts[0]
+                        objective = None
+                    elif parts[0] == "set":
+                        subcommand = "set"
+                        # Join remaining parts as objective
+                        objective = " ".join(parts[1:]) if len(parts) > 1 else None
+                    else:
+                        # Treat first part as subcommand, rest as objective
+                        subcommand = parts[0]
+                        objective = " ".join(parts[1:]) if len(parts) > 1 else None
+
+                result = self.handler.handle_intent(subcommand=subcommand, objective=objective)
             elif cmd == "/railscheck":
                 # Handle --fix flag
                 fix = args and "--fix" in args

@@ -185,12 +185,12 @@ def get_intent(project_root: Path) -> dict[str, Any] | None:
     return IntentStorage(project_root).get_intent()
 
 
-def prompt_for_intent() -> str:
+def print_intent_required_message() -> None:
     """
-    Prompt user for intent clarification.
+    Print intent clarification required message (no stdin).
 
-    Returns:
-        User's objective as string
+    This is a non-interactive version that instructs users
+    to use /intent set or /interview instead of prompting for input.
     """
     print()
     print("=" * 70)
@@ -203,8 +203,18 @@ def prompt_for_intent() -> str:
     print("(Examples: explore data patterns, answer a specific question,")
     print(" create a client-ready deliverable)")
     print()
-    print("Please answer in one sentence, or run /interview for a guided setup.")
+    print("Set intent with: /intent set \"<one sentence>\" or run /interview")
     print()
 
-    objective = input("Objective: ").strip()
-    return objective
+
+def prompt_for_intent() -> str:
+    """
+    DEPRECATED: Do not use - causes stdin issues in non-interactive contexts.
+
+    Use print_intent_required_message() and exit instead.
+
+    Returns:
+        Empty string (never actually prompts)
+    """
+    print_intent_required_message()
+    return ""

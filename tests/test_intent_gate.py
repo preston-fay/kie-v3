@@ -55,22 +55,28 @@ def test_intent_capture_and_retrieval(temp_project):
 
 
 def test_analyze_blocks_without_intent(temp_project):
-    """Test that /analyze blocks when intent is not clarified."""
+    """Test that /analyze blocks when intent is not clarified and does NOT call stdin."""
     handler = CommandHandler(temp_project)
 
     # Verify intent is not clarified
     assert not is_intent_clarified(temp_project)
 
-    # Try to run analyze - should require manual input (we can't test interactive prompt)
-    # In automated test, this will fail because prompt_for_intent requires user input
-    # Instead, we verify the gating logic by checking intent_clarified
+    # Run analyze - should block without stdin
+    result = handler.handle_analyze()
 
-    # Manually set intent to allow analyze
+    # Verify blocked
+    assert not result["success"]
+    assert result.get("blocked") is True
+    assert "intent" in result["message"].lower() or "objective" in result["message"].lower()
+
+    # Now set intent and verify analyze works
     storage = IntentStorage(temp_project)
     storage.capture_intent("Test objective", captured_via="test")
 
     # Now analyze should work
     assert is_intent_clarified(temp_project)
+    result = handler.handle_analyze()
+    assert result["success"]
 
 
 def test_build_blocks_without_intent(temp_project):
@@ -216,3 +222,89 @@ def test_multiple_intent_captures(temp_project):
     assert len(events) == 2
     assert events[0]["objective"] == "First objective"
     assert events[1]["objective"] == "Second objective"
+
+
+def test_intent_command_status(temp_project):
+    """Test /intent status command."""
+    handler = CommandHandler(temp_project)
+
+    # Status when not set
+    result = handler.handle_intent(subcommand="status")
+    assert result["success"]
+    assert result["intent"] == "NOT SET"
+
+    # Set intent
+    storage = IntentStorage(temp_project)
+    storage.capture_intent("Test objective", captured_via="test")
+
+    # Status when set
+    result = handler.handle_intent(subcommand="status")
+    assert result["success"]
+    assert result["intent"] == "Test objective"
+
+
+def test_intent_command_set(temp_project):
+    """Test /intent set command."""
+    handler = CommandHandler(temp_project)
+
+    # Set intent
+    result = handler.handle_intent(subcommand="set", objective="Analyze sales data")
+    assert result["success"]
+    assert result["objective"] == "Analyze sales data"
+
+    # Verify intent is clarified
+    assert is_intent_clarified(temp_project)
+
+    # Verify storage
+    storage = IntentStorage(temp_project)
+    intent = storage.get_intent()
+    assert intent["objective"] == "Analyze sales data"
+    assert intent["captured_via"] == "cli"
+
+
+def test_intent_command_set_requires_objective(temp_project):
+    """Test /intent set requires objective."""
+    handler = CommandHandler(temp_project)
+
+    # Set without objective should fail
+    result = handler.handle_intent(subcommand="set", objective=None)
+    assert not result["success"]
+    assert "objective required" in result["message"].lower()
+
+
+def test_intent_command_clear(temp_project):
+    """Test /intent clear command."""
+    handler = CommandHandler(temp_project)
+
+    # Set intent first
+    storage = IntentStorage(temp_project)
+    storage.capture_intent("Test objective", captured_via="test")
+    assert is_intent_clarified(temp_project)
+
+    # Clear intent
+    result = handler.handle_intent(subcommand="clear")
+    assert result["success"]
+
+    # Verify intent is not clarified
+    assert not is_intent_clarified(temp_project)
+
+
+def test_intent_command_enables_analyze(temp_project):
+    """Test that /intent set enables /analyze to proceed."""
+    handler = CommandHandler(temp_project)
+
+    # Verify intent not set
+    assert not is_intent_clarified(temp_project)
+
+    # Analyze should block
+    result = handler.handle_analyze()
+    assert not result["success"]
+    assert result.get("blocked") is True
+
+    # Set intent via command
+    result = handler.handle_intent(subcommand="set", objective="Test analysis")
+    assert result["success"]
+
+    # Now analyze should work
+    result = handler.handle_analyze()
+    assert result["success"]

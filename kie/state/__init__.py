@@ -5,7 +5,7 @@ from .intent import (
     capture_intent,
     get_intent,
     is_intent_clarified,
-    prompt_for_intent,
+    print_intent_required_message,
 )
 from .rails_state import (
     RailsState,
@@ -25,5 +25,5 @@ __all__ = [
     "is_intent_clarified",
     "capture_intent",
     "get_intent",
-    "prompt_for_intent",
+    "print_intent_required_message",
 ]

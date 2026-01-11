@@ -80,15 +80,23 @@ def main():
         intent_status = status_result.get("intent", "")
         print_check(intent_status == "NOT SET", f"/status shows intent: {intent_status}")
 
-        # TEST 4: Provide intent
-        print_section("TEST 4: Capture Intent")
-        storage = IntentStorage(project_root)
-        capture_result = storage.capture_intent(
-            "Analyze quarterly revenue trends and identify growth opportunities",
-            captured_via="proof_script"
+        # TEST 3.5: /analyze blocks without intent (no stdin)
+        print_section("TEST 3.5: /analyze Blocks Without Intent (No stdin)")
+        analyze_result = handler.handle_analyze()
+        print_check(
+            not analyze_result["success"] and analyze_result.get("blocked"),
+            "/analyze blocked without attempting stdin"
         )
-        print_check(capture_result["success"], "Intent captured successfully")
-        print(f"   Objective: {capture_result['objective']}")
+        print(f"   Message: {analyze_result.get('message', '')[:60]}...")
+
+        # TEST 4: Set intent via /intent command
+        print_section("TEST 4: Set Intent via /intent Command")
+        intent_result = handler.handle_intent(
+            subcommand="set",
+            objective="Analyze quarterly revenue trends and identify growth opportunities"
+        )
+        print_check(intent_result["success"], "Intent set via /intent command")
+        print(f"   Objective: {intent_result['objective']}")
 
         # TEST 5: Intent is now clarified
         print_section("TEST 5: Intent Is Now Clarified")

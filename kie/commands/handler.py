@@ -482,6 +482,115 @@ class CommandHandler:
             "commands_copied": commands_copied,
         }
 
+    def handle_intent(self, subcommand: str = "status", objective: str | None = None) -> dict[str, Any]:
+        """
+        Handle /intent command - manage user intent.
+
+        Args:
+            subcommand: One of 'status', 'set', 'clear'
+            objective: Objective text (required for 'set')
+
+        Returns:
+            Result dict
+        """
+        from kie.state import IntentStorage
+
+        storage = IntentStorage(self.project_root)
+
+        if subcommand == "status":
+            # Show current intent
+            intent = storage.get_intent()
+            if intent:
+                print()
+                print("Intent:")
+                print(f"  {intent['objective']}")
+                print()
+                print(f"Captured via: {intent.get('captured_via', 'unknown')}")
+                print()
+                return {
+                    "success": True,
+                    "intent": intent['objective'],
+                    "captured_via": intent.get('captured_via', 'unknown'),
+                }
+            else:
+                print()
+                print("Intent: NOT SET")
+                print()
+                print("Set intent with: /intent set \"<objective>\"")
+                print("Or run /interview for guided setup")
+                print()
+                return {
+                    "success": True,
+                    "intent": "NOT SET",
+                }
+
+        elif subcommand == "set":
+            # Set intent
+            if not objective:
+                print()
+                print("Error: Objective required for /intent set")
+                print()
+                print("Usage: /intent set \"<one sentence objective>\"")
+                print("Example: /intent set \"Analyze quarterly revenue trends\"")
+                print()
+                return {
+                    "success": False,
+                    "message": "Objective required for /intent set",
+                }
+
+            # Validate non-empty
+            objective = objective.strip()
+            if not objective:
+                return {
+                    "success": False,
+                    "message": "Objective cannot be empty",
+                }
+
+            # Capture intent
+            result = storage.capture_intent(objective, captured_via="cli")
+            print()
+            print(f"✓ Intent set: {objective}")
+            print()
+            return {
+                "success": True,
+                "objective": objective,
+            }
+
+        elif subcommand == "clear":
+            # Clear intent
+            intent_path = self.project_root / "project_state" / "intent.yaml"
+            if intent_path.exists():
+                intent_path.unlink()
+                print()
+                print("✓ Intent cleared")
+                print()
+                return {
+                    "success": True,
+                    "message": "Intent cleared",
+                }
+            else:
+                print()
+                print("Intent is already NOT SET")
+                print()
+                return {
+                    "success": True,
+                    "message": "Intent already not set",
+                }
+
+        else:
+            print()
+            print(f"Error: Unknown subcommand '{subcommand}'")
+            print()
+            print("Usage:")
+            print("  /intent status              Show current intent")
+            print("  /intent set \"<objective>\"   Set intent")
+            print("  /intent clear               Clear intent")
+            print()
+            return {
+                "success": False,
+                "message": f"Unknown subcommand: {subcommand}",
+            }
+
     def handle_status(self, brief: bool = False) -> dict[str, Any]:
         """
         Handle /status command.
@@ -1035,23 +1144,16 @@ class CommandHandler:
             Build results
         """
         # INTENT GATE: Check if intent is clarified
-        from kie.state import is_intent_clarified, prompt_for_intent, capture_intent
+        from kie.state import is_intent_clarified, print_intent_required_message
 
         if not is_intent_clarified(self.project_root):
-            # Intent not clarified - prompt user
-            objective = prompt_for_intent()
-
-            if not objective:
-                return {
-                    "success": False,
-                    "message": "Intent clarification required. Please provide an objective or run /interview.",
-                }
-
-            # Capture intent
-            capture_intent(self.project_root, objective, captured_via="prompt")
-            print()
-            print(f"✓ Intent captured: {objective}")
-            print()
+            # Intent not clarified - print guidance and block
+            print_intent_required_message()
+            return {
+                "success": False,
+                "blocked": True,
+                "message": "Intent clarification required. Use: /intent set \"<objective>\" or run /interview",
+            }
 
         # Auto-init spec if missing
         if not self.spec_path.exists():
@@ -1511,23 +1613,16 @@ class CommandHandler:
             Insights results
         """
         # INTENT GATE: Check if intent is clarified
-        from kie.state import is_intent_clarified, prompt_for_intent, capture_intent
+        from kie.state import is_intent_clarified, print_intent_required_message
 
         if not is_intent_clarified(self.project_root):
-            # Intent not clarified - prompt user
-            objective = prompt_for_intent()
-
-            if not objective:
-                return {
-                    "success": False,
-                    "message": "Intent clarification required. Please provide an objective or run /interview.",
-                }
-
-            # Capture intent
-            capture_intent(self.project_root, objective, captured_via="prompt")
-            print()
-            print(f"✓ Intent captured: {objective}")
-            print()
+            # Intent not clarified - print guidance and block
+            print_intent_required_message()
+            return {
+                "success": False,
+                "blocked": True,
+                "message": "Intent clarification required. Use: /intent set \"<objective>\" or run /interview",
+            }
 
         # Find data file
         if not data_file:
@@ -1772,23 +1867,16 @@ class CommandHandler:
             Preview information with server status
         """
         # INTENT GATE: Check if intent is clarified
-        from kie.state import is_intent_clarified, prompt_for_intent, capture_intent
+        from kie.state import is_intent_clarified, print_intent_required_message
 
         if not is_intent_clarified(self.project_root):
-            # Intent not clarified - prompt user
-            objective = prompt_for_intent()
-
-            if not objective:
-                return {
-                    "success": False,
-                    "message": "Intent clarification required. Please provide an objective or run /interview.",
-                }
-
-            # Capture intent
-            capture_intent(self.project_root, objective, captured_via="prompt")
-            print()
-            print(f"✓ Intent captured: {objective}")
-            print()
+            # Intent not clarified - print guidance and block
+            print_intent_required_message()
+            return {
+                "success": False,
+                "blocked": True,
+                "message": "Intent clarification required. Use: /intent set \"<objective>\" or run /interview",
+            }
 
         self.handle_status()
 
@@ -2283,7 +2371,7 @@ class CommandHandler:
             Result dict with executed_command and next_step
         """
         # INTENT GATE: Check before running analyze/build/preview stages
-        from kie.state import is_intent_clarified, prompt_for_intent, capture_intent
+        from kie.state import is_intent_clarified, print_intent_required_message
 
         # Determine if next stage requires intent
         next_stage_requires_intent = False
@@ -2295,20 +2383,13 @@ class CommandHandler:
             next_stage_requires_intent = True
 
         if next_stage_requires_intent and not is_intent_clarified(self.project_root):
-            # Intent not clarified - prompt user
-            objective = prompt_for_intent()
-
-            if not objective:
-                return {
-                    "success": False,
-                    "message": "Intent clarification required. Please provide an objective or run /interview.",
-                }
-
-            # Capture intent
-            capture_intent(self.project_root, objective, captured_via="prompt")
-            print()
-            print(f"✓ Intent captured: {objective}")
-            print()
+            # Intent not clarified - print guidance and block
+            print_intent_required_message()
+            return {
+                "success": False,
+                "blocked": True,
+                "message": "Intent clarification required. Use: /intent set \"<objective>\" or run /interview",
+            }
 
         # CASE 1: Project not bootstrapped
         if not workflow_started:
