@@ -71,7 +71,7 @@ def main():
 
         # Check that mandatory wrappers exist
         cmd_dir = workspace / ".claude" / "commands"
-        mandatory_files = ["doctor.md", "rails.md", "status.md"]
+        mandatory_files = ["doctor.md", "rails.md", "status.md", "sampledata.md"]
 
         print("📋 Checking command wrappers...")
         for cmd_file in mandatory_files:

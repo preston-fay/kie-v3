@@ -23,7 +23,7 @@ To see all available commands:
 3. Follow the guided workflow
 
 ### Option 3: Just Exploring KIE
-1. Sample data is in `data/sample_data.csv`
+1. Run `/sampledata install` to add demo data (optional)
 2. Run `/eda` to see how analysis works
 3. Run `/analyze` to see insight extraction
 

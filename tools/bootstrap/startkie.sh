@@ -242,7 +242,7 @@ echo "    2. Choose express (6 questions) or full (11 questions)"
 echo "    3. I'll guide you through the rest"
 echo ""
 echo "  Option 3: Just Exploring KIE"
-echo "    1. Sample data is in data/sample_data.csv"
+echo "    1. Run /sampledata install to add demo data (optional)"
 echo "    2. Run /eda to see how analysis works"
 echo "    3. Run /analyze to see insight extraction"
 echo ""
@@ -267,7 +267,7 @@ echo ""
 echo "Checking for user-level slash commands..."
 
 # Count required commands (excluding startkie which is separately managed)
-REQUIRED_COMMANDS=("eda" "rails" "go" "spec" "status" "interview" "analyze" "build" "preview" "validate" "map" "doctor")
+REQUIRED_COMMANDS=("eda" "rails" "go" "spec" "status" "interview" "analyze" "build" "preview" "validate" "map" "doctor" "sampledata")
 USER_CMD_DIR="$HOME/.claude/commands"
 MISSING_COUNT=0
 

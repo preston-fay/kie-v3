@@ -54,7 +54,7 @@ def test_install_commands_copies_files(monkeypatch):
             "eda.md", "rails.md", "go.md", "spec.md",
             "status.md", "interview.md", "analyze.md",
             "build.md", "preview.md", "validate.md",
-            "map.md", "doctor.md"
+            "map.md", "doctor.md", "sampledata.md"
         ]
 
         for cmd_file in expected_commands:
