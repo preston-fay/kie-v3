@@ -18,6 +18,7 @@ from kie.skills.registry import SkillRegistry, get_registry, register_skill
 from kie.skills.client_pack import ClientPackSkill
 from kie.skills.client_readiness import ClientReadinessSkill
 from kie.skills.eda_review import EDAReviewSkill
+from kie.skills.executive_summary import ExecutiveSummarySkill
 from kie.skills.insight_brief import InsightBriefSkill
 from kie.skills.insight_triage import InsightTriageSkill
 from kie.skills.narrative_synthesis import NarrativeSynthesisSkill
@@ -28,6 +29,7 @@ from kie.skills.visualization_planner import VisualizationPlannerSkill
 register_skill(ClientPackSkill())
 register_skill(ClientReadinessSkill())
 register_skill(EDAReviewSkill())
+register_skill(ExecutiveSummarySkill())
 register_skill(InsightBriefSkill())
 register_skill(InsightTriageSkill())
 register_skill(NarrativeSynthesisSkill())
@@ -44,6 +46,7 @@ __all__ = [
     "ClientPackSkill",
     "ClientReadinessSkill",
     "EDAReviewSkill",
+    "ExecutiveSummarySkill",
     "InsightBriefSkill",
     "InsightTriageSkill",
     "NarrativeSynthesisSkill",
