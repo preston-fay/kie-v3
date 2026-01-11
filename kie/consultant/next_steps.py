@@ -77,7 +77,14 @@ class NextStepsAdvisor:
 
         elif command == "eda":
             if artifacts["has_eda_profile"]:
-                steps.append("/analyze    # Extract insights from your data")
+                # Check if intent is clarified before recommending /analyze
+                from kie.state import is_intent_clarified
+                if is_intent_clarified(self.project_root):
+                    steps.append("/analyze    # Extract insights from your data")
+                else:
+                    # Intent not set - guide user to set it first
+                    steps.append("/intent set \"<one sentence>\"    # Set your objective first")
+                    steps.append("/interview                        # Or use conversational requirements gathering")
 
         elif command == "analyze":
             if artifacts["has_insights_catalog"]:
