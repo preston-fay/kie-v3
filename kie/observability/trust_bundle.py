@@ -114,6 +114,7 @@ def _build_trust_bundle_data(
             "output_preferences": {
                 "theme": _get_output_theme(project_root),
             },
+            "execution_mode": _get_execution_mode(project_root),
             "what_executed": {
                 "command": f"/{ledger.command}",
                 "success": ledger.success,
@@ -535,3 +536,21 @@ def _get_output_theme(project_root: Path) -> str:
         return theme if theme else "not_set"
     except Exception:
         return "not_set"
+
+
+def _get_execution_mode(project_root: Path) -> str:
+    """
+    Get execution mode.
+
+    Returns:
+        Execution mode ('rails' or 'freeform')
+
+    NEVER raises exceptions.
+    """
+    try:
+        from kie.execution_policy import ExecutionPolicy
+        policy = ExecutionPolicy(project_root)
+        mode = policy.get_mode()
+        return mode
+    except Exception:
+        return "rails"

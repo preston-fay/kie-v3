@@ -449,7 +449,7 @@ def main() -> None:
 
         # Check if it's a known command (without slash prefix for CLI)
         known_commands = ["go", "startkie", "status", "spec", "interview", "eda",
-                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck", "rails", "theme"]
+                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck", "rails", "theme", "freeform"]
 
         if arg in known_commands or arg == "railscheck":
             # It's a command - execute and exit
@@ -467,6 +467,13 @@ def main() -> None:
             if arg == "theme":
                 set_theme_value = sys.argv[2] if len(sys.argv) > 2 else None
                 result = client.handler.handle_theme(set_theme=set_theme_value)
+                client.print_result(result)
+                sys.exit(0 if result["success"] else 1)
+
+            # Special handling for freeform command with action argument
+            if arg == "freeform":
+                action_value = sys.argv[2] if len(sys.argv) > 2 else None
+                result = client.handler.handle_freeform(action=action_value)
                 client.print_result(result)
                 sys.exit(0 if result["success"] else 1)
 
