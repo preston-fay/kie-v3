@@ -20,6 +20,7 @@ from kie.skills.client_readiness import ClientReadinessSkill
 from kie.skills.eda_review import EDAReviewSkill
 from kie.skills.insight_brief import InsightBriefSkill
 from kie.skills.insight_triage import InsightTriageSkill
+from kie.skills.narrative_synthesis import NarrativeSynthesisSkill
 from kie.skills.run_story import RunStorySkill
 
 # Auto-register skills
@@ -28,6 +29,7 @@ register_skill(ClientReadinessSkill())
 register_skill(EDAReviewSkill())
 register_skill(InsightBriefSkill())
 register_skill(InsightTriageSkill())
+register_skill(NarrativeSynthesisSkill())
 register_skill(RunStorySkill())
 
 __all__ = [
@@ -42,5 +44,6 @@ __all__ = [
     "EDAReviewSkill",
     "InsightBriefSkill",
     "InsightTriageSkill",
+    "NarrativeSynthesisSkill",
     "RunStorySkill",
 ]

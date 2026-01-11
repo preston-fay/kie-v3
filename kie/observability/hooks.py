@@ -258,6 +258,8 @@ class ObservabilityHooks:
                 artifacts["insights_catalog"] = outputs_dir / "insights.yaml"
             if (outputs_dir / "eda_profile.json").exists():
                 artifacts["eda_profile"] = outputs_dir / "eda_profile.json"
+            if (outputs_dir / "insight_triage.json").exists():
+                artifacts["insight_triage"] = outputs_dir / "insight_triage.json"
 
             context = SkillContext(
                 project_root=self.project_root,
