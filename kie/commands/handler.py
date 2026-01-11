@@ -2092,7 +2092,7 @@ class CommandHandler:
         if (outputs_dir / "maps").exists():
             previews["maps"] = [f.name for f in (outputs_dir / "maps").glob("*.html")]
 
-        # Check for insight artifacts (catalog, triage, narrative)
+        # Check for insight artifacts (catalog, triage, narrative, visualization plan)
         if outputs_dir.exists():
             if (outputs_dir / "insights.yaml").exists():
                 previews["insights"].append("insights.yaml")
@@ -2106,6 +2106,10 @@ class CommandHandler:
                 previews["insights"].append("executive_narrative.md")
             if (outputs_dir / "executive_narrative.json").exists():
                 previews["insights"].append("executive_narrative.json")
+            if (outputs_dir / "visualization_plan.md").exists():
+                previews["insights"].append("visualization_plan.md")
+            if (outputs_dir / "visualization_plan.json").exists():
+                previews["insights"].append("visualization_plan.json")
 
         # Check for deliverables (PPT, dashboard)
         if outputs_dir.exists():

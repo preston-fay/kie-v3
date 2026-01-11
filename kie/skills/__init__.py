@@ -22,6 +22,7 @@ from kie.skills.insight_brief import InsightBriefSkill
 from kie.skills.insight_triage import InsightTriageSkill
 from kie.skills.narrative_synthesis import NarrativeSynthesisSkill
 from kie.skills.run_story import RunStorySkill
+from kie.skills.visualization_planner import VisualizationPlannerSkill
 
 # Auto-register skills
 register_skill(ClientPackSkill())
@@ -31,6 +32,7 @@ register_skill(InsightBriefSkill())
 register_skill(InsightTriageSkill())
 register_skill(NarrativeSynthesisSkill())
 register_skill(RunStorySkill())
+register_skill(VisualizationPlannerSkill())
 
 __all__ = [
     "Skill",
@@ -46,4 +48,5 @@ __all__ = [
     "InsightTriageSkill",
     "NarrativeSynthesisSkill",
     "RunStorySkill",
+    "VisualizationPlannerSkill",
 ]
