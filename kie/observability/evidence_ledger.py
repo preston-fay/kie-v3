@@ -32,6 +32,8 @@ class EvidenceLedger:
     command: str
     args: dict[str, Any] = field(default_factory=dict)
     execution_mode: str = "rails"  # Mode Gate: track if rails or freeform
+    truth_check: str = "not_run"  # Truth Gate: pass|fail|not_run
+    missing_artifacts: list[str] = field(default_factory=list)  # Truth Gate violations
     rails_stage_before: str | None = None
     rails_stage_after: str | None = None
     environment: dict[str, Any] = field(default_factory=dict)
@@ -50,6 +52,8 @@ class EvidenceLedger:
             "command": self.command,
             "args": self.args,
             "execution_mode": self.execution_mode,
+            "truth_check": self.truth_check,
+            "missing_artifacts": self.missing_artifacts,
             "rails_stage_before": self.rails_stage_before,
             "rails_stage_after": self.rails_stage_after,
             "environment": self.environment,
