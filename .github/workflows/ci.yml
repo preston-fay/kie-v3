@@ -91,6 +91,41 @@ jobs:
             /tmp/kie_reality_gate_*/
           if-no-files-found: ignore
 
+  # Consultant Reality Battery - Adversarial journey tests
+  consultant-reality-battery:
+    name: Consultant Reality Battery (Blocking)
+    runs-on: ubuntu-latest
+    needs: required-checks
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js 20.19
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[all]"
+
+      - name: Run Consultant Reality Battery (BLOCKING)
+        run: |
+          python tools/verify/consultant_reality_battery.py
+
+      - name: Upload battery test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consultant-reality-battery-results
+          path: |
+            /tmp/kie_battery_*/
+          if-no-files-found: ignore
+
   # Smoke harness - production verification
   smoke-test:
     name: Smoke Harness (Blocking)
@@ -150,7 +185,7 @@ jobs:
   release-check:
     name: Release Readiness
     runs-on: ubuntu-latest
-    needs: [required-checks, consultant-reality-gate, smoke-test]
+    needs: [required-checks, consultant-reality-gate, consultant-reality-battery, smoke-test]
     steps:
       - uses: actions/checkout@v4
 
