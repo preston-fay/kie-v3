@@ -1367,59 +1367,29 @@ class CommandHandler:
                         spec = yaml.safe_load(f)
 
         # CRITICAL: Check output theme preference is set before building
-        # User must explicitly choose theme - no silent defaults
+        # THEME GATE: User must explicitly choose theme - no silent defaults, no stdin
         from kie.preferences import OutputPreferences
 
         prefs = OutputPreferences(self.project_root)
         output_theme = prefs.get_theme()
 
         if output_theme is None:
-            # Theme not set - prompt user
+            # Theme not set - BLOCK (non-interactive)
             print()
             print("=" * 70)
             print("OUTPUT THEME REQUIRED")
             print("=" * 70)
             print()
-            print("Which output theme do you want for formatted deliverables?")
+            print("Output theme is required. Set it with:")
             print()
-            print("1) Light")
-            print("   • Light backgrounds (#FFFFFF)")
-            print("   • Dark text on light surfaces")
-            print("   • Traditional document appearance")
+            print("  /theme light  - Light backgrounds, dark text")
+            print("  /theme dark   - Dark backgrounds, white text")
             print()
-            print("2) Dark")
-            print("   • Dark backgrounds (#1E1E1E)")
-            print("   • White text on dark surfaces")
-            print("   • Reduces eye strain in low light")
-            print()
-
-            while True:
-                choice = input("Choose theme (1 or 2): ").strip()
-
-                if choice == "1":
-                    output_theme = "light"
-                    break
-                elif choice == "2":
-                    output_theme = "dark"
-                    break
-                elif choice.lower() in ["q", "quit", "cancel", "exit"]:
-                    print()
-                    print("Build cancelled - no theme selected")
-                    return {
-                        "success": False,
-                        "message": "Build cancelled by user - theme selection required",
-                    }
-                else:
-                    print("Invalid choice. Please enter 1 or 2 (or 'q' to cancel).")
-
-            # Save preference
-            prefs.set_theme(output_theme, source="user_prompt")
-            print()
-            print(f"✓ Output theme set to: {output_theme}")
-            print("  (To change: run /theme command)")
-            print()
-            print("Continuing build...")
-            print()
+            return {
+                "success": False,
+                "blocked": True,
+                "message": "Output theme is required. Set it with: /theme light OR /theme dark",
+            }
 
         # Update status
         status = {
@@ -2729,6 +2699,19 @@ class CommandHandler:
                 elif stage == "analyze":
                     result = self.handle_analyze()
                 elif stage == "build":
+                    # THEME GATE: Check theme before build
+                    from kie.preferences import OutputPreferences
+                    prefs = OutputPreferences(self.project_root)
+                    if prefs.get_theme() is None:
+                        # Theme not set - BLOCK
+                        return {
+                            "success": True,
+                            "executed_command": "full",
+                            "stages_executed": stages_executed,
+                            "blocked_at": "build",
+                            "message": "Output theme is required. Set it with: /theme light OR /theme dark",
+                            "next_step": "Run /theme command, then /go --full again",
+                        }
                     result = self.handle_build(target="all")
                 elif stage == "preview":
                     result = self.handle_preview()

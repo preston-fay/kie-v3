@@ -134,35 +134,22 @@ def initialize_project_theme() -> None:
 
 def prompt_theme_preference() -> ThemeMode:
     """
-    Prompt user for theme preference (used in project interview).
+    DEPRECATED: Do not use - causes stdin issues in non-interactive contexts.
+
+    Use /theme command instead to set theme preference.
+    Theme must be set via /theme light or /theme dark.
 
     Returns:
-        Selected ThemeMode
+        ThemeMode.DARK (fallback only, should not be called)
     """
-    print("\n🎨 Theme Preference")
-    print("=" * 50)
-    print("KIE supports both dark and light themes.")
-    print("")
-    print("1. Dark theme (default)")
-    print("   • Dark backgrounds (#1E1E1E)")
-    print("   • White text on dark surfaces")
-    print("   • Reduces eye strain in low light")
-    print("")
-    print("2. Light theme")
-    print("   • Light backgrounds (#FFFFFF)")
-    print("   • Dark text on light surfaces")
-    print("   • Traditional document appearance")
-    print("")
-
-    while True:
-        choice = input("Choose theme (1 or 2) [1]: ").strip() or "1"
-
-        if choice == "1":
-            return ThemeMode.DARK
-        elif choice == "2":
-            return ThemeMode.LIGHT
-        else:
-            print("Invalid choice. Please enter 1 or 2.")
+    print()
+    print("ERROR: prompt_theme_preference() is deprecated")
+    print("Use /theme command to set theme preference:")
+    print("  /theme light  - Light backgrounds, dark text")
+    print("  /theme dark   - Dark backgrounds, white text")
+    print()
+    # Return default to avoid crashes, but this should never be called
+    return ThemeMode.DARK
 
 
 def get_theme_display_name(mode: ThemeMode) -> str:
