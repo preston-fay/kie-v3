@@ -308,3 +308,97 @@ def test_intent_command_enables_analyze(temp_project):
     # Now analyze should work
     result = handler.handle_analyze()
     assert result["success"]
+
+
+def test_eda_messaging_without_intent(temp_project, capsys):
+    """Test that /eda recommends /intent or /interview when intent is NOT set."""
+    handler = CommandHandler(temp_project)
+
+    # Verify intent not set
+    assert not is_intent_clarified(temp_project)
+
+    # Run EDA
+    result = handler.handle_eda()
+    assert result["success"]
+
+    # Capture printed output
+    captured = capsys.readouterr()
+
+    # Verify next steps recommend /intent or /interview, NOT /analyze
+    assert "/intent" in captured.out.lower() or "/interview" in captured.out.lower()
+    assert "next steps" in captured.out.lower()
+
+    # Should NOT recommend /analyze when intent is not set
+    # (Note: might mention analyze in other context, so we check that /analyze
+    # is not in the "next steps" section specifically)
+    lines = captured.out.lower().split('\n')
+    in_next_steps = False
+    next_steps_section = []
+    for line in lines:
+        if "next steps" in line:
+            in_next_steps = True
+        elif in_next_steps:
+            if line.strip() == "":
+                break
+            next_steps_section.append(line)
+
+    next_steps_text = '\n'.join(next_steps_section)
+    assert "/analyze" not in next_steps_text
+
+
+def test_eda_messaging_with_intent(temp_project, capsys):
+    """Test that /eda recommends /analyze when intent IS set."""
+    handler = CommandHandler(temp_project)
+
+    # Set intent first
+    storage = IntentStorage(temp_project)
+    storage.capture_intent("Test objective", captured_via="test")
+    assert is_intent_clarified(temp_project)
+
+    # Run EDA
+    result = handler.handle_eda()
+    assert result["success"]
+
+    # Capture printed output
+    captured = capsys.readouterr()
+
+    # Verify next steps recommend /analyze
+    assert "/analyze" in captured.out.lower()
+    assert "next steps" in captured.out.lower()
+
+
+def test_startkie_includes_intent_step(capsys):
+    """Test that /startkie workflows mention intent setting."""
+    # Create truly empty directory for /startkie
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        empty_project = Path(tmpdir)
+        handler = CommandHandler(empty_project)
+
+        # Run startkie
+        result = handler.handle_startkie()
+        assert result["success"]
+
+        # Capture printed output
+        captured = capsys.readouterr()
+
+        # Verify workflows include intent setting instructions
+        assert "/intent" in captured.out.lower() or "intent" in captured.out.lower()
+        assert "workflow" in captured.out.lower() or "option" in captured.out.lower()
+
+
+def test_intent_set_missing_argument_shows_usage(temp_project, capsys):
+    """Test that /intent set with missing objective prints usage."""
+    handler = CommandHandler(temp_project)
+
+    # Run /intent set without objective
+    result = handler.handle_intent(subcommand="set", objective=None)
+    assert not result["success"]
+
+    # Capture printed output
+    captured = capsys.readouterr()
+
+    # Verify usage information is printed
+    assert "usage" in captured.out.lower()
+    assert "example" in captured.out.lower()
+    assert "/intent set" in captured.out.lower()

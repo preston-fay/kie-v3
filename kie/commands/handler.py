@@ -101,6 +101,46 @@ class CommandHandler:
 
         return context
 
+    def _get_next_steps(self) -> list[str]:
+        """
+        Get valid next steps based on current state (intent-aware).
+
+        Returns:
+            List of recommended next step commands with descriptions
+        """
+        from kie.state import is_intent_clarified
+
+        steps = []
+
+        # Check current state
+        intent_set = is_intent_clarified(self.project_root)
+
+        # Check for data
+        data_dir = self.project_root / "data"
+        has_data = False
+        if data_dir.exists():
+            data_files = [
+                f for f in data_dir.iterdir()
+                if f.is_file() and f.name != ".gitkeep"
+            ]
+            has_data = len(data_files) > 0
+
+        # Recommend based on state
+        if not intent_set:
+            # Intent required before analysis/delivery
+            steps.append("/intent set \"<one sentence>\" - Set your objective")
+            steps.append("/interview - Start guided requirements gathering")
+        elif not has_data:
+            # Need data to proceed
+            steps.append("Add your data file to data/ folder")
+            steps.append("/sampledata install - Install demo data for testing")
+        else:
+            # Ready for analysis
+            steps.append("/analyze - Extract insights from data")
+            steps.append("/build - Generate deliverables")
+
+        return steps
+
     def _select_data_file(self) -> Path | None:
         """
         Select the current data file deterministically.
@@ -452,16 +492,18 @@ class CommandHandler:
         print("\nRECOMMENDED WORKFLOWS:")
         print("\n  Option 1: I Have Data, Need Quick Analysis")
         print("    1. Drop your CSV file in data/ folder")
-        print("    2. Type /eda to profile your data")
-        print("    3. Type /analyze to extract insights")
+        print("    2. Type /intent set \"<your objective>\" to set intent")
+        print("    3. Type /eda to profile your data")
+        print("    4. Type /analyze to extract insights")
         print("\n  Option 2: Need Formal Deliverable (Presentation/Dashboard)")
-        print("    1. Type /interview to gather requirements")
+        print("    1. Type /interview to gather requirements (sets intent)")
         print("    2. Choose express (6 questions) or full (11 questions)")
         print("    3. I'll guide you through the rest")
         print("\n  Option 3: Just Exploring KIE")
         print("    1. Type /sampledata install to get demo data")
-        print("    2. Type /eda to see how analysis works")
-        print("    3. Type /analyze to see insight extraction")
+        print("    2. Type /intent set \"Explore KIE features\" to set intent")
+        print("    3. Type /eda to see how analysis works")
+        print("    4. Type /analyze to see insight extraction")
         print("\n" + "="*60 + "\n")
 
         # Update Rails state
@@ -565,9 +607,16 @@ class CommandHandler:
             print("✓ Sample data installed at data/sample_data.csv")
             print()
             print("Try it:")
-            print("  /eda      - Profile the demo data")
-            print("  /analyze  - Extract insights")
+            print("  /eda - Profile the demo data")
             print()
+
+            # Get intent-aware next steps
+            next_steps = self._get_next_steps()
+            if next_steps:
+                print("Next steps:")
+                for step in next_steps:
+                    print(f"  {step}")
+                print()
 
             return {
                 "success": True,
@@ -1734,6 +1783,21 @@ class CommandHandler:
                 # Don't fail the command if skills fail
                 import traceback
                 log(f"Traceback: {traceback.format_exc()}")
+
+            # Print intent-aware next steps
+            print()
+            print("✓ EDA complete")
+            print(f"  Profile: {profile_path}")
+            print(f"  Data: {data_file}")
+            print()
+
+            # Get intent-aware next steps
+            next_steps = self._get_next_steps()
+            if next_steps:
+                print("Next steps:")
+                for step in next_steps:
+                    print(f"  {step}")
+                print()
 
             return {
                 "success": True,
