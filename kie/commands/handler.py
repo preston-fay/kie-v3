@@ -1405,6 +1405,27 @@ class CommandHandler:
         try:
             results = {}
 
+            # RENDER CHARTS FROM VISUALIZATION PLAN (deterministic, judgment-driven)
+            if target in ["all", "charts", "dashboard", "presentation"]:
+                try:
+                    from kie.charts.renderer import ChartRenderer
+
+                    renderer = ChartRenderer(self.project_root)
+                    chart_result = renderer.render_charts()
+                    results["charts"] = chart_result
+                    print(f"✓ Rendered {chart_result['charts_rendered']} charts from visualization plan")
+                except FileNotFoundError as e:
+                    # visualization_plan.json missing - block build
+                    return {
+                        "success": False,
+                        "blocked": True,
+                        "message": str(e),
+                    }
+                except Exception as e:
+                    # Chart rendering failed - report but continue
+                    print(f"⚠️  Chart rendering failed: {e}")
+                    results["charts_error"] = str(e)
+
             # Build dashboard FIRST (generates Recharts HTML)
             # This is what users actually want to see!
             if target in ["all", "dashboard", "charts"]:
@@ -1589,7 +1610,6 @@ class CommandHandler:
             objective=spec.get("objective", "Analysis"),
             data_schema=schema,
             column_mapping=column_mapping,  # Phase 5: Pass intelligent selections + overrides
-            theme=theme  # Apply user-selected output theme
         )
 
         # Output directory
@@ -1619,7 +1639,7 @@ class CommandHandler:
                 data_path=data_path,
                 charts_dir=charts_dir,
                 output_dir=exports_dir,
-                theme_mode=spec.get("preferences", {}).get("theme", {}).get("mode", "dark")
+                theme_mode=theme  # Use the theme parameter passed to this method
             )
             return dashboard_path
         finally:

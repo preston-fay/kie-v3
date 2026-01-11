@@ -473,6 +473,104 @@ def test_journey_g_freeform_guard(reality_battery, monkeypatch, capsys):
     print("✓ Journey G: Freeform guard works correctly")
 
 
+def test_journey_h_chart_rendering_from_viz_plan(reality_battery, monkeypatch):
+    """
+    Journey H: Chart rendering from visualization plan
+
+    Tests that:
+    - Charts are rendered ONLY from visualization_plan.json
+    - Number of charts == number of visualization_required=true entries
+    - No charts exist for suppressed insights
+    - Suppressed categories never appear in chart data
+    """
+    project_root = reality_battery.create_workspace()
+    reality_battery.setup_workspace(project_root)
+    reality_battery.assert_no_stdin_prompts(monkeypatch)
+
+    handler = CommandHandler(project_root)
+
+    # Install sample data
+    result = handler.handle_sampledata(subcommand="install")
+    assert result["success"], f"Sample data failed: {result.get('message')}"
+
+    # Run EDA
+    result = handler.handle_eda()
+    assert result["success"], f"EDA failed: {result.get('message')}"
+
+    # Set intent (required for /analyze)
+    storage = IntentStorage(project_root)
+    storage.capture_intent("Analyze operational efficiency", captured_via="battery_test")
+
+    # Run analyze (generates insights + triage + narrative + viz plan)
+    result = handler.handle_analyze()
+    assert result["success"], f"Analyze failed: {result.get('message')}"
+
+    # Manually trigger skills to ensure viz plan exists
+    from kie.skills import get_registry, SkillContext
+    outputs_dir = project_root / "outputs"
+    artifacts = {}
+    if (outputs_dir / "insights.yaml").exists():
+        artifacts["insights_catalog"] = outputs_dir / "insights.yaml"
+
+    context = SkillContext(
+        project_root=project_root,
+        current_stage="analyze",
+        artifacts=artifacts,
+        evidence_ledger_id="battery_test"
+    )
+
+    registry = get_registry()
+    registry.execute_skills_for_stage("analyze", context)
+
+    # Verify visualization_plan.json exists
+    viz_plan_path = outputs_dir / "visualization_plan.json"
+    assert viz_plan_path.exists(), "visualization_plan.json missing after analyze"
+
+    with open(viz_plan_path) as f:
+        viz_plan = json.load(f)
+
+    # Set theme (required for /build)
+    prefs = OutputPreferences(project_root)
+    prefs.set_theme("dark")
+
+    # Run build (should render charts)
+    result = handler.handle_build(target="charts")
+    assert result["success"], f"Build failed: {result.get('message')}"
+
+    # Verify charts directory exists
+    charts_dir = outputs_dir / "charts"
+    assert charts_dir.exists(), "charts/ directory not created"
+
+    # Count visualization_required=true specs
+    viz_required_count = sum(
+        1 for spec in viz_plan["specifications"]
+        if spec.get("visualization_required", False)
+    )
+
+    # Verify chart count matches
+    chart_files = list(charts_dir.glob("*.json"))
+    assert len(chart_files) == viz_required_count, (
+        f"Chart count mismatch: {len(chart_files)} charts != {viz_required_count} expected"
+    )
+
+    # Verify no suppressed categories in chart data
+    for chart_file in chart_files:
+        with open(chart_file) as f:
+            chart_data = json.load(f)
+
+        suppress_list = chart_data.get("suppress", [])
+        data_points = chart_data.get("data", [])
+
+        for point in data_points:
+            category = point.get("category", "")
+            for suppressed in suppress_list:
+                assert suppressed.lower() not in str(category).lower(), (
+                    f"Suppressed category '{suppressed}' found in {chart_file.name}"
+                )
+
+    print("✓ Journey H: Chart rendering from viz plan works correctly")
+
+
 # ============================================================================
 # BATTERY SUMMARY
 # ============================================================================
@@ -496,11 +594,13 @@ def test_battery_summary(capsys):
     print("  ✓ Journey E: Corrupted Excel")
     print("  ✓ Journey F: Large CSV (~5k rows)")
     print("  ✓ Journey G: Freeform guard")
+    print("  ✓ Journey H: Chart rendering from viz plan")
     print()
     print("All Constitution requirements verified:")
     print("  ✓ No stdin prompts (non-interactive)")
     print("  ✓ Truth Gate (artifacts exist)")
     print("  ✓ Mode Gate (freeform blocked in Rails mode)")
     print("  ✓ Intent-aware messaging (no gated recommendations)")
+    print("  ✓ Chart rendering (from visualization plan only)")
     print("  ✓ Graceful error handling")
     print()
