@@ -487,7 +487,7 @@ def main() -> None:
             sys.exit(0)
 
         # Check if it's a known command (without slash prefix for CLI)
-        known_commands = ["go", "startkie", "status", "spec", "interview", "eda",
+        known_commands = ["go", "startkie", "status", "intent", "spec", "interview", "eda",
                         "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck", "rails", "theme", "freeform", "sampledata"]
 
         if arg in known_commands or arg == "railscheck":

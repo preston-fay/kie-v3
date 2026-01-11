@@ -267,7 +267,7 @@ echo ""
 echo "Checking for user-level slash commands..."
 
 # Count required commands (excluding startkie which is separately managed)
-REQUIRED_COMMANDS=("eda" "rails" "go" "spec" "status" "interview" "analyze" "build" "preview" "validate" "map" "doctor" "sampledata")
+REQUIRED_COMMANDS=("eda" "rails" "go" "spec" "intent" "status" "interview" "analyze" "build" "preview" "validate" "map" "doctor" "sampledata")
 USER_CMD_DIR="$HOME/.claude/commands"
 MISSING_COUNT=0
 

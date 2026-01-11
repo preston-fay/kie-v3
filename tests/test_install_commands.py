@@ -51,7 +51,7 @@ def test_install_commands_copies_files(monkeypatch):
         user_commands_dir = fake_home / ".claude" / "commands"
 
         expected_commands = [
-            "eda.md", "rails.md", "go.md", "spec.md",
+            "eda.md", "rails.md", "go.md", "spec.md", "intent.md",
             "status.md", "interview.md", "analyze.md",
             "build.md", "preview.md", "validate.md",
             "map.md", "doctor.md", "sampledata.md"

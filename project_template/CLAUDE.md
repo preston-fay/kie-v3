@@ -92,6 +92,7 @@ When the user types a KIE command:
 | `/startkie` | Use the SlashCommand tool (it's a Claude slash command) |
 | `/eda` | `PYTHONPATH=".kie/src" python3 -m kie.cli eda` |
 | `/status` | `PYTHONPATH=".kie/src" python3 -m kie.cli status` |
+| `/intent` | `PYTHONPATH=".kie/src" python3 -m kie.cli intent [status|set|clear]` |
 | `/spec` | `PYTHONPATH=".kie/src" python3 -m kie.cli spec` |
 | `/interview` | `PYTHONPATH=".kie/src" python3 -m kie.cli interview` |
 | `/analyze` | `PYTHONPATH=".kie/src" python3 -m kie.cli analyze` |
