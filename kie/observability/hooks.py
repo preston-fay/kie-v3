@@ -254,6 +254,8 @@ class ObservabilityHooks:
             # Check common artifacts
             if (outputs_dir / "insights_catalog.json").exists():
                 artifacts["insights_catalog"] = outputs_dir / "insights_catalog.json"
+            elif (outputs_dir / "insights.yaml").exists():
+                artifacts["insights_catalog"] = outputs_dir / "insights.yaml"
             if (outputs_dir / "eda_profile.json").exists():
                 artifacts["eda_profile"] = outputs_dir / "eda_profile.json"
 

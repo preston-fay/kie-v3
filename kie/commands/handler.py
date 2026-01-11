@@ -2075,6 +2075,7 @@ class CommandHandler:
             "maps": [],
             "deliverables": [],
             "exports": [],
+            "insights": [],
         }
 
         outputs_dir = self.project_root / "outputs"
@@ -2090,6 +2091,17 @@ class CommandHandler:
         # Check for map HTML
         if (outputs_dir / "maps").exists():
             previews["maps"] = [f.name for f in (outputs_dir / "maps").glob("*.html")]
+
+        # Check for insight artifacts (catalog and triage)
+        if outputs_dir.exists():
+            if (outputs_dir / "insights.yaml").exists():
+                previews["insights"].append("insights.yaml")
+            if (outputs_dir / "insights_catalog.json").exists():
+                previews["insights"].append("insights_catalog.json")
+            if (outputs_dir / "insight_triage.md").exists():
+                previews["insights"].append("insight_triage.md")
+            if (outputs_dir / "insight_triage.json").exists():
+                previews["insights"].append("insight_triage.json")
 
         # Check for deliverables (PPT, dashboard)
         if outputs_dir.exists():
@@ -2131,6 +2143,7 @@ class CommandHandler:
                 len(previews["maps"]),
                 len(previews["deliverables"]),
                 len(previews["exports"]),
+                len(previews["insights"]),
             ]),
         }
 

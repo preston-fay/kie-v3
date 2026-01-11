@@ -100,11 +100,11 @@ def main() -> int:
                     "Region B achieves 45% higher margins with 20% lower overhead. "
                     "Consolidating operations could improve overall profitability by 15-20%."
                 ),
-                id="proof_insight_1", insight_type=InsightType.COMPARISON,
+                id="proof_insight_1",
+                insight_type=InsightType.COMPARISON,
                 category=InsightCategory.RECOMMENDATION,
                 severity=InsightSeverity.KEY,
                 confidence=0.92,
-                severity=InsightSeverity.KEY,
                 statistical_significance=0.001,
                 evidence=[
                     Evidence(
@@ -129,11 +129,11 @@ def main() -> int:
                     "CAC increased 12% quarter-over-quarter. Trend persists but "
                     "sample size is limited to 2 quarters."
                 ),
+                id="proof_insight_2",
                 insight_type=InsightType.TREND,
                 category=InsightCategory.FINDING,
                 severity=InsightSeverity.SUPPORTING,
                 confidence=0.68,
-                severity=InsightSeverity.SUPPORTING,
                 statistical_significance=0.08,  # Not significant at p<0.05
                 evidence=[
                     Evidence(
@@ -152,11 +152,11 @@ def main() -> int:
                     "85% of customers are price-insensitive above current tier. "
                     "Price optimization could capture $2-3M additional revenue annually."
                 ),
+                id="proof_insight_3",
                 insight_type=InsightType.TREND,
                 category=InsightCategory.IMPLICATION,
                 severity=InsightSeverity.KEY,
                 confidence=0.88,
-                severity=InsightSeverity.KEY,
                 statistical_significance=0.002,
                 evidence=[
                     Evidence(
@@ -181,11 +181,11 @@ def main() -> int:
                     "Visual inspection suggests seasonal pattern but data coverage "
                     "is incomplete."
                 ),
+                id="proof_insight_4",
                 insight_type=InsightType.CORRELATION,
                 category=InsightCategory.FINDING,
                 severity=InsightSeverity.CONTEXT,
                 confidence=0.42,
-                severity=InsightSeverity.SUPPORTING,
                 statistical_significance=None,  # No test performed
                 evidence=[],
             ),
@@ -197,11 +197,11 @@ def main() -> int:
                     "Email outperforms social by 8% in Enterprise segment. "
                     "Difference not significant at p<0.05."
                 ),
+                id="proof_insight_5",
                 insight_type=InsightType.TREND,
                 category=InsightCategory.FINDING,
                 severity=InsightSeverity.SUPPORTING,
                 confidence=0.62,
-                severity=InsightSeverity.SUPPORTING,
                 statistical_significance=0.12,
                 evidence=[
                     Evidence(
@@ -217,9 +217,8 @@ def main() -> int:
         catalog = InsightCatalog(
             generated_at=datetime.now().isoformat(),
             business_question="How can we improve operational efficiency and revenue?",
-            project_name="Acme Corp Operations Analysis",
             insights=insights,
-            data_summary={"row_count": 2840, "columns": 12},
+            data_summary={"row_count": 2840, "columns": 12, "project_name": "Acme Corp Operations Analysis"},
         )
 
         catalog_path = outputs_dir / "insights_catalog.json"
@@ -227,7 +226,7 @@ def main() -> int:
 
         print(f"✓ Insights Catalog created: {catalog_path}")
         print(f"  - Total insights: {len(insights)}")
-        print(f"  - Key insights: {sum(1 for i in insights if i.is_key_insight)}")
+        print(f"  - Key insights: {sum(1 for i in insights if i.severity == InsightSeverity.KEY)}")
         print(f"  - Business question: {catalog.business_question}")
         print()
 

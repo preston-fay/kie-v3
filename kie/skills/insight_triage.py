@@ -76,18 +76,24 @@ class InsightTriageSkill(Skill):
         outputs_dir = context.project_root / "outputs"
         evidence_dir = context.project_root / "project_state" / "evidence_ledger"
 
-        # Load artifacts
-        insights_catalog_path = outputs_dir / "insights_catalog.json"
+        # Load artifacts - check both JSON and YAML formats
+        insights_catalog_json = outputs_dir / "insights_catalog.json"
+        insights_catalog_yaml = outputs_dir / "insights.yaml"
 
-        if not insights_catalog_path.exists():
+        if insights_catalog_json.exists():
+            # Load JSON format
+            with open(insights_catalog_json) as f:
+                catalog_data = json.load(f)
+            catalog = InsightCatalog.from_dict(catalog_data)
+        elif insights_catalog_yaml.exists():
+            # Load YAML format
+            catalog = InsightCatalog.load(str(insights_catalog_yaml))
+            # Also save as JSON for consistency
+            catalog_data = catalog.to_dict()
+            insights_catalog_json.write_text(json.dumps(catalog_data, indent=2))
+        else:
             # Graceful failure - produce valid artifact stating no insights
             return self._handle_no_insights(outputs_dir)
-
-        # Load insights catalog
-        with open(insights_catalog_path) as f:
-            catalog_data = json.load(f)
-
-        catalog = InsightCatalog.from_dict(catalog_data)
 
         # Get artifact hashes from evidence ledger
         artifact_hashes = self._get_artifact_hashes(
