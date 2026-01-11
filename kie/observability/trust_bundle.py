@@ -111,6 +111,7 @@ def _build_trust_bundle_data(
                 "stage_after": ledger.rails_stage_after or "None",
                 "rails_state_file": "project_state/rails_state.json",
             },
+            "intent": _get_intent(project_root),
             "output_preferences": {
                 "theme": _get_output_theme(project_root),
             },
@@ -359,6 +360,8 @@ def _format_trust_bundle_markdown(bundle_data: dict[str, Any]) -> str:
         lines.append(f"- **Stage Before**: {workflow.get('stage_before', 'None')}")
         lines.append(f"- **Stage After**: {workflow.get('stage_after', 'None')}")
         lines.append(f"- **Rails State File**: `{workflow.get('rails_state_file', 'None')}`")
+        intent = bundle_data.get("intent", "NOT SET")
+        lines.append(f"- **Intent**: {intent}")
         lines.append("")
 
         # 3) What Executed
@@ -536,6 +539,25 @@ def _get_output_theme(project_root: Path) -> str:
         return theme if theme else "not_set"
     except Exception:
         return "not_set"
+
+
+def _get_intent(project_root: Path) -> str:
+    """
+    Get intent objective if clarified.
+
+    Returns:
+        Intent objective string or 'NOT SET'
+
+    NEVER raises exceptions.
+    """
+    try:
+        from kie.state import get_intent
+        intent_data = get_intent(project_root)
+        if intent_data:
+            return intent_data.get("objective", "NOT SET")
+        return "NOT SET"
+    except Exception:
+        return "NOT SET"
 
 
 def _get_execution_mode(project_root: Path) -> str:

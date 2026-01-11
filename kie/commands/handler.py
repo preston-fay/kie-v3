@@ -542,6 +542,14 @@ class CommandHandler:
         execution_mode = policy.get_mode()
         status["execution_mode"] = execution_mode
 
+        # Add intent status
+        from kie.state import get_intent
+        intent_data = get_intent(self.project_root)
+        if intent_data:
+            status["intent"] = intent_data.get("objective", "NOT SET")
+        else:
+            status["intent"] = "NOT SET"
+
         if brief:
             return {"brief_status": self._format_brief_status(status)}
 
@@ -1026,6 +1034,25 @@ class CommandHandler:
         Returns:
             Build results
         """
+        # INTENT GATE: Check if intent is clarified
+        from kie.state import is_intent_clarified, prompt_for_intent, capture_intent
+
+        if not is_intent_clarified(self.project_root):
+            # Intent not clarified - prompt user
+            objective = prompt_for_intent()
+
+            if not objective:
+                return {
+                    "success": False,
+                    "message": "Intent clarification required. Please provide an objective or run /interview.",
+                }
+
+            # Capture intent
+            capture_intent(self.project_root, objective, captured_via="prompt")
+            print()
+            print(f"✓ Intent captured: {objective}")
+            print()
+
         # Auto-init spec if missing
         if not self.spec_path.exists():
             init_result = self.handle_spec(init=True, show=False)
@@ -1483,6 +1510,25 @@ class CommandHandler:
         Returns:
             Insights results
         """
+        # INTENT GATE: Check if intent is clarified
+        from kie.state import is_intent_clarified, prompt_for_intent, capture_intent
+
+        if not is_intent_clarified(self.project_root):
+            # Intent not clarified - prompt user
+            objective = prompt_for_intent()
+
+            if not objective:
+                return {
+                    "success": False,
+                    "message": "Intent clarification required. Please provide an objective or run /interview.",
+                }
+
+            # Capture intent
+            capture_intent(self.project_root, objective, captured_via="prompt")
+            print()
+            print(f"✓ Intent captured: {objective}")
+            print()
+
         # Find data file
         if not data_file:
             data_dir = self.project_root / "data"
@@ -1725,6 +1771,25 @@ class CommandHandler:
         Returns:
             Preview information with server status
         """
+        # INTENT GATE: Check if intent is clarified
+        from kie.state import is_intent_clarified, prompt_for_intent, capture_intent
+
+        if not is_intent_clarified(self.project_root):
+            # Intent not clarified - prompt user
+            objective = prompt_for_intent()
+
+            if not objective:
+                return {
+                    "success": False,
+                    "message": "Intent clarification required. Please provide an objective or run /interview.",
+                }
+
+            # Capture intent
+            capture_intent(self.project_root, objective, captured_via="prompt")
+            print()
+            print(f"✓ Intent captured: {objective}")
+            print()
+
         self.handle_status()
 
         # List available outputs
@@ -2217,6 +2282,34 @@ class CommandHandler:
         Returns:
             Result dict with executed_command and next_step
         """
+        # INTENT GATE: Check before running analyze/build/preview stages
+        from kie.state import is_intent_clarified, prompt_for_intent, capture_intent
+
+        # Determine if next stage requires intent
+        next_stage_requires_intent = False
+        if "eda" in completed and "analyze" not in completed:
+            next_stage_requires_intent = True
+        elif "analyze" in completed and "build" not in completed:
+            next_stage_requires_intent = True
+        elif "build" in completed and "preview" not in completed:
+            next_stage_requires_intent = True
+
+        if next_stage_requires_intent and not is_intent_clarified(self.project_root):
+            # Intent not clarified - prompt user
+            objective = prompt_for_intent()
+
+            if not objective:
+                return {
+                    "success": False,
+                    "message": "Intent clarification required. Please provide an objective or run /interview.",
+                }
+
+            # Capture intent
+            capture_intent(self.project_root, objective, captured_via="prompt")
+            print()
+            print(f"✓ Intent captured: {objective}")
+            print()
+
         # CASE 1: Project not bootstrapped
         if not workflow_started:
             result = self.handle_startkie()
