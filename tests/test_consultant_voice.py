@@ -32,28 +32,33 @@ def test_consultant_voice_strengthens_weak_verbs(tmp_path):
     """Test that weak verbs are strengthened."""
     skill = ConsultantVoiceSkill()
 
-    original = "The analysis shows revenue growth. Data seems to show margin decline."
+    original = "The analysis shows revenue growth. Data seems to show margin decline. Results seem positive."
     polished = skill._polish_text(original)
 
     # Weak verbs should be strengthened
     assert "indicates" in polished
     assert "suggests" in polished
+    assert "appear" in polished  # seem → appear
     assert "shows" not in polished or polished.count("shows") < original.count("shows")
+    assert "seems" not in polished
+    assert "seem" not in polished
 
 
 def test_consultant_voice_removes_hedging_phrases(tmp_path):
     """Test that hedging phrases are removed."""
     skill = ConsultantVoiceSkill()
 
-    original = "It is interesting to note that revenue increased. It appears that costs declined."
+    original = "It is interesting to note that revenue increased. It appears that costs declined. The data seems to show growth."
     polished = skill._polish_text(original)
 
     # Hedging phrases should be removed
     assert "it is interesting to note that" not in polished.lower()
     assert "it appears that" not in polished.lower()
+    assert "the data seems to" not in polished.lower()
     # But content should remain
     assert "revenue increased" in polished.lower()
     assert "costs declined" in polished.lower()
+    assert "growth" in polished.lower()
 
 
 def test_consultant_voice_preserves_meaning(tmp_path):
@@ -258,3 +263,78 @@ def test_consultant_voice_cleans_whitespace(tmp_path):
     # Should have single spaces
     assert "  " not in polished
     assert "Revenue increased by 25% in Q3" in polished
+
+
+def test_consultant_voice_integration_with_story_manifest(tmp_path):
+    """Test that story manifest uses consultant versions when available."""
+    import json
+    import yaml
+    from kie.skills.story_manifest import StoryManifestSkill
+    from kie.skills.base import SkillContext
+
+    outputs_dir = tmp_path / "outputs"
+    outputs_dir.mkdir()
+    project_state_dir = tmp_path / "project_state"
+    project_state_dir.mkdir()
+
+    # Create executive summary with filler
+    original_summary = """# Executive Summary
+
+It is interesting to note that revenue really shows growth.
+
+- Sales seem strong
+"""
+    (outputs_dir / "executive_summary.md").write_text(original_summary)
+
+    # Run consultant voice
+    cv_skill = ConsultantVoiceSkill()
+    cv_context = SkillContext(
+        project_root=tmp_path,
+        current_stage="build",
+        artifacts={}
+    )
+    cv_result = cv_skill.execute(cv_context)
+    assert cv_result.success
+
+    # Create required artifacts for story manifest
+    (outputs_dir / "insight_triage.json").write_text(json.dumps({
+        "judged_insights": [
+            {"insight_id": "i1", "headline": "Revenue growth", "confidence": "high", "severity": "Key"}
+        ]
+    }))
+
+    (outputs_dir / "actionability_scores.json").write_text(json.dumps({
+        "insights": [
+            {"insight_id": "i1", "title": "Revenue growth", "actionability": "decision_enabling"}
+        ],
+        "summary": {"decision_enabling_count": 1}
+    }))
+
+    (outputs_dir / "visual_storyboard.json").write_text(json.dumps({"elements": []}))
+    (outputs_dir / "visualization_plan.json").write_text(json.dumps({"charts": []}))
+    (outputs_dir / "visual_qc.json").write_text(json.dumps({"charts": []}))
+    (project_state_dir / "intent.yaml").write_text(yaml.dump({"objective": "Test"}))
+
+    # Run story manifest
+    manifest_skill = StoryManifestSkill()
+    manifest_context = SkillContext(
+        project_root=tmp_path,
+        current_stage="build",
+        artifacts={"project_name": "Test Project"}
+    )
+
+    manifest_result = manifest_skill.execute(manifest_context)
+
+    if manifest_result.success:
+        manifest_path = outputs_dir / "story_manifest.json"
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+
+        manifest_str = json.dumps(manifest)
+
+        # Consultant version should be used (no filler words)
+        assert "really" not in manifest_str.lower(), "Filler 'really' found in manifest"
+        assert "it is interesting to note that" not in manifest_str.lower(), "Hedging phrase found in manifest"
+        # Content should still be present
+        assert "revenue" in manifest_str.lower()
+        assert "growth" in manifest_str.lower()

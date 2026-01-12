@@ -66,6 +66,7 @@ class ConsultantVoiceSkill(Skill):
         "might be": "may be",
         "could be": "may be",
         "seems": "appears",
+        "seem": "appear",
         "tends to": "typically",
     }
 
@@ -79,6 +80,10 @@ class ConsultantVoiceSkill(Skill):
         "in some sense",
         "to some extent",
         "in a way",
+        "the data seems to",
+        "the data appears to",
+        "the analysis seems to",
+        "the analysis appears to",
     ]
 
     def execute(self, context: SkillContext) -> SkillResult:
