@@ -1347,6 +1347,39 @@ class CommandHandler:
                     print(f"⚠️  Chart rendering failed: {e}")
                     results["charts_error"] = str(e)
 
+                # Execute build-stage skills after charts are rendered
+                try:
+                    from kie.skills import get_registry, SkillContext
+
+                    registry = get_registry()
+                    outputs_dir = self.project_root / "outputs"
+
+                    # Scan for artifacts
+                    artifacts = {}
+                    if (outputs_dir / "story_manifest.json").exists():
+                        artifacts["story_manifest"] = outputs_dir / "story_manifest.json"
+                    if (outputs_dir / "actionability_scores.json").exists():
+                        artifacts["actionability_scores"] = outputs_dir / "actionability_scores.json"
+                    if (outputs_dir / "visual_qc.json").exists():
+                        artifacts["visual_qc"] = outputs_dir / "visual_qc.json"
+                    if (outputs_dir / "executive_summary.md").exists():
+                        artifacts["executive_summary"] = outputs_dir / "executive_summary.md"
+                    if (outputs_dir / "executive_summary_consultant.md").exists():
+                        artifacts["executive_summary_consultant"] = outputs_dir / "executive_summary_consultant.md"
+
+                    skill_context = SkillContext(
+                        project_root=self.project_root,
+                        current_stage="build",
+                        artifacts=artifacts,
+                        evidence_ledger_id=None,
+                    )
+
+                    registry.execute_skills_for_stage("build", skill_context)
+                except Exception as e:
+                    # Don't fail build if skills fail
+                    print(f"⚠️  Build skills execution failed: {e}")
+                    results["build_skills_error"] = str(e)
+
             # Build dashboard FIRST (generates Recharts HTML)
             # This is what users actually want to see!
             if target in ["all", "dashboard"]:
@@ -2385,6 +2418,38 @@ class CommandHandler:
                 "blocked": True,
                 "message": "Intent clarification required. Use: /intent set \"<objective>\" or run /interview",
             }
+
+        # Execute preview-stage skills
+        try:
+            from kie.skills import get_registry, SkillContext
+
+            registry = get_registry()
+            outputs_dir = self.project_root / "outputs"
+
+            # Scan for artifacts
+            artifacts = {}
+            if (outputs_dir / "story_manifest.json").exists():
+                artifacts["story_manifest"] = outputs_dir / "story_manifest.json"
+            if (outputs_dir / "actionability_scores.json").exists():
+                artifacts["actionability_scores"] = outputs_dir / "actionability_scores.json"
+            if (outputs_dir / "visual_qc.json").exists():
+                artifacts["visual_qc"] = outputs_dir / "visual_qc.json"
+            if (outputs_dir / "executive_summary.md").exists():
+                artifacts["executive_summary"] = outputs_dir / "executive_summary.md"
+            if (outputs_dir / "executive_summary_consultant.md").exists():
+                artifacts["executive_summary_consultant"] = outputs_dir / "executive_summary_consultant.md"
+
+            skill_context = SkillContext(
+                project_root=self.project_root,
+                current_stage="preview",
+                artifacts=artifacts,
+                evidence_ledger_id=None,
+            )
+
+            registry.execute_skills_for_stage("preview", skill_context)
+        except Exception as e:
+            # Don't fail preview if skills fail
+            print(f"⚠️  Preview skills execution failed: {e}")
 
         self.handle_status()
 
