@@ -268,6 +268,8 @@ Type a command to get started!
                 result = self.handler.handle_build(target=target)
             elif cmd == "/preview":
                 result = self.handler.handle_preview()
+            elif cmd == "/preview-internal":
+                result = self.handler.handle_preview(show_internal=True)
             elif cmd == "/doctor":
                 result = self.handler.handle_doctor()
             elif cmd == "/template":

@@ -1437,6 +1437,14 @@ class CommandHandler:
                 "success": False,
                 "message": f"Build failed: {str(e)}",
             }
+        finally:
+            # Always create deliverables pack (even if build fails)
+            # This ensures consultant artifacts are copied regardless of PPT/dashboard success
+            try:
+                self._create_deliverables_pack(spec)
+            except Exception as pack_error:
+                # Don't fail the entire build if pack creation fails
+                print(f"⚠️  Deliverables pack creation failed: {pack_error}")
 
     def _build_presentation(self, spec: dict[str, Any], theme: str = "dark") -> Path:
         """
@@ -2431,12 +2439,234 @@ class CommandHandler:
                 "message": f"Analysis failed: {str(e)}",
             }
 
-    def handle_preview(self, launch_server: bool = True) -> dict[str, Any]:
+    def _create_deliverables_pack(self, spec: dict[str, Any]) -> None:
+        """
+        Create human-first deliverables pack in exports/.
+
+        Copies consultant-facing artifacts and creates README.md index.
+
+        Args:
+            spec: Project specification
+        """
+        import shutil
+
+        exports_dir = self.project_root / "exports"
+        outputs_dir = self.project_root / "outputs"
+        exports_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy consultant artifacts if they exist
+        # 1. Decision brief (primary entry point)
+        decision_brief_src = outputs_dir / "decision_brief.md"
+        if decision_brief_src.exists():
+            shutil.copy2(decision_brief_src, exports_dir / "decision_brief.md")
+
+        # 2. Executive summary (prefer consultant version)
+        exec_summary_consultant = outputs_dir / "executive_summary_consultant.md"
+        exec_summary_default = outputs_dir / "executive_summary.md"
+        if exec_summary_consultant.exists():
+            shutil.copy2(exec_summary_consultant, exports_dir / "executive_summary.md")
+        elif exec_summary_default.exists():
+            shutil.copy2(exec_summary_default, exports_dir / "executive_summary.md")
+
+        # 3. Executive narrative (prefer consultant version)
+        exec_narrative_consultant = outputs_dir / "executive_narrative_consultant.md"
+        exec_narrative_default = outputs_dir / "executive_narrative.md"
+        if exec_narrative_consultant.exists():
+            shutil.copy2(exec_narrative_consultant, exports_dir / "executive_narrative.md")
+        elif exec_narrative_default.exists():
+            shutil.copy2(exec_narrative_default, exports_dir / "executive_narrative.md")
+
+        # 4. Create README.md index
+        readme_content = self._generate_deliverables_readme(spec)
+        readme_path = exports_dir / "README.md"
+        with open(readme_path, "w") as f:
+            f.write(readme_content)
+
+    def _generate_deliverables_readme(self, spec: dict[str, Any]) -> str:
+        """
+        Generate README.md for deliverables pack.
+
+        Args:
+            spec: Project specification
+
+        Returns:
+            README content as string
+        """
+        project_name = spec.get("project_name", "Analysis")
+        client_name = spec.get("client_name", "")
+        exports_dir = self.project_root / "exports"
+        outputs_dir = self.project_root / "outputs"
+
+        # Check what artifacts exist
+        has_decision_brief = (exports_dir / "decision_brief.md").exists()
+        has_exec_summary = (exports_dir / "executive_summary.md").exists()
+        has_exec_narrative = (exports_dir / "executive_narrative.md").exists()
+        has_ppt = list(exports_dir.glob("*.pptx"))
+        has_dashboard = (exports_dir / "dashboard").exists()
+        has_tables = (outputs_dir / "tables").exists() and list((outputs_dir / "tables").glob("*.csv"))
+
+        readme = f"""# {project_name} - Deliverables Pack
+
+"""
+        if client_name:
+            readme += f"**Client:** {client_name}\n\n"
+
+        readme += """## 🎯 START HERE
+
+This folder contains consultant-ready deliverables from your KIE analysis.
+
+---
+
+## 📋 Primary Outputs
+
+"""
+
+        if has_decision_brief:
+            readme += """### 1. Decision Brief (OPEN THIS FIRST)
+**File:** `decision_brief.md`
+
+One-page executive summary with:
+- Key findings
+- Recommended actions
+- Critical insights
+
+**Use for:** Quick executive readout, stakeholder alignment
+
+---
+
+"""
+
+        if has_ppt:
+            ppt_file = has_ppt[0].name
+            readme += f"""### 2. Presentation Deck
+**File:** `{ppt_file}`
+
+Full presentation with:
+- Story-driven narrative
+- KDS-compliant charts
+- Section-by-section insights
+
+**Use for:** Client presentations, executive readouts
+
+---
+
+"""
+
+        if has_dashboard:
+            readme += """### 3. Interactive Dashboard
+**Folder:** `dashboard/`
+
+React-based interactive dashboard with:
+- Main Story and Appendix tabs
+- Actionability badges (DECISION / DIRECTION / INFO)
+- Visual quality indicators
+
+**To launch:**
+```bash
+cd dashboard
+npm install  # First time only
+npm run dev  # Start dev server
+```
+
+Then open: http://localhost:5173
+
+---
+
+"""
+
+        if has_exec_summary:
+            readme += """### 4. Executive Summary
+**File:** `executive_summary.md`
+
+Detailed executive summary with:
+- Context and objectives
+- Key findings and insights
+- Risks and caveats
+
+**Use for:** Detailed stakeholder briefings
+
+---
+
+"""
+
+        if has_exec_narrative:
+            readme += """### 5. Executive Narrative
+**File:** `executive_narrative.md`
+
+Story-driven narrative covering:
+- Strategic context
+- Analysis journey
+- Actionable recommendations
+
+**Use for:** Long-form written communication
+
+---
+
+"""
+
+        readme += """## 📊 Supporting Data
+
+"""
+
+        if has_tables:
+            table_count = len(list((outputs_dir / "tables").glob("*.csv")))
+            readme += f"""### Data Tables
+**Location:** `../outputs/tables/`
+**Files:** {table_count} CSV files
+
+Cleaned and processed data tables used in analysis.
+
+---
+
+"""
+
+        readme += """## 🔧 Internal Plumbing (DO NOT OPEN)
+
+The following directories contain internal system artifacts:
+
+- `../project_state/` - System state files (spec.yaml, intent.yaml, status.json)
+- `../outputs/` - Raw analysis artifacts (JSON manifests, ledgers, catalogs)
+
+**These are for KIE's internal use only. You do not need to open them.**
+
+---
+
+## 🎨 KDS Compliance
+
+All charts and visuals follow Kearney Design System (KDS) rules:
+- ✅ Kearney Purple (#7823DC) primary color
+- ✅ 10-color chart palette (purple-centric)
+- ✅ No gridlines
+- ✅ Data labels outside bars/slices
+- ✅ Inter font (Arial fallback)
+- ✅ WCAG 2.1 AA contrast
+
+---
+
+## 📝 Regeneration
+
+To regenerate deliverables:
+```bash
+/build          # Rebuild all
+/build ppt      # Rebuild presentation only
+/build dashboard # Rebuild dashboard only
+```
+
+---
+
+**Generated by:** KIE v3.0 (Kearney Insight Engine)
+**Compliance:** KDS-compliant, consultant-ready
+"""
+
+        return readme
+
+    def handle_preview(self, launch_server: bool = True, show_internal: bool = False) -> dict[str, Any]:
         """
         Handle /preview command - preview outputs in React dashboard.
 
         Args:
             launch_server: Whether to launch React dev server (default True)
+            show_internal: Whether to show internal JSON plumbing (default False)
 
         Returns:
             Preview information with server status
@@ -2489,48 +2719,56 @@ class CommandHandler:
 
         # List available outputs
         previews = {
-            "charts": [],
-            "tables": [],
-            "maps": [],
             "deliverables": [],
             "exports": [],
-            "insights": [],
+            "consultant_artifacts": [],
+            "tables_csv": [],
         }
 
+        # Only show internal plumbing if explicitly requested
+        if show_internal:
+            previews["charts_json"] = []
+            previews["tables_json"] = []
+            previews["maps"] = []
+            previews["insights_json"] = []
+
         outputs_dir = self.project_root / "outputs"
+        exports_dir = self.project_root / "exports"
 
-        # Check for chart JSON configs
-        if (outputs_dir / "charts").exists():
-            previews["charts"] = [f.name for f in (outputs_dir / "charts").glob("*.json")]
+        # PRIMARY OUTPUTS (always shown)
+        # 1. Exports directory (human-first deliverables)
+        if exports_dir.exists():
+            exports_items = []
+            # Show directories and files separately
+            for item in exports_dir.iterdir():
+                if item.is_dir():
+                    exports_items.append(f"{item.name}/")
+                else:
+                    exports_items.append(item.name)
+            previews["exports"] = exports_items
 
-        # Check for table JSON
-        if (outputs_dir / "tables").exists():
-            previews["tables"] = [f.name for f in (outputs_dir / "tables").glob("*.json")]
-
-        # Check for map HTML
-        if (outputs_dir / "maps").exists():
-            previews["maps"] = [f.name for f in (outputs_dir / "maps").glob("*.html")]
-
-        # Check for insight artifacts (catalog, triage, narrative, visualization plan)
+        # 2. Consultant artifacts in outputs/
         if outputs_dir.exists():
-            if (outputs_dir / "insights.yaml").exists():
-                previews["insights"].append("insights.yaml")
-            if (outputs_dir / "insights_catalog.json").exists():
-                previews["insights"].append("insights_catalog.json")
-            if (outputs_dir / "insight_triage.md").exists():
-                previews["insights"].append("insight_triage.md")
-            if (outputs_dir / "insight_triage.json").exists():
-                previews["insights"].append("insight_triage.json")
-            if (outputs_dir / "executive_narrative.md").exists():
-                previews["insights"].append("executive_narrative.md")
-            if (outputs_dir / "executive_narrative.json").exists():
-                previews["insights"].append("executive_narrative.json")
-            if (outputs_dir / "visualization_plan.md").exists():
-                previews["insights"].append("visualization_plan.md")
-            if (outputs_dir / "visualization_plan.json").exists():
-                previews["insights"].append("visualization_plan.json")
+            # Decision brief
+            if (outputs_dir / "decision_brief.md").exists():
+                previews["consultant_artifacts"].append("decision_brief.md")
+            # Executive summary
+            if (outputs_dir / "executive_summary_consultant.md").exists():
+                previews["consultant_artifacts"].append("executive_summary_consultant.md")
+            elif (outputs_dir / "executive_summary.md").exists():
+                previews["consultant_artifacts"].append("executive_summary.md")
+            # Executive narrative
+            if (outputs_dir / "executive_narrative_consultant.md").exists():
+                previews["consultant_artifacts"].append("executive_narrative_consultant.md")
+            elif (outputs_dir / "executive_narrative.md").exists():
+                previews["consultant_artifacts"].append("executive_narrative.md")
 
-        # Check for deliverables (PPT, dashboard)
+        # 3. CSV tables (human-readable data)
+        if (outputs_dir / "tables").exists():
+            csv_files = list((outputs_dir / "tables").glob("*.csv"))
+            previews["tables_csv"] = [f.name for f in csv_files]
+
+        # 4. Deliverables (PPT, dashboard) - kept for backwards compatibility
         if outputs_dir.exists():
             # PowerPoint presentations
             ppt_files = list(outputs_dir.glob("*.pptx"))
@@ -2542,9 +2780,36 @@ class CommandHandler:
             if dashboard_index.exists():
                 previews["deliverables"].append(str(dashboard_index.relative_to(self.project_root)))
 
-        exports_dir = self.project_root / "exports"
-        if exports_dir.exists():
-            previews["exports"] = [f.name for f in exports_dir.glob("*") if f.is_file()]
+        # INTERNAL PLUMBING (only if show_internal=True)
+        if show_internal:
+            # Chart JSON configs
+            if (outputs_dir / "charts").exists():
+                previews["charts_json"] = [f.name for f in (outputs_dir / "charts").glob("*.json")]
+
+            # Table JSON
+            if (outputs_dir / "tables").exists():
+                previews["tables_json"] = [f.name for f in (outputs_dir / "tables").glob("*.json")]
+
+            # Map HTML
+            if (outputs_dir / "maps").exists():
+                previews["maps"] = [f.name for f in (outputs_dir / "maps").glob("*.html")]
+
+            # Insight artifacts (catalog, triage, narrative, visualization plan)
+            if outputs_dir.exists():
+                if (outputs_dir / "insights.yaml").exists():
+                    previews["insights_json"].append("insights.yaml")
+                if (outputs_dir / "insights_catalog.json").exists():
+                    previews["insights_json"].append("insights_catalog.json")
+                if (outputs_dir / "insight_triage.json").exists():
+                    previews["insights_json"].append("insight_triage.json")
+                if (outputs_dir / "executive_narrative.json").exists():
+                    previews["insights_json"].append("executive_narrative.json")
+                if (outputs_dir / "visualization_plan.json").exists():
+                    previews["insights_json"].append("visualization_plan.json")
+                if (outputs_dir / "visual_storyboard.json").exists():
+                    previews["insights_json"].append("visual_storyboard.json")
+                if (outputs_dir / "story_manifest.json").exists():
+                    previews["insights_json"].append("story_manifest.json")
 
         # Launch React dashboard if requested
         dashboard_url = None
@@ -2561,17 +2826,27 @@ class CommandHandler:
         from kie.state import update_rails_state
         update_rails_state(self.project_root, "preview", success=True)
 
+        # Calculate total outputs
+        total_count = sum([
+            len(previews.get("deliverables", [])),
+            len(previews.get("exports", [])),
+            len(previews.get("consultant_artifacts", [])),
+            len(previews.get("tables_csv", [])),
+        ])
+
+        if show_internal:
+            total_count += sum([
+                len(previews.get("charts_json", [])),
+                len(previews.get("tables_json", [])),
+                len(previews.get("maps", [])),
+                len(previews.get("insights_json", [])),
+            ])
+
         return {
             **previews,
             "dashboard_url": dashboard_url,
-            "total_outputs": sum([
-                len(previews["charts"]),
-                len(previews["tables"]),
-                len(previews["maps"]),
-                len(previews["deliverables"]),
-                len(previews["exports"]),
-                len(previews["insights"]),
-            ]),
+            "total_outputs": total_count,
+            "show_internal": show_internal,
         }
 
     def handle_spec(self, init: bool = False, repair: bool = False, show: bool = True, set_values: dict[str, Any] | None = None, force: bool = False) -> dict[str, Any]:
