@@ -24,6 +24,7 @@ from kie.skills.insight_brief import InsightBriefSkill
 from kie.skills.insight_triage import InsightTriageSkill
 from kie.skills.narrative_synthesis import NarrativeSynthesisSkill
 from kie.skills.run_story import RunStorySkill
+from kie.skills.story_manifest import StoryManifestSkill
 from kie.skills.visualization_planner import VisualizationPlannerSkill
 from kie.skills.visual_storyboard import VisualStoryboardSkill
 
@@ -37,6 +38,7 @@ register_skill(InsightBriefSkill())
 register_skill(InsightTriageSkill())
 register_skill(NarrativeSynthesisSkill())
 register_skill(RunStorySkill())
+register_skill(StoryManifestSkill())
 register_skill(VisualizationPlannerSkill())
 register_skill(VisualStoryboardSkill())
 
@@ -56,6 +58,7 @@ __all__ = [
     "InsightTriageSkill",
     "NarrativeSynthesisSkill",
     "RunStorySkill",
+    "StoryManifestSkill",
     "VisualizationPlannerSkill",
     "VisualStoryboardSkill",
 ]

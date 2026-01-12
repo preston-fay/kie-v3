@@ -1370,19 +1370,16 @@ class CommandHandler:
 
     def _build_presentation(self, spec: dict[str, Any], theme: str = "dark") -> Path:
         """
-        Build PowerPoint presentation from visual storyboard and executive summary.
+        Build PowerPoint presentation from story manifest.
 
         COMPOSITION CONTRACT (NON-NEGOTIABLE):
-        - Slide 1: Title (project name + objective from intent.yaml)
-        - Slide 2: Executive Summary (from executive_summary.md)
-        - Slides 3-N: Visual Story (from visual_storyboard.json, charts embedded)
-        - Final Slide: Risks & Caveats (from executive_summary.md)
+        - Slide 1: Title (project name + objective from manifest)
+        - Slides 2-N: Story sections (from manifest, charts embedded)
+        - Each section follows manifest order exactly
 
         REQUIRED INPUTS:
-        - outputs/executive_summary.md (or .json)
-        - outputs/visual_storyboard.json
+        - outputs/story_manifest.json
         - outputs/charts/ (rendered chart artifacts)
-        - project_state/intent.yaml
 
         Args:
             spec: Project specification
@@ -1394,154 +1391,118 @@ class CommandHandler:
         Raises:
             ValueError: If required inputs are missing
         """
-        import yaml
-
         outputs_dir = self.project_root / "outputs"
-        project_state_dir = self.project_root / "project_state"
-
-        # VALIDATE REQUIRED INPUTS
-        storyboard_path = outputs_dir / "visual_storyboard.json"
-        exec_summary_md = outputs_dir / "executive_summary.md"
-        exec_summary_json = outputs_dir / "executive_summary.json"
-        intent_path = project_state_dir / "intent.yaml"
         charts_dir = outputs_dir / "charts"
 
-        # Check storyboard (REQUIRED)
-        if not storyboard_path.exists():
+        # VALIDATE REQUIRED INPUTS
+        manifest_path = outputs_dir / "story_manifest.json"
+
+        # Check manifest (REQUIRED)
+        if not manifest_path.exists():
             raise ValueError(
-                "❌ PPT build failed: visual_storyboard.json not found.\n"
-                "   Run /analyze first to generate the visual storyboard."
+                "❌ PPT build failed: story_manifest.json not found.\n"
+                "   The story manifest should be generated during build.\n"
+                "   This indicates the story_manifest skill failed to run."
             )
 
-        # Check executive summary (REQUIRED)
-        if not exec_summary_md.exists() and not exec_summary_json.exists():
-            raise ValueError(
-                "❌ PPT build failed: executive_summary.md not found.\n"
-                "   Run /analyze first to generate the executive summary."
-            )
-
-        # Check intent (REQUIRED)
-        if not intent_path.exists():
-            raise ValueError(
-                "❌ PPT build failed: intent.yaml not found.\n"
-                "   Run /intent set \"<objective>\" or /interview first."
-            )
-
-        # Load required inputs
-        with open(storyboard_path) as f:
-            storyboard_data = json.load(f)
-
-        with open(intent_path) as f:
-            intent_data = yaml.safe_load(f)
-
-        # Load executive summary
-        exec_summary_content = self._load_executive_summary(exec_summary_md, exec_summary_json)
+        # Load manifest
+        with open(manifest_path) as f:
+            manifest = json.load(f)
 
         # Create presentation (theme is loaded internally via get_theme())
-        builder = SlideBuilder(title=spec.get("project_name", "Analysis"))
+        builder = SlideBuilder(title=manifest.get("project_name", "Analysis"))
 
         # SLIDE 1: TITLE
-        objective = intent_data.get("objective", spec.get("objective", ""))
         builder.add_title_slide(
-            title=spec.get("project_name", "Analysis"),
-            subtitle=objective,
+            title=manifest.get("project_name", "Analysis"),
+            subtitle=manifest.get("objective", ""),
             author=spec.get("client_name", ""),
             date=datetime.now().strftime("%B %Y"),
         )
 
-        # SLIDE 2: EXECUTIVE SUMMARY
-        summary_bullets = self._extract_summary_bullets(exec_summary_content)
-        if summary_bullets:
-            builder.add_content_slide(
-                title="Executive Summary",
-                bullet_points=summary_bullets,
-            )
-
-        # SLIDES 3-N: VISUAL STORY (FROM STORYBOARD)
-        elements = storyboard_data.get("elements", [])
-        if not elements:
+        # SLIDES 2-N: STORY SECTIONS (FROM MANIFEST)
+        sections = manifest.get("sections", [])
+        if not sections:
             raise ValueError(
-                "❌ PPT build failed: visual_storyboard.json contains no elements.\n"
-                "   This indicates the storyboard generation failed."
+                "❌ PPT build failed: story_manifest.json contains no sections.\n"
+                "   This indicates the story manifest generation failed."
             )
 
-        # Group elements by section for section dividers
-        current_section = None
-        for element in elements:
-            section = element.get("section", "")
+        for section in sections:
+            section_title = section.get("title", "")
+            narrative = section.get("narrative", {})
+            visuals = section.get("visuals", [])
 
-            # Add section divider if section changed
-            if section != current_section and section:
-                current_section = section
-                builder.add_section_slide(section)
+            # Add section divider slide
+            builder.add_section_slide(section_title)
 
-            # Validate chart exists
-            chart_ref = element.get("chart_ref", "")
-            if not chart_ref:
-                continue  # Skip elements without charts
+            # If this is Executive Summary, add bullet slide
+            if section_title == "Executive Summary":
+                bullets = narrative.get("supporting_bullets", [])
+                if bullets:
+                    builder.add_content_slide(
+                        title=section_title, bullet_points=bullets
+                    )
 
-            chart_path = charts_dir / chart_ref
-            if not chart_path.exists():
-                raise ValueError(
-                    f"❌ PPT build failed: Chart '{chart_ref}' referenced in storyboard not found.\n"
-                    f"   Expected path: {chart_path}\n"
-                    f"   This indicates chart rendering failed."
+            # Add visual slides for this section
+            for visual in visuals:
+                chart_ref = visual.get("chart_ref", "")
+                if not chart_ref:
+                    continue
+
+                chart_path = charts_dir / chart_ref
+                if not chart_path.exists():
+                    raise ValueError(
+                        f"❌ PPT build failed: Chart '{chart_ref}' referenced in manifest not found.\n"
+                        f"   Expected path: {chart_path}\n"
+                        f"   This indicates chart rendering failed."
+                    )
+
+                # Load chart data and config for embedding
+                chart_data, chart_config = self._load_chart_for_embedding(chart_path)
+
+                # Extract x_key and y_keys from chart config
+                x_key = None
+                y_keys = []
+                viz_type = visual.get("visualization_type", "bar")
+
+                if viz_type in ["bar", "line", "area"]:
+                    # Extract from xAxis and bars/lines/areas
+                    if "xAxis" in chart_config:
+                        x_key = chart_config["xAxis"].get("dataKey")
+
+                    if viz_type == "bar" and "bars" in chart_config:
+                        y_keys = [bar["dataKey"] for bar in chart_config["bars"]]
+                    elif viz_type == "line" and "lines" in chart_config:
+                        y_keys = [line["dataKey"] for line in chart_config["lines"]]
+                    elif viz_type == "area" and "areas" in chart_config:
+                        y_keys = [area["dataKey"] for area in chart_config["areas"]]
+
+                # Build slide title from role + headline
+                role = visual.get("role", "")
+                headline = narrative.get("headline", "")
+                slide_title = (
+                    f"{role.capitalize()}: {headline}"
+                    if role and headline
+                    else headline or section_title
                 )
 
-            # Load chart data and config for embedding
-            chart_data, chart_config = self._load_chart_for_embedding(chart_path)
+                # Add chart slide with data and keys
+                builder.add_chart_slide(
+                    title=slide_title,
+                    chart_type=viz_type,
+                    data=chart_data,
+                    x_key=x_key,
+                    y_keys=y_keys,
+                    notes=visual.get("emphasis", ""),
+                )
 
-            # Extract x_key and y_keys from chart config
-            x_key = None
-            y_keys = []
-            viz_type = element.get("visualization_type", "bar")
-
-            if viz_type in ["bar", "line", "area"]:
-                # Extract from xAxis and bars/lines/areas
-                if "xAxis" in chart_config:
-                    x_key = chart_config["xAxis"].get("dataKey")
-
-                if viz_type == "bar" and "bars" in chart_config:
-                    y_keys = [bar["dataKey"] for bar in chart_config["bars"]]
-                elif viz_type == "line" and "lines" in chart_config:
-                    y_keys = [line["dataKey"] for line in chart_config["lines"]]
-                elif viz_type == "area" and "areas" in chart_config:
-                    y_keys = [area["dataKey"] for area in chart_config["areas"]]
-
-            # Build slide title from role + narrative
-            role = element.get("role", "")
-            insight_title = element.get("insight_title", "")
-            slide_title = f"{role}: {insight_title}" if role and insight_title else insight_title or role
-
-            # Build supporting text
-            supporting_text = []
-            if element.get("transition_text"):
-                supporting_text.append(element["transition_text"])
-
-            # Add caveats if present
-            caveats = element.get("caveats", [])
-            if caveats:
-                supporting_text.append("")
-                supporting_text.append("Caveats:")
-                supporting_text.extend([f"• {caveat}" for caveat in caveats])
-
-            # Add chart slide with data and keys
-            builder.add_chart_slide(
-                title=slide_title,
-                chart_type=viz_type,
-                data=chart_data,
-                x_key=x_key,
-                y_keys=y_keys,
-                notes=element.get("emphasis", ""),
-            )
-
-        # FINAL SLIDE: RISKS & CAVEATS
-        caveats = self._extract_caveats(exec_summary_content)
-        if caveats:
-            builder.add_content_slide(
-                title="Risks & Caveats",
-                bullet_points=caveats,
-            )
+            # Add caveats slide if present and this is the Risk section
+            caveats = narrative.get("caveats", [])
+            if caveats and "Risk" in section_title:
+                builder.add_content_slide(
+                    title="Risks & Caveats", bullet_points=caveats
+                )
 
         # Save presentation
         exports_dir = self.project_root / "exports"
@@ -1633,7 +1594,10 @@ class CommandHandler:
 
     def _build_dashboard(self, spec: dict[str, Any], node_bin: Path | None = None, theme: str = "dark") -> Path:
         """
-        Build React dashboard from spec and data.
+        Build React dashboard from story manifest.
+
+        REQUIRED INPUTS:
+        - outputs/story_manifest.json (canonical story)
 
         Args:
             spec: Project specification
@@ -1642,8 +1606,23 @@ class CommandHandler:
 
         Returns:
             Path to generated dashboard
+
+        Raises:
+            ValueError: If story manifest is missing
         """
         from kie.export.react_builder import ReactDashboardBuilder
+
+        # VALIDATE REQUIRED INPUTS
+        outputs_dir = self.project_root / "outputs"
+        manifest_path = outputs_dir / "story_manifest.json"
+
+        # Check manifest (REQUIRED)
+        if not manifest_path.exists():
+            raise ValueError(
+                "❌ Dashboard build failed: story_manifest.json not found.\n"
+                "   The story manifest should be generated during build.\n"
+                "   This indicates the story_manifest skill failed to run."
+            )
 
         # Use deterministic data file selection (same as EDA/analyze)
         selected_file = self._load_data_file_selection() or self._select_data_file()

@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 """
-Proof Test: PPT Composition from Visual Storyboard
+Proof Test: PPT Composition from Story Manifest
 
 Validates that PowerPoint is composed strictly from:
-- visual_storyboard.json
-- executive_summary.md
+- story_manifest.json (canonical story representation)
 - rendered charts in outputs/charts/
-- intent.yaml
 
-And NOT from:
-- raw insights
-- untriaged data
-- visualization_plan.json directly
+The manifest contains everything needed: sections, narratives, visual order, caveats.
 """
 
 import json
@@ -22,8 +17,8 @@ import pytest
 import yaml
 
 
-def test_ppt_requires_storyboard(tmp_path):
-    """Test that PPT build fails without visual_storyboard.json."""
+def test_ppt_requires_story_manifest(tmp_path):
+    """Test that PPT build fails without story_manifest.json."""
     from kie.commands.handler import CommandHandler
 
     handler = CommandHandler(tmp_path)
@@ -39,16 +34,8 @@ def test_ppt_requires_storyboard(tmp_path):
         "objective": "Test Objective",
     }))
 
-    # Create intent
-    intent_path = tmp_path / "project_state" / "intent.yaml"
-    intent_path.write_text(yaml.dump({"objective": "Test Objective"}))
-
-    # Create executive summary
-    exec_summary = tmp_path / "outputs" / "executive_summary.md"
-    exec_summary.write_text("# Executive Summary\n\n- Key finding 1\n- Key finding 2\n")
-
-    # Try to build PPT without storyboard - should FAIL
-    with pytest.raises(ValueError, match="visual_storyboard.json not found"):
+    # Try to build PPT without story manifest - should FAIL
+    with pytest.raises(ValueError, match="story_manifest.json not found"):
         handler._build_presentation({"project_name": "Test Project", "client_name": "Test Client"})
 
 
