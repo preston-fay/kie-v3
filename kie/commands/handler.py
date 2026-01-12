@@ -1386,8 +1386,8 @@ class CommandHandler:
             catalog = InsightCatalog.load(str(insights_path))
             insights = catalog.insights
 
-        # Create presentation with theme
-        builder = SlideBuilder(title=spec.get("project_name", "Analysis"), theme=theme)
+        # Create presentation (theme is loaded internally via get_theme())
+        builder = SlideBuilder(title=spec.get("project_name", "Analysis"))
 
         # Title slide
         builder.add_title_slide(
