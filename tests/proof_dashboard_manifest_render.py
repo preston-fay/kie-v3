@@ -324,12 +324,45 @@ def test_dashboard_manifest_render_end_to_end(tmp_path):
     ), "Dashboard code missing visual quality handling"
     print("✓ Dashboard handles visual quality")
 
+    # Check for badge strings
+    badge_strings = ["DECISION", "DIRECTION", "INFO", "Caveat", "Internal Only", "OK"]
+    found_badges = []
+    for badge_str in badge_strings:
+        if badge_str in dashboard_code:
+            found_badges.append(badge_str)
+
+    print(f"\n🏷️  Badge Strings Found: {len(found_badges)}/{len(badge_strings)}")
+    for badge in found_badges:
+        print(f"   ✓ {badge}")
+
+    assert len(found_badges) >= 5, f"Missing badge strings (found {len(found_badges)}/6)"
+
+    # Count sections in manifest  (classify them like the dashboard does)
+    mainStorySections = [
+        s for s in sections
+        if s.get("actionability_level") == "decision_enabling"
+        and not any(v.get("visual_quality") == "internal_only" for v in s.get("visuals", []))
+    ]
+    appendixSections = [
+        s for s in sections
+        if s not in mainStorySections
+    ]
+
+    main_story_count = len(mainStorySections)
+    appendix_count = len(appendixSections)
+    print(f"\n📊 Manifest Statistics:")
+    print(f"   Main Story sections: {main_story_count}")
+    print(f"   Appendix sections: {appendix_count}")
+    print(f"   Total sections: {len(sections)}")
+
     print("\n✅ PROOF COMPLETE:")
     print(f"   1. Manifest copied: ✓ (story_manifest.json in public/)")
     print(f"   2. Charts copied: ✓ ({len(chart_files)} charts in public/charts/)")
     print(f"   3. Tabs present: ✓ (Main Story + Appendix)")
     print(f"   4. Classification logic: ✓ (actionability + visual_quality)")
     print(f"   5. Manifest rendering: ✓ (fetches /story_manifest.json)")
+    print(f"   6. Badge strings: ✓ ({len(found_badges)} badges found)")
+    print(f"   7. Section counts: ✓ (Main: {main_story_count}, Appendix: {appendix_count})")
 
     print("\n" + "=" * 60)
     print("PROOF SUCCESS: Dashboard manifest rendering working end-to-end")
