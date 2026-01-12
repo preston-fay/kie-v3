@@ -186,6 +186,25 @@ def test_journey_b_demo_data_opt_in(reality_battery, monkeypatch, capsys):
     result = handler.handle_eda()
     assert result["success"], f"EDA failed on demo data: {result.get('message')}"
 
+    # Verify skill orchestration: both synthesis and bridge artifacts exist
+    outputs_dir = project_root / "outputs"
+    synthesis_json = outputs_dir / "eda_synthesis.json"
+    bridge_json = outputs_dir / "eda_analysis_bridge.json"
+    bridge_md = outputs_dir / "eda_analysis_bridge.md"
+
+    assert synthesis_json.exists(), "eda_synthesis.json not created"
+    assert bridge_json.exists(), "eda_analysis_bridge.json not created"
+    assert bridge_md.exists(), "eda_analysis_bridge.md not created"
+
+    # Verify no duplicate execution - check skill results
+    skill_results = result.get("skill_results", {})
+    skills_executed = skill_results.get("skills_executed", [])
+    skill_ids = [s["skill_id"] for s in skills_executed]
+
+    # Each skill should appear exactly once
+    assert skill_ids.count("eda_synthesis") == 1, "eda_synthesis executed multiple times"
+    assert skill_ids.count("eda_analysis_bridge") == 1, "eda_analysis_bridge executed multiple times"
+
     # Check messaging
     captured = capsys.readouterr()
     intent_set = is_intent_clarified(project_root)
