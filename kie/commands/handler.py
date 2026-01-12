@@ -2048,9 +2048,52 @@ class CommandHandler:
                 result["map_generated"] = str(map_path)
                 result["map_type"] = map_type
 
-            # NOTE: Skills (Insight Brief, Run Story) now invoked via ObservabilityHooks
-            # This removes hardcoded skill logic from handler.py
-            # Skills execute based on stage_scope declared in registry
+            # Execute analyze stage skills (two-pass for dependencies)
+            try:
+                from kie.skills import get_registry, SkillContext
+
+                registry = get_registry()
+                outputs_dir = self.project_root / "outputs"
+
+                # Pass 1: Execute skills with initial artifacts
+                artifacts_pass1 = {}
+                if (outputs_dir / "insights.yaml").exists():
+                    artifacts_pass1["insights_catalog"] = outputs_dir / "insights.yaml"
+                if (outputs_dir / "insight_triage.json").exists():
+                    artifacts_pass1["insight_triage"] = outputs_dir / "insight_triage.json"
+
+                skill_context_pass1 = SkillContext(
+                    project_root=self.project_root,
+                    current_stage="analyze",
+                    artifacts=artifacts_pass1,
+                    evidence_ledger_id=None,
+                )
+
+                registry.execute_skills_for_stage("analyze", skill_context_pass1)
+
+                # Pass 2: Re-scan for newly created artifacts and execute remaining skills
+                artifacts_pass2 = {}
+                if (outputs_dir / "insights.yaml").exists():
+                    artifacts_pass2["insights_catalog"] = outputs_dir / "insights.yaml"
+                if (outputs_dir / "insight_triage.json").exists():
+                    artifacts_pass2["insight_triage"] = outputs_dir / "insight_triage.json"
+                if (outputs_dir / "visualization_plan.json").exists():
+                    artifacts_pass2["visualization_plan"] = outputs_dir / "visualization_plan.json"
+                if (outputs_dir / "executive_narrative.json").exists():
+                    artifacts_pass2["executive_narrative"] = outputs_dir / "executive_narrative.json"
+
+                skill_context_pass2 = SkillContext(
+                    project_root=self.project_root,
+                    current_stage="analyze",
+                    artifacts=artifacts_pass2,
+                    evidence_ledger_id=None,
+                )
+
+                registry.execute_skills_for_stage("analyze", skill_context_pass2)
+
+            except Exception as e:
+                # Don't fail the command if skills fail
+                pass
 
             # Update Rails state
             from kie.state import update_rails_state
