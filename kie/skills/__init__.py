@@ -15,6 +15,7 @@ from kie.skills.base import Skill, SkillContext, SkillResult
 from kie.skills.registry import SkillRegistry, get_registry, register_skill
 
 # Import and register skills
+from kie.skills.actionability_scoring import ActionabilityScoringSkill
 from kie.skills.client_pack import ClientPackSkill
 from kie.skills.client_readiness import ClientReadinessSkill
 from kie.skills.eda_review import EDAReviewSkill
@@ -29,6 +30,7 @@ from kie.skills.visualization_planner import VisualizationPlannerSkill
 from kie.skills.visual_storyboard import VisualStoryboardSkill
 
 # Auto-register skills
+register_skill(ActionabilityScoringSkill())
 register_skill(ClientPackSkill())
 register_skill(ClientReadinessSkill())
 register_skill(EDAReviewSkill())
@@ -49,6 +51,7 @@ __all__ = [
     "SkillRegistry",
     "get_registry",
     "register_skill",
+    "ActionabilityScoringSkill",
     "ClientPackSkill",
     "ClientReadinessSkill",
     "EDAReviewSkill",

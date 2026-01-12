@@ -1432,9 +1432,14 @@ class CommandHandler:
             section_title = section.get("title", "")
             narrative = section.get("narrative", {})
             visuals = section.get("visuals", [])
+            actionability = section.get("actionability_level", "informational")
 
-            # Add section divider slide
-            builder.add_section_slide(section_title)
+            # Add section divider slide with actionability marker
+            divider_title = section_title
+            if actionability == "decision_enabling":
+                divider_title = f"⭐ {section_title}"  # Star for decision-enabling
+
+            builder.add_section_slide(divider_title)
 
             # If this is Executive Summary, add bullet slide
             if section_title == "Executive Summary":
@@ -1623,6 +1628,13 @@ class CommandHandler:
                 "   The story manifest should be generated during build.\n"
                 "   This indicates the story_manifest skill failed to run."
             )
+
+        # NOTE: Dashboard consumes story_manifest.json with actionability annotations.
+        # React frontend should visually emphasize decision_enabling sections:
+        # - Highlight section headers for decision_enabling
+        # - Use bold or larger fonts for decision_enabling insights
+        # - De-emphasize informational sections (smaller, muted colors)
+        # See: web/src/components/ for React implementation
 
         # Use deterministic data file selection (same as EDA/analyze)
         selected_file = self._load_data_file_selection() or self._select_data_file()

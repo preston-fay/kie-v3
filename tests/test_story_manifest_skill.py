@@ -331,3 +331,123 @@ def test_story_manifest_section_order(tmp_path):
     # Check that they appear in order
     indices = [section_titles.index(title) for title in expected_order]
     assert indices == sorted(indices), "Sections not in canonical order"
+
+
+def test_story_manifest_includes_actionability_annotations(tmp_path):
+    """Test that story manifest includes actionability annotations from actionability_scores.json."""
+    outputs_dir = tmp_path / "outputs"
+    outputs_dir.mkdir()
+    charts_dir = outputs_dir / "charts"
+    charts_dir.mkdir()
+    project_state_dir = tmp_path / "project_state"
+    project_state_dir.mkdir()
+
+    # Create chart
+    chart_file = charts_dir / "test_chart.json"
+    chart_file.write_text(
+        json.dumps(
+            {
+                "type": "bar",
+                "data": [{"x": "A", "y": 10}],
+                "config": {"xAxis": {"dataKey": "x"}, "bars": [{"dataKey": "y"}]},
+            }
+        )
+    )
+
+    # Create actionability scores with decision_enabling insight
+    actionability_scores = {
+        "insights": [
+            {
+                "insight_id": "test-1",
+                "title": "Critical Finding",
+                "actionability": "decision_enabling",
+                "confidence": 0.85,
+                "severity": "Key",
+            }
+        ],
+        "summary": {
+            "decision_enabling_count": 1,
+            "directional_count": 0,
+            "informational_count": 0,
+        },
+    }
+    (outputs_dir / "actionability_scores.json").write_text(
+        json.dumps(actionability_scores)
+    )
+
+    # Create storyboard
+    storyboard = {
+        "elements": [
+            {
+                "section": "Context & Baseline",
+                "chart_ref": "test_chart.json",
+                "role": "baseline",
+                "transition_text": "Test narrative",
+                "emphasis": "Key point",
+                "caveats": [],
+                "visualization_type": "bar",
+                "insight_title": "Critical Finding",
+                "insight_id": "test-1",
+            }
+        ]
+    }
+
+    (outputs_dir / "insight_triage.json").write_text(
+        json.dumps(
+            {
+                "judged_insights": [
+                    {
+                        "insight_id": "test-1",
+                        "headline": "Critical Finding",
+                        "confidence": "high",
+                        "severity": "Key",
+                    }
+                ]
+            }
+        )
+    )
+    (outputs_dir / "visual_storyboard.json").write_text(json.dumps(storyboard))
+    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "executive_summary.md").write_text("# Summary\\n- Finding 1\\n")
+    (project_state_dir / "intent.yaml").write_text("objective: Test objective\\n")
+
+    # Run skill
+    skill = StoryManifestSkill()
+    context = SkillContext(
+        project_root=tmp_path,
+        current_stage="build",
+        artifacts={"project_name": "Test Project", "execution_mode": "rails"},
+    )
+
+    result = skill.execute(context)
+    assert result.success
+
+    # Load manifest
+    manifest_path = outputs_dir / "story_manifest.json"
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+
+    # Check that sections have actionability_level
+    sections = manifest.get("sections", [])
+    assert len(sections) > 0
+
+    for section in sections:
+        assert "actionability_level" in section
+        assert section["actionability_level"] in [
+            "decision_enabling",
+            "directional",
+            "informational",
+        ]
+
+    # Check that evidence_index includes actionability
+    for section in sections:
+        for evidence in section.get("evidence_index", []):
+            if evidence.get("insight_id") == "test-1":
+                assert "actionability" in evidence
+                assert evidence["actionability"] == "decision_enabling"
+
+    # Verify that decision_enabling section comes first (after Executive Summary)
+    non_exec_sections = [s for s in sections if s["title"] != "Executive Summary"]
+    if non_exec_sections:
+        first_section = non_exec_sections[0]
+        assert first_section["actionability_level"] == "decision_enabling"

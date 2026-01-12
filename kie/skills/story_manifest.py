@@ -94,6 +94,7 @@ class StorySection:
     visuals: list[StoryVisual]
     evidence_index: list[dict[str, Any]]
     client_readiness_hint: str
+    actionability_level: str  # decision_enabling, directional, informational
 
 
 @dataclass
@@ -135,6 +136,7 @@ class StoryManifestSkill(Skill):
             "executive_summary",
             "visual_storyboard",
             "visualization_plan",
+            "actionability_scores",
         ]
 
     @property
@@ -162,6 +164,7 @@ class StoryManifestSkill(Skill):
         triage_path = outputs_dir / "insight_triage.json"
         storyboard_path = outputs_dir / "visual_storyboard.json"
         viz_plan_path = outputs_dir / "visualization_plan.json"
+        actionability_path = outputs_dir / "actionability_scores.json"
         intent_path = project_state_dir / "intent.yaml"
         exec_summary_md = outputs_dir / "executive_summary.md"
         exec_summary_json = outputs_dir / "executive_summary.json"
@@ -169,6 +172,16 @@ class StoryManifestSkill(Skill):
         # Check inputs exist
         if not triage_path.exists():
             errors.append("insight_triage.json not found")
+            return SkillResult(
+                success=False,
+                artifacts={},
+                evidence=[],
+                warnings=warnings,
+                errors=errors,
+            )
+
+        if not actionability_path.exists():
+            errors.append("actionability_scores.json not found")
             return SkillResult(
                 success=False,
                 artifacts={},
@@ -220,6 +233,9 @@ class StoryManifestSkill(Skill):
         # Load inputs
         with open(triage_path) as f:
             triage_data = json.load(f)
+
+        with open(actionability_path) as f:
+            actionability_data = json.load(f)
 
         with open(storyboard_path) as f:
             storyboard_data = json.load(f)
@@ -282,6 +298,7 @@ class StoryManifestSkill(Skill):
             execution_mode=execution_mode,
             storyboard_data=storyboard_data,
             triage_data=triage_data,
+            actionability_data=actionability_data,
             exec_summary_content=exec_summary_content,
         )
 
@@ -329,12 +346,21 @@ class StoryManifestSkill(Skill):
         execution_mode: str,
         storyboard_data: dict[str, Any],
         triage_data: dict[str, Any],
+        actionability_data: dict[str, Any],
         exec_summary_content: dict[str, Any],
     ) -> StoryManifest:
         """Build story manifest from inputs."""
         # Generate story ID
         story_id = str(uuid.uuid4())
         generated_at = datetime.now().isoformat()
+
+        # Build actionability lookup by insight_id
+        actionability_lookup: dict[str, str] = {}
+        for scored_insight in actionability_data.get("insights", []):
+            insight_id = scored_insight.get("insight_id", "")
+            actionability = scored_insight.get("actionability", "informational")
+            if insight_id:
+                actionability_lookup[insight_id] = actionability
 
         # Extract executive summary bullets and caveats
         exec_bullets = self._extract_summary_bullets(exec_summary_content)
@@ -405,22 +431,36 @@ class StoryManifestSkill(Skill):
                     )
                     visuals.append(visual)
 
-            # Build evidence index
+            # Build evidence index with actionability annotations
             evidence_index = []
+            section_actionability_levels = []
+
             for element in section_elements:
                 insight_id = element.get("insight_id", "")
                 if insight_id:
                     # Find insight in triage data
                     for insight in triage_data.get("judged_insights", []):
                         if insight.get("insight_id") == insight_id:
+                            actionability = actionability_lookup.get(insight_id, "informational")
+                            section_actionability_levels.append(actionability)
+
                             evidence_index.append(
                                 {
                                     "insight_id": insight_id,
                                     "confidence": insight.get("confidence", "unknown"),
                                     "headline": insight.get("headline", ""),
+                                    "actionability": actionability,
                                 }
                             )
                             break
+
+            # Determine section-level actionability (highest level wins)
+            if "decision_enabling" in section_actionability_levels:
+                section_actionability = "decision_enabling"
+            elif "directional" in section_actionability_levels:
+                section_actionability = "directional"
+            else:
+                section_actionability = "informational"
 
             section = StorySection(
                 section_id=str(uuid.uuid4()),
@@ -432,8 +472,24 @@ class StoryManifestSkill(Skill):
                 visuals=visuals,
                 evidence_index=evidence_index,
                 client_readiness_hint="approved",
+                actionability_level=section_actionability,
             )
             sections.append(section)
+
+        # Sort sections: decision_enabling first, then directional, then informational
+        # Within each actionability level, preserve canonical order
+        actionability_priority = {
+            "decision_enabling": 0,
+            "directional": 1,
+            "informational": 2,
+        }
+
+        sections.sort(
+            key=lambda s: (
+                actionability_priority.get(s.actionability_level, 2),
+                SECTION_ORDER.index(s.title) if s.title in SECTION_ORDER else 999,
+            )
+        )
 
         # Add executive summary as first section if we have bullets
         if exec_bullets:
@@ -449,6 +505,7 @@ class StoryManifestSkill(Skill):
                 visuals=[],
                 evidence_index=[],
                 client_readiness_hint="approved",
+                actionability_level="decision_enabling",  # Always high priority
             )
             sections.insert(0, exec_section)
 
@@ -534,6 +591,7 @@ class StoryManifestSkill(Skill):
                     ],
                     "evidence_index": section.evidence_index,
                     "client_readiness_hint": section.client_readiness_hint,
+                    "actionability_level": section.actionability_level,
                 }
                 for section in manifest.sections
             ],
@@ -558,6 +616,7 @@ class StoryManifestSkill(Skill):
             lines.append(f"## Section {i}: {section.title}")
             lines.append("")
             lines.append(f"**Purpose**: {section.purpose}")
+            lines.append(f"**Actionability**: {section.actionability_level}")
             lines.append("")
             lines.append(f"### {section.narrative.headline}")
             lines.append("")
@@ -586,8 +645,9 @@ class StoryManifestSkill(Skill):
             if section.evidence_index:
                 lines.append("**Evidence:**")
                 for evidence in section.evidence_index:
+                    actionability = evidence.get("actionability", "unknown")
                     lines.append(
-                        f"- {evidence['headline']} (confidence: {evidence['confidence']})"
+                        f"- {evidence['headline']} (confidence: {evidence['confidence']}, actionability: {actionability})"
                     )
                 lines.append("")
 
