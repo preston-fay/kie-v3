@@ -81,6 +81,7 @@ class StoryVisual:
     visualization_type: str
     role: str
     emphasis: str
+    visual_quality: str  # client_ready, client_ready_with_caveats, internal_only
 
 
 @dataclass
@@ -137,6 +138,7 @@ class StoryManifestSkill(Skill):
             "visual_storyboard",
             "visualization_plan",
             "actionability_scores",
+            "visual_qc",
         ]
 
     @property
@@ -165,6 +167,7 @@ class StoryManifestSkill(Skill):
         storyboard_path = outputs_dir / "visual_storyboard.json"
         viz_plan_path = outputs_dir / "visualization_plan.json"
         actionability_path = outputs_dir / "actionability_scores.json"
+        visual_qc_path = outputs_dir / "visual_qc.json"
         intent_path = project_state_dir / "intent.yaml"
         exec_summary_md = outputs_dir / "executive_summary.md"
         exec_summary_json = outputs_dir / "executive_summary.json"
@@ -182,6 +185,16 @@ class StoryManifestSkill(Skill):
 
         if not actionability_path.exists():
             errors.append("actionability_scores.json not found")
+            return SkillResult(
+                success=False,
+                artifacts={},
+                evidence=[],
+                warnings=warnings,
+                errors=errors,
+            )
+
+        if not visual_qc_path.exists():
+            errors.append("visual_qc.json not found")
             return SkillResult(
                 success=False,
                 artifacts={},
@@ -236,6 +249,9 @@ class StoryManifestSkill(Skill):
 
         with open(actionability_path) as f:
             actionability_data = json.load(f)
+
+        with open(visual_qc_path) as f:
+            visual_qc_data = json.load(f)
 
         with open(storyboard_path) as f:
             storyboard_data = json.load(f)
@@ -299,6 +315,7 @@ class StoryManifestSkill(Skill):
             storyboard_data=storyboard_data,
             triage_data=triage_data,
             actionability_data=actionability_data,
+            visual_qc_data=visual_qc_data,
             exec_summary_content=exec_summary_content,
         )
 
@@ -347,6 +364,7 @@ class StoryManifestSkill(Skill):
         storyboard_data: dict[str, Any],
         triage_data: dict[str, Any],
         actionability_data: dict[str, Any],
+        visual_qc_data: dict[str, Any],
         exec_summary_content: dict[str, Any],
     ) -> StoryManifest:
         """Build story manifest from inputs."""
@@ -361,6 +379,14 @@ class StoryManifestSkill(Skill):
             actionability = scored_insight.get("actionability", "informational")
             if insight_id:
                 actionability_lookup[insight_id] = actionability
+
+        # Build visual_quality lookup by chart_ref
+        visual_quality_lookup: dict[str, str] = {}
+        for chart_eval in visual_qc_data.get("charts", []):
+            chart_ref = chart_eval.get("chart_ref", "")
+            visual_quality = chart_eval.get("visual_quality", "client_ready")
+            if chart_ref:
+                visual_quality_lookup[chart_ref] = visual_quality
 
         # Extract executive summary bullets and caveats
         exec_bullets = self._extract_summary_bullets(exec_summary_content)
@@ -423,11 +449,14 @@ class StoryManifestSkill(Skill):
             visuals = []
             for element in section_elements:
                 if element.get("chart_ref"):
+                    chart_ref = element["chart_ref"]
+                    visual_quality = visual_quality_lookup.get(chart_ref, "client_ready")
                     visual = StoryVisual(
-                        chart_ref=element["chart_ref"],
+                        chart_ref=chart_ref,
                         visualization_type=element.get("visualization_type", "bar"),
                         role=element.get("role", "baseline"),
                         emphasis=element.get("emphasis", ""),
+                        visual_quality=visual_quality,
                     )
                     visuals.append(visual)
 
@@ -586,6 +615,7 @@ class StoryManifestSkill(Skill):
                             "visualization_type": visual.visualization_type,
                             "role": visual.role,
                             "emphasis": visual.emphasis,
+                            "visual_quality": visual.visual_quality,
                         }
                         for visual in section.visuals
                     ],
@@ -636,7 +666,7 @@ class StoryManifestSkill(Skill):
                 lines.append("**Visuals:**")
                 for visual in section.visuals:
                     lines.append(
-                        f"- {visual.visualization_type} chart: `{visual.chart_ref}` ({visual.role})"
+                        f"- {visual.visualization_type} chart: `{visual.chart_ref}` ({visual.role}) [{visual.visual_quality}]"
                     )
                     if visual.emphasis:
                         lines.append(f"  - Emphasis: {visual.emphasis}")

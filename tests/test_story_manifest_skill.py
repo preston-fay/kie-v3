@@ -451,3 +451,133 @@ def test_story_manifest_includes_actionability_annotations(tmp_path):
     if non_exec_sections:
         first_section = non_exec_sections[0]
         assert first_section["actionability_level"] == "decision_enabling"
+
+
+def test_story_manifest_includes_visual_quality_annotations(tmp_path):
+    """Test that story manifest includes visual_quality annotations from visual_qc.json."""
+    outputs_dir = tmp_path / "outputs"
+    outputs_dir.mkdir()
+    charts_dir = outputs_dir / "charts"
+    charts_dir.mkdir()
+    project_state_dir = tmp_path / "project_state"
+    project_state_dir.mkdir()
+
+    # Create chart
+    chart_file = charts_dir / "test_chart.json"
+    chart_file.write_text(
+        json.dumps(
+            {
+                "type": "bar",
+                "data": [{"x": "A", "y": 10}],
+                "config": {"xAxis": {"dataKey": "x"}, "bars": [{"dataKey": "y"}]},
+            }
+        )
+    )
+
+    # Create visual_qc with internal_only classification
+    visual_qc = {
+        "charts": [
+            {
+                "chart_ref": "test_chart.json",
+                "actionability": "informational",
+                "visual_quality": "internal_only",
+                "issues": ["Too many categories"],
+                "recommended_action": "Group categories",
+            }
+        ],
+        "summary": {
+            "client_ready": 0,
+            "with_caveats": 0,
+            "internal_only": 1,
+        },
+    }
+    (outputs_dir / "visual_qc.json").write_text(json.dumps(visual_qc))
+
+    # Create actionability scores
+    actionability_scores = {
+        "insights": [
+            {
+                "insight_id": "test-1",
+                "title": "Test Finding",
+                "actionability": "informational",
+                "confidence": 0.5,
+                "severity": "Supporting",
+            }
+        ],
+        "summary": {
+            "decision_enabling_count": 0,
+            "directional_count": 0,
+            "informational_count": 1,
+        },
+    }
+    (outputs_dir / "actionability_scores.json").write_text(
+        json.dumps(actionability_scores)
+    )
+
+    # Create storyboard
+    storyboard = {
+        "elements": [
+            {
+                "section": "Context & Baseline",
+                "chart_ref": "test_chart.json",
+                "role": "baseline",
+                "transition_text": "Test narrative",
+                "emphasis": "Key point",
+                "caveats": [],
+                "visualization_type": "bar",
+                "insight_title": "Test Finding",
+                "insight_id": "test-1",
+            }
+        ]
+    }
+
+    (outputs_dir / "insight_triage.json").write_text(
+        json.dumps(
+            {
+                "judged_insights": [
+                    {
+                        "insight_id": "test-1",
+                        "headline": "Test Finding",
+                        "confidence": "low",
+                        "severity": "Supporting",
+                    }
+                ]
+            }
+        )
+    )
+    (outputs_dir / "visual_storyboard.json").write_text(json.dumps(storyboard))
+    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "executive_summary.md").write_text("# Summary\n- Finding 1\n")
+    (project_state_dir / "intent.yaml").write_text("objective: Test objective\n")
+
+    # Run skill
+    skill = StoryManifestSkill()
+    context = SkillContext(
+        project_root=tmp_path,
+        current_stage="build",
+        artifacts={"project_name": "Test Project", "execution_mode": "rails"},
+    )
+
+    result = skill.execute(context)
+    assert result.success
+
+    # Load manifest
+    manifest_path = outputs_dir / "story_manifest.json"
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+
+    # Check that visuals have visual_quality
+    sections = manifest.get("sections", [])
+    assert len(sections) > 0
+
+    for section in sections:
+        for visual in section.get("visuals", []):
+            assert "visual_quality" in visual
+            assert visual["visual_quality"] in [
+                "client_ready",
+                "client_ready_with_caveats",
+                "internal_only",
+            ]
+            # Verify our test chart is marked as internal_only
+            if visual["chart_ref"] == "test_chart.json":
+                assert visual["visual_quality"] == "internal_only"

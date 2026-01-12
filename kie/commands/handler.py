@@ -1492,6 +1492,13 @@ class CommandHandler:
                     else headline or section_title
                 )
 
+                # Add visual quality marker to title
+                visual_quality = visual.get("visual_quality", "client_ready")
+                if visual_quality == "internal_only":
+                    slide_title = f"[Internal Only] {slide_title}"
+                elif visual_quality == "client_ready_with_caveats":
+                    slide_title = f"⚠️ {slide_title}"
+
                 # Add chart slide with data and keys
                 builder.add_chart_slide(
                     title=slide_title,
@@ -1629,11 +1636,16 @@ class CommandHandler:
                 "   This indicates the story_manifest skill failed to run."
             )
 
-        # NOTE: Dashboard consumes story_manifest.json with actionability annotations.
+        # NOTE: Dashboard consumes story_manifest.json with actionability and visual_quality annotations.
         # React frontend should visually emphasize decision_enabling sections:
         # - Highlight section headers for decision_enabling
         # - Use bold or larger fonts for decision_enabling insights
         # - De-emphasize informational sections (smaller, muted colors)
+        #
+        # React frontend should mark visuals based on visual_quality:
+        # - internal_only: Add "[Internal Only]" badge or border
+        # - client_ready_with_caveats: Add "⚠️" warning icon
+        # - client_ready: No special marker (default)
         # See: web/src/components/ for React implementation
 
         # Use deterministic data file selection (same as EDA/analyze)
