@@ -277,6 +277,21 @@ class VisualizationPlannerSkill(Skill):
             "versus",
             "%",
             "percent",
+            "share",
+            "lead",
+            "top",
+            "dominat",
+            "driver",
+            "impact",
+            "affect",
+            "influence",
+            "relationship",
+            "correlat",
+            "concentration",
+            "concentrat",
+            "distribution",
+            "across",
+            "across",
         ]
 
         text_to_check = (why_matters or "").lower()
@@ -398,8 +413,14 @@ class VisualizationPlannerSkill(Skill):
         text = (title + " " + why_matters).lower()
 
         # PATTERN 1: Comparison with many categories
-        # Detect: "compare", "vs", "across", "between" + plural forms suggest >5 categories
-        if purpose == "comparison" and any(kw in text for kw in ["regions", "products", "segments", "categories", "channels", "customers"]):
+        # Trigger when ANY:
+        # - purpose is comparison OR concentration
+        # - share/dominance language (share, lead, top, dominates)
+        # - plural entity keywords (regions, products, segments, etc.)
+        share_language = any(kw in text for kw in ["share", "lead", "top", "dominat"])
+        entity_keywords = any(kw in text for kw in ["regions", "products", "segments", "categories", "channels", "customers"])
+
+        if (purpose in ["comparison", "concentration"]) or share_language or entity_keywords:
             # Emit 2 visuals: bar (top N) + pareto (cumulative)
             return [
                 {
@@ -463,8 +484,12 @@ class VisualizationPlannerSkill(Skill):
             ]
 
         # PATTERN 3: Drivers/Relationship
-        # Detect: "driver", "relationship", "correlation", "associated", "impact"
-        if purpose == "risk" or any(kw in text for kw in ["driver", "impact", "affect", "influence"]):
+        # Trigger when ANY:
+        # - purpose is risk, drivers, or relationship
+        # - driver/impact/relationship keywords
+        driver_keywords = any(kw in text for kw in ["driver", "impact", "affect", "influence", "relationship", "correlat"])
+
+        if (purpose in ["risk", "drivers", "relationship"]) or driver_keywords:
             return [
                 {
                     "visualization_type": "scatter",
@@ -523,17 +548,20 @@ class VisualizationPlannerSkill(Skill):
         if any(kw in text for kw in ["trend", "over time", "growth", "decline", "quarter", "year"]):
             return "line", "trend"
 
-        if any(kw in text for kw in ["compare", "vs", "versus", "higher", "lower", "between"]):
+        if any(kw in text for kw in ["compare", "vs", "versus", "higher", "lower", "between", "share", "lead", "top", "dominat"]):
             return "bar", "comparison"
 
         if any(kw in text for kw in ["distribution", "spread", "range", "variance"]):
             return "distribution", "distribution"
 
-        if any(kw in text for kw in ["correlation", "relationship", "associated"]):
+        if any(kw in text for kw in ["correlation", "relationship", "associated", "driver", "impact", "affect", "influence"]):
             return "scatter", "risk"
 
         if any(kw in text for kw in ["region", "location", "geographic", "area", "city", "state"]):
             return "map", "concentration"
+
+        if any(kw in text for kw in ["concentration", "concentrat"]):
+            return "bar", "concentration"
 
         if any(kw in text for kw in ["segment", "category", "group", "type"]):
             return "bar", "segmentation"

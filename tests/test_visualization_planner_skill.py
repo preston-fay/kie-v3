@@ -594,3 +594,217 @@ def test_skip_avoid_leading_with_insights(temp_project):
     # Should only have 1 spec (the good one)
     assert len(specs) == 1
     assert specs[0]["insight_id"] == "good_insight"
+
+
+def test_comparison_pattern_triggers_on_share_language(temp_project):
+    """Test that comparison pattern triggers on share/dominance language."""
+    triage_data = {
+        "total_candidate_insights": 1,
+        "high_confidence_insights": 1,
+        "use_with_caution_insights": 0,
+        "top_insights": [
+            {
+                "id": "share_insight",
+                "title": "North region leads with 40% market share",
+                "why_it_matters": "North dominates sales performance with top share of revenue",
+                "evidence": [{"type": "metric", "reference": "outputs/data.json"}],
+                "confidence": "HIGH",
+                "caveats": [],
+            }
+        ],
+        "consultant_guidance": {
+            "lead_with": [],
+            "mention_cautiously": [],
+            "avoid_leading_with": [],
+        },
+    }
+
+    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path.write_text(json.dumps(triage_data, indent=2))
+
+    skill = VisualizationPlannerSkill()
+
+    context = SkillContext(
+        project_root=temp_project,
+        current_stage="analyze",
+        artifacts={"insight_triage": triage_path},
+        evidence_ledger_id="test_run",
+    )
+
+    result = skill.execute(context)
+
+    json_path = Path(result.artifacts["visualization_plan_json"])
+    with open(json_path) as f:
+        plan_data = json.load(f)
+
+    specs = plan_data["specifications"]
+    assert len(specs) > 0
+
+    spec = specs[0]
+    # Should trigger comparison pattern (multi-visual)
+    assert "visuals" in spec, "Expected multi-visual pattern to be triggered"
+    assert len(spec["visuals"]) == 2
+    viz_types = [v["visualization_type"] for v in spec["visuals"]]
+    assert "bar" in viz_types
+    assert "pareto" in viz_types
+
+
+def test_comparison_pattern_triggers_on_concentration_purpose(temp_project):
+    """Test that comparison pattern triggers on concentration purpose."""
+    triage_data = {
+        "total_candidate_insights": 1,
+        "high_confidence_insights": 1,
+        "use_with_caution_insights": 0,
+        "top_insights": [
+            {
+                "id": "concentration_insight",
+                "title": "Revenue concentration analysis",
+                "why_it_matters": "Top business units capture majority of revenue across the organization",
+                "evidence": [{"type": "metric", "reference": "outputs/data.json"}],
+                "confidence": "HIGH",
+                "caveats": [],
+            }
+        ],
+        "consultant_guidance": {
+            "lead_with": [],
+            "mention_cautiously": [],
+            "avoid_leading_with": [],
+        },
+    }
+
+    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path.write_text(json.dumps(triage_data, indent=2))
+
+    skill = VisualizationPlannerSkill()
+
+    context = SkillContext(
+        project_root=temp_project,
+        current_stage="analyze",
+        artifacts={"insight_triage": triage_path},
+        evidence_ledger_id="test_run",
+    )
+
+    result = skill.execute(context)
+
+    json_path = Path(result.artifacts["visualization_plan_json"])
+    with open(json_path) as f:
+        plan_data = json.load(f)
+
+    specs = plan_data["specifications"]
+    assert len(specs) > 0
+
+    spec = specs[0]
+    # Should trigger comparison pattern (multi-visual) if concentration keyword detected
+    assert "concentration" in spec["insight_title"].lower()
+    assert "visuals" in spec, "Expected multi-visual pattern to be triggered"
+    assert len(spec["visuals"]) == 2
+    viz_types = [v["visualization_type"] for v in spec["visuals"]]
+    assert "bar" in viz_types
+    assert "pareto" in viz_types
+
+
+def test_drivers_pattern_triggers_on_driver_language(temp_project):
+    """Test that drivers pattern triggers on driver/impact/relationship keywords."""
+    triage_data = {
+        "total_candidate_insights": 1,
+        "high_confidence_insights": 1,
+        "use_with_caution_insights": 0,
+        "top_insights": [
+            {
+                "id": "driver_insight",
+                "title": "Cost drivers impact revenue performance",
+                "why_it_matters": "Cost is a key driver showing strong correlation with revenue outcomes",
+                "evidence": [{"type": "metric", "reference": "outputs/data.json"}],
+                "confidence": "HIGH",
+                "caveats": [],
+            }
+        ],
+        "consultant_guidance": {
+            "lead_with": [],
+            "mention_cautiously": [],
+            "avoid_leading_with": [],
+        },
+    }
+
+    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path.write_text(json.dumps(triage_data, indent=2))
+
+    skill = VisualizationPlannerSkill()
+
+    context = SkillContext(
+        project_root=temp_project,
+        current_stage="analyze",
+        artifacts={"insight_triage": triage_path},
+        evidence_ledger_id="test_run",
+    )
+
+    result = skill.execute(context)
+
+    json_path = Path(result.artifacts["visualization_plan_json"])
+    with open(json_path) as f:
+        plan_data = json.load(f)
+
+    specs = plan_data["specifications"]
+    assert len(specs) > 0
+
+    spec = specs[0]
+    # Should trigger drivers pattern (multi-visual)
+    assert "visuals" in spec, "Expected multi-visual pattern to be triggered"
+    assert len(spec["visuals"]) == 2
+    viz_types = [v["visualization_type"] for v in spec["visuals"]]
+    assert "scatter" in viz_types
+    assert "trend_summary" in viz_types
+
+
+def test_drivers_pattern_triggers_on_relationship_purpose(temp_project):
+    """Test that drivers pattern triggers on relationship purpose."""
+    triage_data = {
+        "total_candidate_insights": 1,
+        "high_confidence_insights": 1,
+        "use_with_caution_insights": 0,
+        "top_insights": [
+            {
+                "id": "relationship_insight",
+                "title": "Margin and cost relationship analysis",
+                "why_it_matters": "Understanding how cost affects margin performance",
+                "evidence": [{"type": "metric", "reference": "outputs/data.json"}],
+                "confidence": "HIGH",
+                "caveats": [],
+            }
+        ],
+        "consultant_guidance": {
+            "lead_with": [],
+            "mention_cautiously": [],
+            "avoid_leading_with": [],
+        },
+    }
+
+    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path.write_text(json.dumps(triage_data, indent=2))
+
+    skill = VisualizationPlannerSkill()
+
+    context = SkillContext(
+        project_root=temp_project,
+        current_stage="analyze",
+        artifacts={"insight_triage": triage_path},
+        evidence_ledger_id="test_run",
+    )
+
+    result = skill.execute(context)
+
+    json_path = Path(result.artifacts["visualization_plan_json"])
+    with open(json_path) as f:
+        plan_data = json.load(f)
+
+    specs = plan_data["specifications"]
+    assert len(specs) > 0
+
+    spec = specs[0]
+    # Should trigger drivers pattern (multi-visual) if relationship keyword detected
+    assert "relationship" in spec["insight_title"].lower()
+    assert "visuals" in spec, "Expected multi-visual pattern to be triggered"
+    assert len(spec["visuals"]) == 2
+    viz_types = [v["visualization_type"] for v in spec["visuals"]]
+    assert "scatter" in viz_types
+    assert "trend_summary" in viz_types

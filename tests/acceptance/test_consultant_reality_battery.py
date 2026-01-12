@@ -541,17 +541,38 @@ def test_journey_h_chart_rendering_from_viz_plan(reality_battery, monkeypatch):
     charts_dir = outputs_dir / "charts"
     assert charts_dir.exists(), "charts/ directory not created"
 
-    # Count visualization_required=true specs
-    viz_required_count = sum(
-        1 for spec in viz_plan["specifications"]
-        if spec.get("visualization_required", False)
-    )
+    # Count total visualizations (handle both single and multi-visual specs)
+    total_viz_count = 0
+    for spec in viz_plan["specifications"]:
+        if not spec.get("visualization_required", False):
+            continue
+        # Check if multi-visual pattern (has "visuals" key)
+        if "visuals" in spec:
+            total_viz_count += len(spec["visuals"])
+        else:
+            total_viz_count += 1
 
     # Verify chart count matches
     chart_files = list(charts_dir.glob("*.json"))
-    assert len(chart_files) == viz_required_count, (
-        f"Chart count mismatch: {len(chart_files)} charts != {viz_required_count} expected"
+    assert len(chart_files) == total_viz_count, (
+        f"Chart count mismatch: {len(chart_files)} charts != {total_viz_count} expected"
     )
+
+    # Verify visualization type diversity (when data allows)
+    # Collect all visualization types from chart files
+    viz_types = set()
+    for chart_file in chart_files:
+        with open(chart_file) as f:
+            chart_data = json.load(f)
+        viz_type = chart_data.get("visualization_type", "unknown")
+        viz_types.add(viz_type)
+
+    # With improved pattern triggering, we should have >=2 distinct types
+    # (unless we only have 1 chart total)
+    if len(chart_files) >= 2:
+        assert len(viz_types) >= 2, (
+            f"Expected >=2 visualization types, got {len(viz_types)}: {viz_types}"
+        )
 
     # Verify no suppressed categories in chart data
     for chart_file in chart_files:
