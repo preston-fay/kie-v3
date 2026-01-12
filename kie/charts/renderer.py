@@ -96,9 +96,16 @@ class ChartRenderer:
                 # Skip - no chart for this insight
                 continue
 
-            # Render chart
-            chart_info = self._render_chart(spec, df)
-            rendered_charts.append(chart_info)
+            # Check if spec has multiple visuals (Visual Pattern Library)
+            if "visuals" in spec:
+                # Multi-visual pattern - render each visual
+                for visual_spec in spec["visuals"]:
+                    chart_info = self._render_chart_from_visual(spec, visual_spec, df)
+                    rendered_charts.append(chart_info)
+            else:
+                # Single visualization (original behavior)
+                chart_info = self._render_chart(spec, df)
+                rendered_charts.append(chart_info)
 
         return {
             "success": True,
@@ -139,6 +146,82 @@ class ChartRenderer:
 
         loader = DataLoader()
         return loader.load(data_file)
+
+    def _render_chart_from_visual(
+        self, spec: dict[str, Any], visual_spec: dict[str, Any], df: pd.DataFrame
+    ) -> dict[str, Any]:
+        """
+        Render a single chart from a visual specification within a multi-visual pattern.
+
+        Args:
+            spec: Parent insight specification
+            visual_spec: Individual visual specification from pattern
+            df: Source data
+
+        Returns:
+            Chart info dictionary
+        """
+        insight_id = spec.get("insight_id", "unknown")
+        viz_type = visual_spec.get("visualization_type", "bar")
+        purpose = visual_spec.get("purpose", "comparison")
+        x_axis = visual_spec.get("x_axis")
+        y_axis = visual_spec.get("y_axis")
+        grouping = visual_spec.get("grouping")
+        highlights = visual_spec.get("highlights", [])
+        suppress = visual_spec.get("suppress", [])
+        annotations = visual_spec.get("annotations", [])
+        caveats = visual_spec.get("caveats", [])
+        pattern_role = visual_spec.get("pattern_role", "")
+        description = visual_spec.get("description", "")
+        confidence = spec.get("confidence", {})
+
+        # Map visualization type to chart implementation
+        chart_data = self._map_visualization_type(
+            viz_type, df, x_axis, y_axis, grouping, suppress, highlights
+        )
+
+        # Build chart config
+        chart_config = {
+            "insight_id": insight_id,
+            "insight_title": spec.get("insight_title", "Untitled"),
+            "visualization_type": viz_type,
+            "purpose": purpose,
+            "pattern_role": pattern_role,
+            "description": description,
+            "data": chart_data,
+            "axes": {
+                "x": x_axis,
+                "y": y_axis,
+                "grouping": grouping,
+            },
+            "highlights": highlights,
+            "suppress": suppress,
+            "annotations": annotations,
+            "caveats": caveats,
+            "confidence": confidence,
+            "metadata": {
+                "generated_at": datetime.now().isoformat(),
+                "source": "visualization_plan",
+                "multi_visual_pattern": True,
+            },
+        }
+
+        # Deterministic filename with pattern role
+        filename = f"{insight_id}__{viz_type}__{pattern_role}.json" if pattern_role else f"{insight_id}__{viz_type}.json"
+        output_path = self.charts_dir / filename
+
+        # Save chart config
+        with open(output_path, "w") as f:
+            json.dump(chart_config, f, indent=2)
+
+        return {
+            "insight_id": insight_id,
+            "visualization_type": viz_type,
+            "pattern_role": pattern_role,
+            "filename": filename,
+            "path": str(output_path),
+            "data_points": len(chart_data) if isinstance(chart_data, list) else 0,
+        }
 
     def _render_chart(self, spec: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
         """
@@ -242,7 +325,7 @@ class ChartRenderer:
             return self._generate_bar_data(df, x_col, y_col, suppress, highlights)
         elif viz_type == "line":
             return self._generate_line_data(df, x_col, y_col, group_col, suppress)
-        elif viz_type == "distribution":
+        elif viz_type == "distribution" or viz_type == "histogram":
             return self._generate_distribution_data(df, y_col, suppress)
         elif viz_type == "scatter":
             return self._generate_scatter_data(df, x_col, y_col, group_col, suppress)
@@ -250,6 +333,12 @@ class ChartRenderer:
             return self._generate_map_data(df, x_col, y_col, suppress)
         elif viz_type == "table":
             return self._generate_table_data(df, suppress)
+        elif viz_type == "pareto":
+            return self._generate_pareto_data(df, x_col, y_col, suppress)
+        elif viz_type == "distribution_summary":
+            return self._generate_distribution_summary(df, y_col, suppress)
+        elif viz_type == "trend_summary":
+            return self._generate_trend_summary(df, x_col, y_col, suppress)
         else:
             # Default to bar chart
             return self._generate_bar_data(df, x_col, y_col, suppress, highlights)
@@ -497,3 +586,154 @@ class ChartRenderer:
         # Return first 50 rows as dictionaries
         df_filtered = df.head(50)
         return df_filtered.to_dict(orient="records")
+
+    def _generate_pareto_data(
+        self,
+        df: pd.DataFrame,
+        x_col: str | None,
+        y_col: str | None,
+        suppress: list[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Generate Pareto chart data (bar + cumulative line).
+
+        Shows top contributors and their cumulative share.
+        """
+        # Use first categorical column for x if not specified
+        if x_col is None:
+            categorical_cols = df.select_dtypes(include=["object", "category"]).columns
+            x_col = categorical_cols[0] if len(categorical_cols) > 0 else df.columns[0]
+
+        # Use first numeric column for y if not specified
+        if y_col is None:
+            numeric_cols = df.select_dtypes(include=["number"]).columns
+            y_col = numeric_cols[0] if len(numeric_cols) > 0 else df.columns[1] if len(df.columns) > 1 else df.columns[0]
+
+        # Group by x_col and aggregate y_col
+        grouped = df.groupby(x_col)[y_col].sum().reset_index()
+
+        # Filter out suppressed categories
+        suppress_lower = [s.lower() for s in suppress]
+        grouped = grouped[~grouped[x_col].astype(str).str.lower().isin(suppress_lower)]
+
+        # Filter out null/empty categories
+        grouped = grouped[grouped[x_col].notna()]
+        grouped = grouped[grouped[x_col].astype(str).str.strip() != ""]
+
+        # Sort by value descending
+        grouped = grouped.sort_values(y_col, ascending=False)
+
+        # Calculate cumulative percentage
+        total = grouped[y_col].sum()
+        grouped["cumulative"] = grouped[y_col].cumsum()
+        grouped["cumulative_pct"] = (grouped["cumulative"] / total * 100).round(1)
+
+        # Take top 10
+        grouped = grouped.head(10)
+
+        # Build chart data
+        chart_data = []
+        for _, row in grouped.iterrows():
+            chart_data.append({
+                "category": str(row[x_col]),
+                "value": float(row[y_col]),
+                "cumulative_pct": float(row["cumulative_pct"]),
+            })
+
+        return chart_data
+
+    def _generate_distribution_summary(
+        self,
+        df: pd.DataFrame,
+        y_col: str | None,
+        suppress: list[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Generate distribution summary statistics (table format).
+
+        Shows min, Q1, median, Q3, max, IQR.
+        """
+        # Use first numeric column if not specified
+        if y_col is None:
+            numeric_cols = df.select_dtypes(include=["number"]).columns
+            y_col = numeric_cols[0] if len(numeric_cols) > 0 else df.columns[0]
+
+        # Get values
+        values = df[y_col].dropna()
+
+        # Calculate statistics
+        stats = {
+            "min": float(values.min()),
+            "q1": float(values.quantile(0.25)),
+            "median": float(values.median()),
+            "q3": float(values.quantile(0.75)),
+            "max": float(values.max()),
+            "mean": float(values.mean()),
+            "std": float(values.std()),
+            "iqr": float(values.quantile(0.75) - values.quantile(0.25)),
+        }
+
+        # Return as table-like structure
+        return [
+            {"metric": "Minimum", "value": stats["min"]},
+            {"metric": "Q1 (25th percentile)", "value": stats["q1"]},
+            {"metric": "Median (50th percentile)", "value": stats["median"]},
+            {"metric": "Mean", "value": stats["mean"]},
+            {"metric": "Q3 (75th percentile)", "value": stats["q3"]},
+            {"metric": "Maximum", "value": stats["max"]},
+            {"metric": "IQR (Interquartile Range)", "value": stats["iqr"]},
+            {"metric": "Std Deviation", "value": stats["std"]},
+        ]
+
+    def _generate_trend_summary(
+        self,
+        df: pd.DataFrame,
+        x_col: str | None,
+        y_col: str | None,
+        suppress: list[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Generate trend summary (trend direction and strength).
+
+        Simple correlation-based trend analysis.
+        """
+        # Use first two numeric columns if not specified
+        numeric_cols = df.select_dtypes(include=["number"]).columns
+        if x_col is None:
+            x_col = numeric_cols[0] if len(numeric_cols) > 0 else df.columns[0]
+        if y_col is None:
+            y_col = numeric_cols[1] if len(numeric_cols) > 1 else numeric_cols[0] if len(numeric_cols) > 0 else df.columns[1] if len(df.columns) > 1 else df.columns[0]
+
+        # Convert to numeric if needed
+        x_vals = pd.to_numeric(df[x_col], errors="coerce").dropna()
+        y_vals = pd.to_numeric(df[y_col], errors="coerce").dropna()
+
+        # Calculate correlation
+        if len(x_vals) > 1 and len(y_vals) > 1:
+            correlation = x_vals.corr(y_vals)
+
+            # Determine trend direction and strength
+            if abs(correlation) < 0.3:
+                trend = "Weak relationship"
+                strength = "low"
+            elif abs(correlation) < 0.7:
+                trend = "Moderate relationship"
+                strength = "medium"
+            else:
+                trend = "Strong relationship"
+                strength = "high"
+
+            direction = "Positive" if correlation > 0 else "Negative"
+        else:
+            correlation = 0.0
+            trend = "Insufficient data"
+            strength = "none"
+            direction = "Unknown"
+
+        # Return as table-like structure
+        return [
+            {"metric": "Direction", "value": direction},
+            {"metric": "Strength", "value": strength.title()},
+            {"metric": "Correlation", "value": round(correlation, 3)},
+            {"metric": "Assessment", "value": trend},
+        ]

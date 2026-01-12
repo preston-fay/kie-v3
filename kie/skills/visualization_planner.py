@@ -310,6 +310,7 @@ class VisualizationPlannerSkill(Skill):
         Create full visualization specification.
 
         Infers visualization type from insight characteristics.
+        May return multiple visualizations per insight based on pattern rules.
         """
         title = insight.get("title", "Untitled insight")
         why_matters = insight.get("why_it_matters", "")
@@ -331,24 +332,182 @@ class VisualizationPlannerSkill(Skill):
         # Generate annotations (max 2 key callouts)
         annotations = self._generate_annotations(why_matters, caveats)[:2]
 
-        return {
-            "insight_id": insight.get("id", f"insight_{index}"),
-            "insight_title": title,
-            "visualization_required": True,
-            "visualization_type": viz_type,
-            "purpose": purpose,
-            "x_axis": axes.get("x"),
-            "y_axis": axes.get("y"),
-            "grouping": axes.get("grouping"),
-            "highlights": highlights,
-            "suppress": suppress,
-            "annotations": annotations,
-            "caveats": caveats,
-            "confidence": {
-                "numeric": confidence_numeric,
-                "label": confidence_label,
-            },
-        }
+        # VISUAL PATTERN LIBRARY: Check if multi-visual patterns apply
+        pattern_visuals = self._apply_visual_patterns(
+            purpose, viz_type, title, why_matters, axes, highlights, suppress, annotations, caveats
+        )
+
+        # If pattern returned multiple visuals, use them; otherwise use single viz
+        if len(pattern_visuals) > 1:
+            # Multi-visual pattern
+            base_spec = {
+                "insight_id": insight.get("id", f"insight_{index}"),
+                "insight_title": title,
+                "visualization_required": True,
+                "confidence": {
+                    "numeric": confidence_numeric,
+                    "label": confidence_label,
+                },
+                "visuals": pattern_visuals,  # Multiple visualizations
+            }
+            return base_spec
+        else:
+            # Single visualization (original behavior)
+            return {
+                "insight_id": insight.get("id", f"insight_{index}"),
+                "insight_title": title,
+                "visualization_required": True,
+                "visualization_type": viz_type,
+                "purpose": purpose,
+                "x_axis": axes.get("x"),
+                "y_axis": axes.get("y"),
+                "grouping": axes.get("grouping"),
+                "highlights": highlights,
+                "suppress": suppress,
+                "annotations": annotations,
+                "caveats": caveats,
+                "confidence": {
+                    "numeric": confidence_numeric,
+                    "label": confidence_label,
+                },
+            }
+
+    def _apply_visual_patterns(
+        self,
+        purpose: str,
+        viz_type: str,
+        title: str,
+        why_matters: str,
+        axes: dict[str, str | None],
+        highlights: list[str],
+        suppress: list[str],
+        annotations: list[str],
+        caveats: list[str],
+    ) -> list[dict[str, Any]]:
+        """
+        Apply Visual Pattern Library rules to generate multiple visualizations.
+
+        DETERMINISTIC PATTERNS:
+        1. comparison + many categories (>5 implied) → bar + pareto
+        2. distribution → histogram + distribution_summary
+        3. drivers/relationship + numeric fields → scatter + trend_summary
+
+        Returns:
+            List of visualization specs (single item = no pattern, multiple = pattern applied)
+        """
+        text = (title + " " + why_matters).lower()
+
+        # PATTERN 1: Comparison with many categories
+        # Detect: "compare", "vs", "across", "between" + plural forms suggest >5 categories
+        if purpose == "comparison" and any(kw in text for kw in ["regions", "products", "segments", "categories", "channels", "customers"]):
+            # Emit 2 visuals: bar (top N) + pareto (cumulative)
+            return [
+                {
+                    "visualization_type": "bar",
+                    "purpose": "comparison",
+                    "x_axis": axes.get("x"),
+                    "y_axis": axes.get("y"),
+                    "grouping": axes.get("grouping"),
+                    "highlights": highlights,
+                    "suppress": suppress,
+                    "annotations": annotations,
+                    "caveats": caveats,
+                    "pattern_role": "top_n",
+                    "description": "Top contributors",
+                },
+                {
+                    "visualization_type": "pareto",
+                    "purpose": "concentration",
+                    "x_axis": axes.get("x"),
+                    "y_axis": axes.get("y"),
+                    "grouping": None,
+                    "highlights": [],
+                    "suppress": suppress,
+                    "annotations": ["Cumulative share analysis"],
+                    "caveats": caveats,
+                    "pattern_role": "cumulative",
+                    "description": "Cumulative concentration",
+                },
+            ]
+
+        # PATTERN 2: Distribution
+        # Detect: "distribution", "spread", "range", "variance"
+        if purpose == "distribution" or viz_type == "distribution":
+            return [
+                {
+                    "visualization_type": "histogram",
+                    "purpose": "distribution",
+                    "x_axis": "Value Range",
+                    "y_axis": "Frequency",
+                    "grouping": None,
+                    "highlights": [],
+                    "suppress": suppress,
+                    "annotations": annotations,
+                    "caveats": caveats,
+                    "pattern_role": "histogram",
+                    "description": "Value distribution",
+                },
+                {
+                    "visualization_type": "distribution_summary",
+                    "purpose": "distribution",
+                    "x_axis": axes.get("x"),
+                    "y_axis": axes.get("y"),
+                    "grouping": None,
+                    "highlights": [],
+                    "suppress": suppress,
+                    "annotations": ["Min, Median, Max, IQR"],
+                    "caveats": caveats,
+                    "pattern_role": "summary",
+                    "description": "Statistical summary",
+                },
+            ]
+
+        # PATTERN 3: Drivers/Relationship
+        # Detect: "driver", "relationship", "correlation", "associated", "impact"
+        if purpose == "risk" or any(kw in text for kw in ["driver", "impact", "affect", "influence"]):
+            return [
+                {
+                    "visualization_type": "scatter",
+                    "purpose": "risk",
+                    "x_axis": axes.get("x"),
+                    "y_axis": axes.get("y"),
+                    "grouping": axes.get("grouping"),
+                    "highlights": highlights,
+                    "suppress": suppress,
+                    "annotations": annotations,
+                    "caveats": caveats,
+                    "pattern_role": "scatter",
+                    "description": "Relationship analysis",
+                },
+                {
+                    "visualization_type": "trend_summary",
+                    "purpose": "risk",
+                    "x_axis": axes.get("x"),
+                    "y_axis": axes.get("y"),
+                    "grouping": None,
+                    "highlights": [],
+                    "suppress": suppress,
+                    "annotations": ["Trend direction and strength"],
+                    "caveats": caveats,
+                    "pattern_role": "trend",
+                    "description": "Trend analysis",
+                },
+            ]
+
+        # NO PATTERN: Return single visual
+        return [
+            {
+                "visualization_type": viz_type,
+                "purpose": purpose,
+                "x_axis": axes.get("x"),
+                "y_axis": axes.get("y"),
+                "grouping": axes.get("grouping"),
+                "highlights": highlights,
+                "suppress": suppress,
+                "annotations": annotations,
+                "caveats": caveats,
+            }
+        ]
 
     def _infer_visualization_type(
         self, title: str, why_matters: str
@@ -520,8 +679,35 @@ class VisualizationPlannerSkill(Skill):
                 lines.append(
                     f"**Confidence:** {spec['confidence']['label']} ({spec['confidence']['numeric']:.2f})"
                 )
+            elif "visuals" in spec:
+                # Multi-visual pattern
+                lines.append(f"**Pattern:** Multi-visual ({len(spec['visuals'])} visualizations)")
+                lines.append("")
+                for j, visual in enumerate(spec["visuals"], 1):
+                    lines.append(f"### Visual {j}: {visual.get('description', 'Visualization')}")
+                    lines.append(f"**Type:** {visual['visualization_type'].title()} ({visual['purpose'].title()})")
+                    if visual.get("pattern_role"):
+                        lines.append(f"**Role:** {visual['pattern_role']}")
+
+                    if visual.get("x_axis") or visual.get("y_axis"):
+                        axes_str = ""
+                        if visual.get("x_axis"):
+                            axes_str += f"{visual['x_axis']}"
+                        if visual.get("y_axis"):
+                            axes_str += f" → {visual['y_axis']}"
+                        lines.append(f"**Axes:** {axes_str}")
+
+                    if visual.get("annotations"):
+                        lines.append("**Annotations:**")
+                        for annotation in visual["annotations"]:
+                            lines.append(f"  - {annotation}")
+                    lines.append("")
+
+                lines.append(
+                    f"**Confidence:** {spec['confidence']['label']} ({spec['confidence']['numeric']:.2f})"
+                )
             else:
-                # Full spec
+                # Single visualization (original behavior)
                 lines.append(
                     f"**Visualization:** {spec['visualization_type'].title()} chart ({spec['purpose'].title()})"
                 )
