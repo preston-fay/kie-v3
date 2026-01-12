@@ -40,7 +40,7 @@ def test_visual_qc_requires_visualization_plan(tmp_path):
 
 
 def test_visual_qc_requires_story_manifest(tmp_path):
-    """Test that visual QC fails without story_manifest.json."""
+    """Test that visual QC works without story_manifest.json (optional dependency)."""
     outputs_dir = tmp_path / "outputs"
     outputs_dir.mkdir()
     charts_dir = outputs_dir / "charts"
@@ -59,9 +59,9 @@ def test_visual_qc_requires_story_manifest(tmp_path):
 
     result = skill.execute(context)
 
-    # Should fail with error
-    assert not result.success
-    assert any("story_manifest" in str(e).lower() for e in result.errors)
+    # Should succeed with warning (story_manifest is optional)
+    assert result.success
+    assert any("story_manifest.json not found" in str(w) for w in result.warnings)
 
 
 def test_visual_qc_clean_chart_client_ready(tmp_path):

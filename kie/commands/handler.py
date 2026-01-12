@@ -1428,7 +1428,35 @@ class CommandHandler:
                 "   This indicates the story manifest generation failed."
             )
 
+        # SEPARATE MAIN STORY FROM APPENDIX
+        # RULE: Main Story = decision_enabling AND (client_ready OR client_ready_with_caveats)
+        # RULE: Appendix = everything else
+        main_story_sections = []
+        appendix_sections = []
+
         for section in sections:
+            actionability = section.get("actionability_level", "informational")
+            visuals = section.get("visuals", [])
+
+            # Check if ALL visuals in this section meet main story criteria
+            # A section belongs in main story if it's decision_enabling AND all visuals are client_ready or with_caveats
+            is_main_story = actionability == "decision_enabling"
+
+            if is_main_story and visuals:
+                # Further check: all visuals must be client_ready or client_ready_with_caveats
+                for visual in visuals:
+                    visual_quality = visual.get("visual_quality", "client_ready")
+                    if visual_quality == "internal_only":
+                        is_main_story = False
+                        break
+
+            if is_main_story:
+                main_story_sections.append(section)
+            else:
+                appendix_sections.append(section)
+
+        # RENDER MAIN STORY SECTIONS
+        for section in main_story_sections:
             section_title = section.get("title", "")
             narrative = section.get("narrative", {})
             visuals = section.get("visuals", [])
@@ -1514,6 +1542,98 @@ class CommandHandler:
             if caveats and "Risk" in section_title:
                 builder.add_content_slide(
                     title="Risks & Caveats", bullet_points=caveats
+                )
+
+        # ADD APPENDIX DIVIDER (if appendix sections exist)
+        if appendix_sections:
+            builder.add_section_slide("Appendix")
+
+        # RENDER APPENDIX SECTIONS
+        for section in appendix_sections:
+            section_title = section.get("title", "")
+            narrative = section.get("narrative", {})
+            visuals = section.get("visuals", [])
+            actionability = section.get("actionability_level", "informational")
+
+            # Add section divider slide with [APPENDIX] prefix
+            divider_title = f"[APPENDIX] {section_title}"
+
+            builder.add_section_slide(divider_title)
+
+            # If this is Executive Summary, add bullet slide
+            if section_title == "Executive Summary":
+                bullets = narrative.get("supporting_bullets", [])
+                if bullets:
+                    builder.add_content_slide(
+                        title=f"[APPENDIX] {section_title}", bullet_points=bullets
+                    )
+
+            # Add visual slides for this section
+            for visual in visuals:
+                chart_ref = visual.get("chart_ref", "")
+                if not chart_ref:
+                    continue
+
+                chart_path = charts_dir / chart_ref
+                if not chart_path.exists():
+                    raise ValueError(
+                        f"❌ PPT build failed: Chart '{chart_ref}' referenced in manifest not found.\n"
+                        f"   Expected path: {chart_path}\n"
+                        f"   This indicates chart rendering failed."
+                    )
+
+                # Load chart data and config for embedding
+                chart_data, chart_config = self._load_chart_for_embedding(chart_path)
+
+                # Extract x_key and y_keys from chart config
+                x_key = None
+                y_keys = []
+                viz_type = visual.get("visualization_type", "bar")
+
+                if viz_type in ["bar", "line", "area"]:
+                    # Extract from xAxis and bars/lines/areas
+                    if "xAxis" in chart_config:
+                        x_key = chart_config["xAxis"].get("dataKey")
+
+                    if viz_type == "bar" and "bars" in chart_config:
+                        y_keys = [bar["dataKey"] for bar in chart_config["bars"]]
+                    elif viz_type == "line" and "lines" in chart_config:
+                        y_keys = [line["dataKey"] for line in chart_config["lines"]]
+                    elif viz_type == "area" and "areas" in chart_config:
+                        y_keys = [area["dataKey"] for area in chart_config["areas"]]
+
+                # Build slide title from role + headline with [APPENDIX] prefix
+                role = visual.get("role", "")
+                headline = narrative.get("headline", "")
+                slide_title = (
+                    f"{role.capitalize()}: {headline}"
+                    if role and headline
+                    else headline or section_title
+                )
+                slide_title = f"[APPENDIX] {slide_title}"
+
+                # Add visual quality marker to title
+                visual_quality = visual.get("visual_quality", "client_ready")
+                if visual_quality == "internal_only":
+                    slide_title = f"[Internal Only] {slide_title}"
+                elif visual_quality == "client_ready_with_caveats":
+                    slide_title = f"⚠️ {slide_title}"
+
+                # Add chart slide with data and keys
+                builder.add_chart_slide(
+                    title=slide_title,
+                    chart_type=viz_type,
+                    data=chart_data,
+                    x_key=x_key,
+                    y_keys=y_keys,
+                    notes=visual.get("emphasis", ""),
+                )
+
+            # Add caveats slide if present and this is the Risk section
+            caveats = narrative.get("caveats", [])
+            if caveats and "Risk" in section_title:
+                builder.add_content_slide(
+                    title=f"[APPENDIX] Risks & Caveats", bullet_points=caveats
                 )
 
         # Save presentation
@@ -1637,6 +1757,18 @@ class CommandHandler:
             )
 
         # NOTE: Dashboard consumes story_manifest.json with actionability and visual_quality annotations.
+        #
+        # APPENDIX SEPARATION (React Frontend Requirement):
+        # Dashboard should separate Main Story from Appendix using same rules as PPT:
+        # - MAIN STORY: actionability_level == "decision_enabling" AND visual_quality in ("client_ready", "client_ready_with_caveats")
+        # - APPENDIX: Everything else (directional, informational, internal_only visuals)
+        #
+        # Suggested React Layout:
+        # 1. Main Story tabs/sections first (prominently displayed)
+        # 2. Add "Appendix" tab or section divider
+        # 3. Appendix tabs/sections after divider (clearly labeled as "[APPENDIX]")
+        # 4. All content visible - NO hiding, just organizing
+        #
         # React frontend should visually emphasize decision_enabling sections:
         # - Highlight section headers for decision_enabling
         # - Use bold or larger fonts for decision_enabling insights
