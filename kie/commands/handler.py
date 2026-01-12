@@ -2549,6 +2549,33 @@ class CommandHandler:
 
         # CASE 1: Project not bootstrapped
         if not workflow_started:
+            # Check if workspace is partially initialized (project_state exists)
+            # This handles cases where project_state/ was created externally
+            # (e.g., by showcase mode or mark_showcase_completed)
+            project_state_exists = (self.project_root / "project_state").exists()
+
+            if project_state_exists:
+                # Workspace partially initialized - complete initialization silently
+                # Create missing required folders
+                for folder in ["data", "outputs", "exports"]:
+                    folder_path = self.project_root / folder
+                    if not folder_path.exists():
+                        folder_path.mkdir(parents=True, exist_ok=True)
+
+                # Mark startkie complete in rails_state
+                from kie.state import update_rails_state
+                update_rails_state(self.project_root, "startkie", success=True)
+
+                # Reload rails_state to get updated state
+                from kie.state import load_rails_state
+                rails_state = load_rails_state(self.project_root)
+                completed = rails_state.get("completed_stages", [])
+                workflow_started = rails_state.get("workflow_started", False)
+
+                # Continue to next stage
+                return self._execute_single_step(completed, workflow_started)
+
+            # Workspace not initialized, run full startkie
             result = self.handle_startkie()
             result["executed_command"] = "startkie"
             return result
