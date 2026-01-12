@@ -24,6 +24,7 @@ from kie.skills.eda_analysis_bridge import EDAAnalysisBridgeSkill
 from kie.skills.eda_review import EDAReviewSkill
 from kie.skills.eda_synthesis import EDASynthesisSkill
 from kie.skills.executive_summary import ExecutiveSummarySkill
+from kie.skills.freeform_bridge import FreeformBridgeSkill
 from kie.skills.insight_brief import InsightBriefSkill
 from kie.skills.insight_triage import InsightTriageSkill
 from kie.skills.narrative_synthesis import NarrativeSynthesisSkill
@@ -43,6 +44,7 @@ register_skill(EDAAnalysisBridgeSkill())
 register_skill(EDAReviewSkill())
 register_skill(EDASynthesisSkill())
 register_skill(ExecutiveSummarySkill())
+register_skill(FreeformBridgeSkill())
 register_skill(InsightBriefSkill())
 register_skill(InsightTriageSkill())
 register_skill(NarrativeSynthesisSkill())
@@ -68,6 +70,7 @@ __all__ = [
     "EDAReviewSkill",
     "EDASynthesisSkill",
     "ExecutiveSummarySkill",
+    "FreeformBridgeSkill",
     "InsightBriefSkill",
     "InsightTriageSkill",
     "NarrativeSynthesisSkill",

@@ -1469,11 +1469,26 @@ class CommandHandler:
 
         # Check manifest (REQUIRED)
         if not manifest_path.exists():
-            raise ValueError(
-                "❌ PPT build failed: story_manifest.json not found.\n"
-                "   The story manifest should be generated during build.\n"
-                "   This indicates the story_manifest skill failed to run."
-            )
+            # Check if in freeform mode - suggest export
+            from kie.state import ExecutionPolicy, ExecutionMode
+            policy = ExecutionPolicy(self.project_root)
+            if policy.get_mode() == ExecutionMode.FREEFORM:
+                raise ValueError(
+                    "❌ PPT build failed: story_manifest.json not found.\n"
+                    "   \n"
+                    "   In Freeform Mode, run /freeform export to convert\n"
+                    "   freeform analysis into KIE-governed story first:\n"
+                    "   \n"
+                    "     /freeform export\n"
+                    "   \n"
+                    "   Then re-run /build."
+                )
+            else:
+                raise ValueError(
+                    "❌ PPT build failed: story_manifest.json not found.\n"
+                    "   The story manifest should be generated during build.\n"
+                    "   This indicates the story_manifest skill failed to run."
+                )
 
         # Load manifest
         with open(manifest_path) as f:
@@ -1820,11 +1835,26 @@ class CommandHandler:
 
         # Check manifest (REQUIRED)
         if not manifest_path.exists():
-            raise ValueError(
-                "❌ Dashboard build failed: story_manifest.json not found.\n"
-                "   The story manifest should be generated during build.\n"
-                "   This indicates the story_manifest skill failed to run."
-            )
+            # Check if in freeform mode - suggest export
+            from kie.state import ExecutionPolicy, ExecutionMode
+            policy = ExecutionPolicy(self.project_root)
+            if policy.get_mode() == ExecutionMode.FREEFORM:
+                raise ValueError(
+                    "❌ Dashboard build failed: story_manifest.json not found.\n"
+                    "   \n"
+                    "   In Freeform Mode, run /freeform export to convert\n"
+                    "   freeform analysis into KIE-governed story first:\n"
+                    "   \n"
+                    "     /freeform export\n"
+                    "   \n"
+                    "   Then re-run /build."
+                )
+            else:
+                raise ValueError(
+                    "❌ Dashboard build failed: story_manifest.json not found.\n"
+                    "   The story manifest should be generated during build.\n"
+                    "   This indicates the story_manifest skill failed to run."
+                )
 
         # NOTE: Dashboard consumes story_manifest.json with actionability and visual_quality annotations.
         #
@@ -3453,8 +3483,177 @@ project_state/  - Project tracking
 
             return result
 
+        elif subcommand == "export":
+            # Export freeform artifacts into KIE-governed story
+            return self._handle_freeform_export()
+
         else:
             return {
                 "success": False,
-                "message": f"Unknown subcommand: {subcommand}. Use: status, enable, or disable"
+                "message": f"Unknown subcommand: {subcommand}. Use: status, enable, disable, or export"
             }
+
+    def _handle_freeform_export(self) -> dict[str, Any]:
+        """
+        Handle /freeform export - bridge freeform artifacts into KIE-governed story.
+
+        Returns:
+            Export result with artifact details
+        """
+        from kie.state import ExecutionPolicy, ExecutionMode
+        from kie.skills import FreeformBridgeSkill, get_registry
+        from kie.skills.base import SkillContext
+
+        # Validate execution mode
+        policy = ExecutionPolicy(self.project_root)
+        if policy.get_mode() != ExecutionMode.FREEFORM:
+            print()
+            print("=" * 70)
+            print("FREEFORM EXPORT BLOCKED")
+            print("=" * 70)
+            print()
+            print("Freeform export requires execution_mode == freeform.")
+            print()
+            print("Enable freeform mode first:")
+            print("  /freeform enable")
+            print()
+            print("=" * 70)
+            print()
+            return {
+                "success": False,
+                "message": "Freeform export requires freeform mode to be enabled",
+                "error": "execution_mode != freeform"
+            }
+
+        print()
+        print("=" * 70)
+        print("FREEFORM EXPORT: BRIDGING TO KIE STORY")
+        print("=" * 70)
+        print()
+        print("Converting freeform artifacts into KIE-governed story...")
+        print()
+
+        # Step 1: Run freeform bridge to create insights_catalog.json
+        print("1️⃣  Bridging freeform artifacts...")
+        bridge_skill = FreeformBridgeSkill()
+        bridge_context = SkillContext(
+            project_root=self.project_root,
+            current_stage="build",
+            artifacts={},
+            evidence_ledger_id="freeform_export"
+        )
+        bridge_result = bridge_skill.execute(bridge_context)
+
+        if not bridge_result.success:
+            error_msg = ", ".join(bridge_result.errors) if bridge_result.errors else "Unknown error"
+            print(f"   ❌ Bridge failed: {error_msg}")
+            print()
+            print("=" * 70)
+            print()
+            return {
+                "success": False,
+                "message": error_msg,
+                "errors": bridge_result.errors
+            }
+
+        summary = bridge_result.metadata.get("summary", "Bridge completed")
+        print(f"   ✅ {summary}")
+        print()
+
+        # Step 2: Run judged pipeline
+        print("2️⃣  Running judged pipeline...")
+        registry = get_registry()
+
+        # Skills to run in sequence
+        pipeline_skills = [
+            "insight_triage",
+            "actionability_scoring",
+            "narrative_synthesis",
+            "executive_summary",
+            "visualization_planner",
+            "visual_storyboard",
+            "visual_qc",
+            "story_manifest"
+        ]
+
+        pipeline_context = SkillContext(
+            project_root=self.project_root,
+            current_stage="build",
+            artifacts={"execution_mode": "freeform"},
+            evidence_ledger_id="freeform_export_pipeline"
+        )
+
+        failed_skills = []
+        for skill_name in pipeline_skills:
+            print(f"   ▸ Running {skill_name}...")
+            skill = registry.get_skill(skill_name)
+            if skill:
+                result = skill.execute(pipeline_context)
+                if not result.success:
+                    error_msg = ", ".join(result.errors) if result.errors else "Unknown error"
+                    print(f"     ⚠️  {skill_name} failed: {error_msg}")
+                    failed_skills.append(skill_name)
+                else:
+                    print(f"     ✓ {skill_name} completed")
+            else:
+                print(f"     ⚠️  {skill_name} not found in registry")
+                failed_skills.append(skill_name)
+
+        print()
+
+        if failed_skills:
+            print(f"⚠️  Pipeline completed with {len(failed_skills)} failures:")
+            for skill in failed_skills:
+                print(f"   - {skill}")
+            print()
+        else:
+            print("✅ All pipeline skills completed successfully")
+            print()
+
+        # Summary
+        outputs_dir = self.project_root / "outputs"
+        manifest_path = outputs_dir / "story_manifest.json"
+
+        artifacts_created = []
+        if (outputs_dir / "insights_catalog.json").exists():
+            artifacts_created.append("insights_catalog.json")
+        if (outputs_dir / "insight_triage.json").exists():
+            artifacts_created.append("insight_triage.json")
+        if (outputs_dir / "narrative_synthesis.md").exists():
+            artifacts_created.append("narrative_synthesis.md")
+        if (outputs_dir / "visual_storyboard.json").exists():
+            artifacts_created.append("visual_storyboard.json")
+        if manifest_path.exists():
+            artifacts_created.append("story_manifest.json")
+
+        print("📦 Artifacts Created:")
+        for artifact in artifacts_created:
+            print(f"   • {artifact}")
+        print()
+
+        if manifest_path.exists():
+            print("✅ FREEFORM EXPORT COMPLETE")
+            print()
+            print("Story manifest generated. Ready for /build.")
+            print()
+            print("Next steps:")
+            print("  /build dashboard    # Generate KDS-compliant dashboard")
+            print("  /build ppt          # Generate PowerPoint presentation")
+            print("  /build all          # Generate all deliverables")
+        else:
+            print("⚠️  EXPORT PARTIAL")
+            print()
+            print("Some artifacts created but story_manifest.json missing.")
+            print("Review pipeline failures above.")
+
+        print()
+        print("=" * 70)
+        print()
+
+        return {
+            "success": len(failed_skills) == 0,
+            "message": f"Freeform export completed with {len(failed_skills)} failures" if failed_skills else "Freeform export successful",
+            "artifacts_created": artifacts_created,
+            "failed_skills": failed_skills,
+            "manifest_exists": manifest_path.exists()
+        }
