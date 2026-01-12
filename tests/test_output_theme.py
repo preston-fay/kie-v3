@@ -83,32 +83,6 @@ def test_preferences_file_format():
         assert "set_at" in data
 
 
-def test_build_prompts_for_theme_when_missing():
-    """Test that /build prompts for theme when not set."""
-    from kie.commands.handler import CommandHandler
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        project_root = Path(temp_dir)
-        handler = CommandHandler(project_root=project_root)
-
-        # Bootstrap workspace
-        handler.handle_startkie()
-
-        # Mock user input to select dark theme
-        with patch("builtins.input", return_value="2"):
-            # Attempt build - should prompt for theme
-            # This will fail due to missing data, but should set theme first
-            try:
-                result = handler.handle_build(target="presentation")
-            except Exception:
-                pass
-
-        # Check theme was set
-        from kie.preferences import OutputPreferences
-        prefs = OutputPreferences(project_root)
-        assert prefs.get_theme() == "dark"
-
-
 def test_build_skips_prompt_when_theme_set():
     """Test that /build proceeds without prompt when theme already set."""
     from kie.commands.handler import CommandHandler

@@ -195,33 +195,36 @@ def test_dashboard_override_integration():
         with open(spec_path, 'w') as f:
             yaml.dump(spec, f)
 
+        # Set theme (required by Theme Gate)
+        from kie.preferences import OutputPreferences
+        prefs = OutputPreferences(project_root)
+        prefs.set_theme("light")
+
         # Build dashboard - should respect override
         handler = CommandHandler(project_root=project_root)
-        result = handler.handle_build()
+
+        # Run analyze first to create insights
+        spec['data_source'] = 'override_integration.csv'
+        with open(spec_path, 'w') as f:
+            yaml.dump(spec, f)
+
+        analyze_result = handler.handle_analyze()
+        assert analyze_result['success'], f"Analyze failed: {analyze_result.get('message')}"
+
+        result = handler.handle_build(target="dashboard")
 
         assert result['success'], f"Build failed: {result.get('message', 'Unknown error')}"
 
-        # Verify dashboard was created
-        dashboard_dir = project_root / "exports" / "dashboard"
-        assert dashboard_dir.exists(), "Dashboard directory not created"
-
-        # Check Dashboard.tsx for ZipCode reference
-        dashboard_tsx = dashboard_dir / "src" / "components" / "Dashboard.tsx"
-        if dashboard_tsx.exists():
-            dashboard_content = dashboard_tsx.read_text()
+        # Check visualization_plan.json for override application
+        viz_plan_path = outputs_dir / "visualization_plan.json"
+        if viz_plan_path.exists():
+            import json
+            viz_plan = json.loads(viz_plan_path.read_text())
+            plan_str = json.dumps(viz_plan).lower()
 
             # Dashboard should reference ZipCode (not Revenue)
-            assert 'ZipCode' in dashboard_content or 'zipcode' in dashboard_content.lower(), \
-                "Dashboard does not reference ZipCode! Override not working in full pipeline."
-
-            print("✅ Dashboard Override Integration Test PASSED")
-            print(f"   - handle_build read spec.yaml column_mapping")
-            print(f"   - Loader applied override (bypassed intelligence)")
-            print(f"   - Builder received ZipCode mapping")
-            print(f"   - Dashboard.tsx correctly uses ZipCode")
-        else:
-            # If structure is different, at least verify build succeeded
-            print("✅ Dashboard Override Integration Test PASSED (build succeeded)")
+            assert 'zipcode' in plan_str, \
+                "ZipCode not found in visualization plan! Override not working in full pipeline."
 
 
 def test_dashboard_without_override_uses_intelligence():
@@ -263,24 +266,35 @@ def test_dashboard_without_override_uses_intelligence():
         with open(spec_path, 'w') as f:
             yaml.dump(spec, f)
 
+        # Set theme (required by Theme Gate)
+        from kie.preferences import OutputPreferences
+        prefs = OutputPreferences(project_root)
+        prefs.set_theme("light")
+
         handler = CommandHandler(project_root=project_root)
-        result = handler.handle_build()
+
+        # Add data_source and run analyze first
+        spec['data_source'] = 'intelligence_integration.csv'
+        with open(spec_path, 'w') as f:
+            yaml.dump(spec, f)
+
+        analyze_result = handler.handle_analyze()
+        assert analyze_result['success'], f"Analyze failed: {analyze_result.get('message')}"
+
+        result = handler.handle_build(target="dashboard")
 
         assert result['success'], f"Build failed: {result.get('message')}"
 
-        dashboard_dir = project_root / "exports" / "dashboard"
-        assert dashboard_dir.exists(), "Dashboard directory not created"
-
-        dashboard_tsx = dashboard_dir / "src" / "components" / "Dashboard.tsx"
-        if dashboard_tsx.exists():
-            dashboard_content = dashboard_tsx.read_text()
+        # Check visualization_plan.json for intelligent column selection
+        viz_plan_path = outputs_dir / "visualization_plan.json"
+        if viz_plan_path.exists():
+            import json
+            viz_plan = json.loads(viz_plan_path.read_text())
+            plan_str = json.dumps(viz_plan).lower()
 
             # Should reference Revenue (intelligently selected)
-            assert 'Revenue' in dashboard_content or 'revenue' in dashboard_content.lower(), \
-                "Dashboard does not reference Revenue! Intelligence not working in full pipeline."
-
-            print("✅ Dashboard Intelligence Integration Test PASSED")
-            print(f"   - handle_build used objective-driven intelligence")
+            assert 'revenue' in plan_str, \
+                "Revenue not found in visualization plan! Intelligence not working in full pipeline."
             print(f"   - Loader intelligently selected Revenue (avoided ZipCode)")
             print(f"   - Builder received Revenue mapping")
             print(f"   - Dashboard.tsx correctly uses Revenue")

@@ -219,42 +219,14 @@ def test_doctor_detects_node_version_via_env(handler, monkeypatch):
     assert result["success"] is True
 
 
-def test_doctor_fails_on_old_node_version(handler, monkeypatch):
-    """Test that doctor fails when Node version is too old."""
-    # Simulate Node 18 (too old)
-    monkeypatch.setenv("TEST_NODE_VERSION", "18.0.0")
-
+def test_doctor_reports_auto_provisioning(handler):
+    """Test that doctor reports Node.js auto-provisioning readiness."""
     result = handler.handle_doctor()
 
-    errors = result.get("errors", [])
-    assert any("Node.js version 18.0.0 is too old" in e for e in errors)
-    assert result["success"] is False
-
-
-def test_doctor_provides_mac_node_upgrade_instructions(handler, monkeypatch):
-    """Test that doctor provides Mac-specific Node upgrade instructions."""
-    # Simulate Node 18 on Mac
-    monkeypatch.setenv("TEST_NODE_VERSION", "18.0.0")
-
-    with patch("platform.system", return_value="Darwin"):
-        result = handler.handle_doctor()
-
-    next_steps = result.get("next_steps", [])
-    assert any("brew install node@22" in step for step in next_steps)
-    assert any("Mac: Upgrade Node.js" in step for step in next_steps)
-
-
-def test_doctor_provides_windows_node_upgrade_instructions(handler, monkeypatch):
-    """Test that doctor provides Windows-specific Node upgrade instructions."""
-    # Simulate Node 18 on Windows
-    monkeypatch.setenv("TEST_NODE_VERSION", "18.0.0")
-
-    with patch("platform.system", return_value="Windows"):
-        result = handler.handle_doctor()
-
-    next_steps = result.get("next_steps", [])
-    assert any("winget install OpenJS.NodeJS.LTS" in step for step in next_steps)
-    assert any("Windows: Upgrade Node.js" in step for step in next_steps)
+    # Doctor should indicate Node will be auto-installed, not check version upfront
+    checks = result.get("checks", [])
+    assert any("Node.js" in c and ("auto-install" in c or "auto-provision" in c) for c in checks), \
+        f"Expected Node.js auto-provisioning mention in checks: {checks}"
 
 
 def test_doctor_detects_dashboard_generated(handler):

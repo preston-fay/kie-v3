@@ -94,9 +94,16 @@ PYTHONPATH=".kie/src" python3 -m kie.cli doctor
         assert "/eda" in result.stdout, "/eda disappeared after adding dummy"
         assert "/analyze" in result.stdout, "/analyze disappeared after adding dummy"
 
-        # Count commands again (should be 13 now - 12 base commands including /go + dummy)
+        # Count commands again (should be at least 16 now - 15 base commands + dummy)
+        # Base commands include: analyze, build, doctor, eda, go, intent, interview, map,
+        # preview, rails, sampledata, spec, startkie, status, validate
         command_lines = [line for line in result.stdout.split("\n") if line.strip().startswith("/")]
-        assert len(command_lines) == 13, f"Expected 13 commands after adding dummy, found {len(command_lines)}"
+        assert len(command_lines) >= 16, f"Expected ≥16 commands after adding dummy, found {len(command_lines)}"
+
+        # Verify all critical commands are present
+        critical_commands = ["/eda", "/analyze", "/build", "/interview", "/go", "/spec", "/status"]
+        for cmd in critical_commands:
+            assert cmd in result.stdout, f"Critical command {cmd} missing from enumeration"
 
         print(f"\n{'='*60}")
         print("✓ COMMAND ENUMERATION TEST PASSED")

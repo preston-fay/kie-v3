@@ -34,7 +34,17 @@ def test_rails_workflow():
 
         assert result.returncode == 0, f"startkie failed with code {result.returncode}"
         assert (workspace / ".claude" / "commands").exists(), ".claude/commands/ not created"
-        assert (workspace / "data" / "sample_data.csv").exists(), "sample_data.csv not created"
+
+        # Install sample data (now via separate command, not bundled in startkie)
+        result = subprocess.run(
+            ["bash", "-c", 'PYTHONPATH=".kie/src" python3 -m kie.cli sampledata install'],
+            cwd=workspace,
+            capture_output=True,
+            text=True
+        )
+
+        assert result.returncode == 0, f"sampledata install failed: {result.stderr}"
+        assert (workspace / "data" / "sample_data.csv").exists(), "sample_data.csv not created by sampledata install"
 
         # Step 2: Verify command wrappers exist
         print("\nStep 2: Verifying command wrappers...")
@@ -88,6 +98,17 @@ def test_rails_workflow():
 
         assert result.returncode == 0, f"/eda failed with code {result.returncode}"
         assert (workspace / "outputs" / "eda_profile.yaml").exists(), "EDA output not created"
+
+        # Step 4b: Set intent (required by Intent Gate)
+        print("\nStep 4b: Setting intent...")
+        result = subprocess.run(
+            ["bash", "-c", 'PYTHONPATH=".kie/src" python3 -m kie.cli intent set "Analyze sample data for testing"'],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, f"intent set failed with code {result.returncode}"
 
         # Step 5: Run /analyze
         print("\nStep 5: Running /analyze...")

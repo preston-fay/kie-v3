@@ -78,21 +78,30 @@ def test_handle_analyze_intelligence(temp_project):
     
 def test_handle_build_intelligence(temp_project):
     """Test that handle_build uses the intelligent schema."""
+    # Set theme (required by Theme Gate)
+    from kie.preferences import OutputPreferences
+    prefs = OutputPreferences(temp_project)
+    prefs.set_theme("light")
+
     handler = CommandHandler(project_root=temp_project)
-    
+
     # Create dataset
     data = pd.DataFrame({
         "Region": ["North", "South"],
         "Sales": [100, 200]
     })
     data.to_csv(temp_project / "data" / "data.csv", index=False)
-    
+
+    # Run analyze first to create insights
+    analyze_result = handler.handle_analyze()
+    assert analyze_result["success"], f"Analyze failed: {analyze_result.get('message')}"
+
     # Run build
     result = handler.handle_build(target="dashboard")
-    
-    assert result["success"]
+
+    assert result["success"], f"Build failed: {result.get('message')}"
     assert "dashboard" in result["outputs"]
-    
+
     dashboard_path = Path(result["outputs"]["dashboard"])
     assert dashboard_path.exists()
     assert (dashboard_path / "src" / "Dashboard.tsx").exists()

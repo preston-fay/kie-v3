@@ -16,17 +16,29 @@ from unittest.mock import patch
 import pytest
 
 
-def test_sample_data_exists():
-    """Test that sample_data.csv exists in project_template and is non-empty."""
-    repo_root = Path(__file__).parent.parent
-    sample_data = repo_root / "project_template" / "data" / "sample_data.csv"
+def test_sample_data_command():
+    """Test that /sampledata install command creates sample_data.csv."""
+    from kie.commands.handler import CommandHandler
 
-    assert sample_data.exists(), "sample_data.csv missing from project_template/data/"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        project_root = Path(temp_dir)
+        handler = CommandHandler(project_root=project_root)
 
-    content = sample_data.read_text()
-    assert len(content) > 100, f"sample_data.csv too small ({len(content)} bytes)"
-    assert "Region" in content, "sample_data.csv missing expected columns"
-    assert "Revenue" in content, "sample_data.csv missing Revenue column"
+        # Bootstrap workspace
+        handler.handle_startkie()
+
+        # Install sample data
+        result = handler.handle_sampledata(subcommand="install")
+        assert result["success"], f"sampledata install failed: {result}"
+
+        # Verify sample_data.csv was created
+        sample_data = project_root / "data" / "sample_data.csv"
+        assert sample_data.exists(), "sample_data.csv not created by /sampledata install"
+
+        # Verify content is valid
+        content = sample_data.read_text()
+        assert len(content) > 100, f"sample_data.csv too small ({len(content)} bytes)"
+        assert "Region" in content or "region" in content, "sample_data.csv missing expected columns"
 
 
 def test_data_file_selection_priority():

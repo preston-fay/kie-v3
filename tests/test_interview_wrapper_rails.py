@@ -77,6 +77,17 @@ def test_interview_rails_flow_with_data():
 
         assert result.returncode == 0, f"analyze failed: {result.stderr}\nStdout: {result.stdout}"
 
+        # Set theme (required by Theme Gate)
+        result = subprocess.run(
+            ["python3", "-m", "kie.cli", "theme", "light"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        assert result.returncode == 0, f"theme set failed: {result.stderr}\nStdout: {result.stdout}"
+
         # Run Rails workflow: build
         result = subprocess.run(
             ["python3", "-m", "kie.cli", "build"],
