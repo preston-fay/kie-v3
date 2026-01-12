@@ -1151,122 +1151,6 @@ class CommandHandler:
             "message": f"Current theme: {current_theme}",
         }
 
-    def handle_freeform(self, action: str | None = None) -> dict[str, Any]:
-        """
-        Handle /freeform command - manage execution mode (rails vs freeform).
-
-        Args:
-            action: Action to perform ("status", "enable", "disable", or None for status)
-
-        Returns:
-            Result dict with success, mode, and message
-        """
-        from kie.execution_policy import ExecutionPolicy
-
-        policy = ExecutionPolicy(self.project_root)
-
-        # Default to status if no action provided
-        if action is None or action == "status":
-            policy_info = policy.get_policy_info()
-            current_mode = policy_info["mode"]
-            set_at = policy_info.get("set_at")
-            set_by = policy_info.get("set_by", "default")
-
-            print()
-            print("=" * 70)
-            print(f"EXECUTION MODE: {current_mode.upper()}")
-            print("=" * 70)
-            print()
-
-            if current_mode == "rails":
-                print("Rails Mode (default) - Off-rails execution disabled")
-                print()
-                print("What's Forbidden:")
-                print("  • Ad-hoc Python scripts outside KIE")
-                print("  • Matplotlib/Seaborn charts")
-                print("  • Arbitrary bash/python execution")
-                print("  • Non-KIE artifacts")
-                print()
-                print("What's Allowed:")
-                print("  • All KIE CLI commands (/eda, /analyze, /build, etc.)")
-                print("  • Recharts dashboards")
-                print("  • PowerPoint presentations")
-                print("  • KIE-managed analysis")
-                print()
-                print("To enable custom analysis:")
-                print("  python3 -m kie.cli freeform enable")
-            else:
-                print("Freeform Mode - Custom analysis enabled")
-                print()
-                print("User has opted in to custom analysis, including:")
-                print("  • Ad-hoc Python scripts")
-                print("  • Custom visualization libraries")
-                print("  • Exploratory analysis outside KIE")
-                print()
-                print("To return to Rails Mode:")
-                print("  python3 -m kie.cli freeform disable")
-
-            if set_at:
-                print()
-                print(f"Mode set: {set_at}")
-                print(f"Set by: {set_by}")
-
-            print()
-
-            return {
-                "success": True,
-                "mode": current_mode,
-                "message": f"Current execution mode: {current_mode}",
-            }
-
-        elif action == "enable":
-            policy.set_mode("freeform", set_by="user")
-            print()
-            print("=" * 70)
-            print("✓ FREEFORM MODE ENABLED")
-            print("=" * 70)
-            print()
-            print("Custom analysis is now allowed, including:")
-            print("  • Ad-hoc Python scripts")
-            print("  • Matplotlib/Seaborn visualizations")
-            print("  • Exploratory analysis outside KIE")
-            print()
-            print("To return to Rails Mode:")
-            print("  python3 -m kie.cli freeform disable")
-            print()
-
-            return {
-                "success": True,
-                "mode": "freeform",
-                "message": "Freeform mode enabled",
-            }
-
-        elif action == "disable":
-            policy.set_mode("rails", set_by="user")
-            print()
-            print("=" * 70)
-            print("✓ RAILS MODE RESTORED")
-            print("=" * 70)
-            print()
-            print("Off-rails execution is now disabled.")
-            print("Only KIE CLI commands are permitted.")
-            print()
-            print("To re-enable custom analysis:")
-            print("  python3 -m kie.cli freeform enable")
-            print()
-
-            return {
-                "success": True,
-                "mode": "rails",
-                "message": "Rails mode enabled (freeform disabled)",
-            }
-
-        else:
-            return {
-                "success": False,
-                "message": f"Invalid action: {action}. Use 'status', 'enable', or 'disable'",
-            }
-
     def handle_interview(self, from_wrapper: bool = False) -> dict[str, Any]:
         """
         Handle /interview command.
@@ -2991,17 +2875,22 @@ project_state/  - Project tracking
                 "message": f"Template generation failed: {str(e)}",
             }
 
-    def handle_freeform(self, subcommand: str = "status") -> dict[str, Any]:
+    def handle_freeform(self, subcommand: str = "status", action: str | None = None) -> dict[str, Any]:
         """
         Handle /freeform command - manage execution mode.
 
         Args:
             subcommand: One of: status, enable, disable
+            action: (deprecated, use subcommand) Alias for subcommand for backward compatibility
 
         Returns:
             Mode management result
         """
         from kie.state import ExecutionPolicy, ExecutionMode
+
+        # Backward compatibility: support old 'action' parameter
+        if action is not None:
+            subcommand = action
 
         policy = ExecutionPolicy(self.project_root)
 

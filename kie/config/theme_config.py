@@ -132,26 +132,6 @@ def initialize_project_theme() -> None:
     config.apply_theme()
 
 
-def prompt_theme_preference() -> ThemeMode:
-    """
-    DEPRECATED: Do not use - causes stdin issues in non-interactive contexts.
-
-    Use /theme command instead to set theme preference.
-    Theme must be set via /theme light or /theme dark.
-
-    Returns:
-        ThemeMode.DARK (fallback only, should not be called)
-    """
-    print()
-    print("ERROR: prompt_theme_preference() is deprecated")
-    print("Use /theme command to set theme preference:")
-    print("  /theme light  - Light backgrounds, dark text")
-    print("  /theme dark   - Dark backgrounds, white text")
-    print()
-    # Return default to avoid crashes, but this should never be called
-    return ThemeMode.DARK
-
-
 def get_theme_display_name(mode: ThemeMode) -> str:
     """
     Get display name for theme mode.

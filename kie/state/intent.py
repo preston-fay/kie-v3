@@ -205,16 +205,3 @@ def print_intent_required_message() -> None:
     print()
     print("Set intent with: /intent set \"<one sentence>\" or run /interview")
     print()
-
-
-def prompt_for_intent() -> str:
-    """
-    DEPRECATED: Do not use - causes stdin issues in non-interactive contexts.
-
-    Use print_intent_required_message() and exit instead.
-
-    Returns:
-        Empty string (never actually prompts)
-    """
-    print_intent_required_message()
-    return ""
