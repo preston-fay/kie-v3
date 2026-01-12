@@ -129,6 +129,10 @@ def test_journey_a_fresh_workspace_no_data(reality_battery, monkeypatch, capsys)
     assert (project_root / "outputs").exists()
     assert (project_root / "project_state").exists()
 
+    # Verify theme command wrapper exists (required by /build)
+    theme_cmd = project_root / ".claude" / "commands" / "theme.md"
+    assert theme_cmd.exists(), "theme.md wrapper missing after /startkie"
+
     handler = CommandHandler(project_root)
 
     # Check status - should be truthful about no data

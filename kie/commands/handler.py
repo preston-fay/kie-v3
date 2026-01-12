@@ -2121,6 +2121,20 @@ class CommandHandler:
                     print(f"  {step}")
                 print()
 
+            # Convert any Path objects in skill_results to strings for JSON serialization
+            def serialize_paths(obj):
+                """Recursively convert Path objects to strings in nested structures."""
+                if isinstance(obj, Path):
+                    return str(obj)
+                elif isinstance(obj, dict):
+                    return {k: serialize_paths(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [serialize_paths(item) for item in obj]
+                else:
+                    return obj
+
+            serialized_skill_results = serialize_paths(skill_results)
+
             return {
                 "success": True,
                 "profile": profile.to_dict(),
@@ -2129,7 +2143,7 @@ class CommandHandler:
                 "data_file": data_file,
                 "is_sample_data": is_sample_data,
                 "log_file": str(log_file),
-                "skill_results": skill_results,
+                "skill_results": serialized_skill_results,
             }
 
         except Exception as e:
@@ -2268,96 +2282,8 @@ class CommandHandler:
             catalog_path.parent.mkdir(parents=True, exist_ok=True)
             catalog.save(str(catalog_path))
 
-            # PHASE 6: AUTO-MAP GENERATION
-            # Detect geospatial columns and automatically generate maps
-            from datetime import datetime
-
-            from kie.geo.maps.folium_builder import create_marker_map, create_us_choropleth
-
-            map_path = None
-            map_type = None
-
-            try:
-                # Detect geo columns explicitly (name-based matching)
-                geo_mapping = {}
-
-                # State detection
-                state_keywords = ['state', 'st', 'state_abbr', 'state_code']
-                for col in loader.schema.columns:
-                    col_lower = col.lower()
-                    if any(kw == col_lower or kw in col_lower for kw in state_keywords):
-                        geo_mapping['state'] = col
-                        break
-
-                # Lat/Lon detection (must be numeric with coordinate-like names)
-                lat_keywords = ['latitude', 'lat', 'lat_deg', 'y']
-                lon_keywords = ['longitude', 'lon', 'lng', 'long', 'lon_deg', 'x']
-
-                for col in loader.schema.numeric_columns:
-                    col_lower = col.lower()
-                    if not geo_mapping.get('latitude') and any(kw in col_lower for kw in lat_keywords):
-                        geo_mapping['latitude'] = col
-                    if not geo_mapping.get('longitude') and any(kw in col_lower for kw in lon_keywords):
-                        geo_mapping['longitude'] = col
-
-                # Generate map ONLY if geo data found (don't generate garbage!)
-                has_latlon = geo_mapping.get('latitude') and geo_mapping.get('longitude')
-                has_state = geo_mapping.get('state')
-
-                if has_latlon or has_state:
-                    # Validate that coordinates look reasonable if lat/lon
-                    if has_latlon:
-                        lat_values = df[geo_mapping['latitude']].dropna()
-                        lon_values = df[geo_mapping['longitude']].dropna()
-                        # Skip if coordinates are clearly invalid (all zeros, out of range, etc.)
-                        if len(lat_values) == 0 or len(lon_values) == 0:
-                            raise ValueError("Latitude/longitude columns are empty")
-                        if lat_values.abs().max() > 90 or lon_values.abs().max() > 180:
-                            raise ValueError("Latitude/longitude values out of valid range")
-                        if lat_values.std() < 0.01 and lon_values.std() < 0.01:
-                            raise ValueError("Coordinates have no variance (all same location)")
-
-                    # Only proceed if validation passed
-                    maps_dir = self.project_root / "outputs" / "maps"
-                    maps_dir.mkdir(parents=True, exist_ok=True)
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-                    if has_latlon:
-                        # Create marker map
-                        popup_cols = [col for col in loader.schema.columns
-                                     if col not in [geo_mapping['latitude'], geo_mapping['longitude']]][:3]
-
-                        map_builder = create_marker_map(
-                            data=df,
-                            latitude_col=geo_mapping['latitude'],
-                            longitude_col=geo_mapping['longitude'],
-                            popup_cols=popup_cols,
-                            cluster=True
-                        )
-
-                        map_path = maps_dir / f"auto_map_{timestamp}.html"
-                        map_builder.save(str(map_path))
-                        map_type = "marker"
-
-                    elif has_state:
-                        # Create US choropleth
-                        # Use intelligent value selection (prefer the metric we already found)
-                        value_col = value_column  # Already intelligently selected above
-
-                        map_builder = create_us_choropleth(
-                            data=df,
-                            value_column=value_col,
-                            key_column=geo_mapping['state'],
-                            title=f"{value_col} by State"
-                        )
-
-                        map_path = maps_dir / f"auto_map_{timestamp}.html"
-                        map_builder.save(str(map_path))
-                        map_type = "choropleth"
-
-            except Exception:
-                # Map generation is optional - don't fail the whole analysis
-                pass
+            # Maps must be created explicitly via /map command
+            # Auto-map generation removed to avoid incoherent outputs
 
             result = {
                 "success": True,
@@ -2374,11 +2300,6 @@ class CommandHandler:
                     for i in insights[:5]  # Return top 5
                 ],
             }
-
-            # Add map info if generated
-            if map_path:
-                result["map_generated"] = str(map_path)
-                result["map_type"] = map_type
 
             # Execute analyze stage skills (two-pass for dependencies)
             try:

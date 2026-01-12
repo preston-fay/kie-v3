@@ -18,8 +18,8 @@ import yaml
 
 def test_auto_map_with_latlon():
     """
-    Test that handle_analyze automatically detects latitude/longitude columns
-    and generates a marker map without explicit /map command.
+    Test that handle_analyze does NOT automatically generate maps.
+    Maps must be created explicitly via /map command.
     """
     from kie.commands.handler import CommandHandler
 
@@ -56,41 +56,37 @@ def test_auto_map_with_latlon():
         with open(spec_path, 'w') as f:
             yaml.dump(spec, f)
 
-        # Execute ANALYZE command (should auto-generate map)
+        # Execute ANALYZE command (should NOT auto-generate map)
         handler = CommandHandler(project_root=project_root)
         result = handler.handle_analyze(data_file=str(csv_path))
 
         assert result['success'], f"Analysis failed: {result.get('message', 'Unknown error')}"
 
-        # Verify map was auto-generated
-        assert 'map_generated' in result, "No map was auto-generated during analysis!"
-        assert result.get('map_type') == 'marker', f"Expected marker map, got {result.get('map_type')}"
+        # Verify map was NOT auto-generated
+        assert 'map_generated' not in result, "Auto-map should not be generated - maps must be explicit"
 
-        map_path = Path(result['map_generated'])
-        assert map_path.exists(), f"Map file not found: {map_path}"
-        assert map_path.suffix == '.html', "Map should be HTML file"
-        assert 'auto_map' in map_path.name, "Map should be named auto_map_*"
+        # Verify no auto_map files exist
+        maps_dir = outputs_dir / "maps"
+        if maps_dir.exists():
+            auto_maps = list(maps_dir.glob("auto_map_*.html"))
+            assert len(auto_maps) == 0, f"Found {len(auto_maps)} auto_map files - should be 0"
 
-        # Verify it's in outputs/maps/
-        assert 'outputs/maps' in str(map_path), "Map should be in outputs/maps/ directory"
-
-        print("✅ Auto-Map with Lat/Lon Test PASSED")
-        print(f"   - handle_analyze detected Lat/Lon columns")
-        print(f"   - Auto-generated marker map: {map_path.name}")
-        print(f"   - No explicit /map command needed")
+        print("✅ No Auto-Map Test PASSED")
+        print(f"   - handle_analyze did NOT auto-generate maps")
+        print(f"   - Maps must be created explicitly via /map")
 
 
 def test_auto_map_with_state():
     """
-    Test that handle_analyze automatically detects state column
-    and generates a choropleth map (or attempts to).
+    Test that handle_analyze does NOT automatically generate maps even with state columns.
+    Maps must be created explicitly via /map command.
     """
     from kie.commands.handler import CommandHandler
 
     # Create data with state column
     data = pd.DataFrame({
         'State': ['CA', 'TX', 'NY', 'FL', 'IL', 'PA', 'OH'],
-        'ZipCode': [90001, 75001, 10001, 33101, 60601, 19101, 43201],  # Trap
+        'ZipCode': [90001, 75001, 10001, 33101, 60601, 19101, 43201],
         'Revenue': [5000000, 3200000, 4800000, 2900000, 3100000, 2500000, 2200000],
         'Region': ['West', 'South', 'East', 'South', 'Midwest', 'East', 'Midwest']
     })
@@ -123,25 +119,18 @@ def test_auto_map_with_state():
 
         assert result['success'], f"Analysis failed: {result.get('message')}"
 
-        # Map generation might fail due to missing GeoJSON, but that's ok
-        # What matters is that handle_analyze ATTEMPTED to create a map
-        if 'map_generated' in result:
-            # Full success - choropleth was created
-            assert result.get('map_type') == 'choropleth', f"Expected choropleth, got {result.get('map_type')}"
-            map_path = Path(result['map_generated'])
-            assert map_path.exists(), f"Map file not found: {map_path}"
+        # Verify map was NOT auto-generated
+        assert 'map_generated' not in result, "Auto-map should not be generated - maps must be explicit"
 
-            print("✅ Auto-Map with State Test PASSED")
-            print(f"   - handle_analyze detected State column")
-            print(f"   - Auto-generated choropleth map: {map_path.name}")
-            print(f"   - Used Revenue for values (avoided ZipCode trap)")
-        else:
-            # Choropleth rendering might have failed (GeoJSON dependency)
-            # But handle_analyze still succeeded
-            print("✅ Auto-Map with State Test PASSED (partial)")
-            print(f"   - handle_analyze detected State column")
-            print(f"   - Would auto-generate choropleth (GeoJSON dependency)")
-            print(f"   - Analysis succeeded regardless")
+        # Verify no auto_map files exist
+        maps_dir = outputs_dir / "maps"
+        if maps_dir.exists():
+            auto_maps = list(maps_dir.glob("auto_map_*.html"))
+            assert len(auto_maps) == 0, f"Found {len(auto_maps)} auto_map files - should be 0"
+
+        print("✅ No Auto-Map with State Test PASSED")
+        print(f"   - handle_analyze did NOT auto-generate choropleth")
+        print(f"   - Maps must be created explicitly via /map")
 
 
 def test_no_auto_map_without_geo_data():
