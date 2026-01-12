@@ -1370,7 +1370,19 @@ class CommandHandler:
 
     def _build_presentation(self, spec: dict[str, Any], theme: str = "dark") -> Path:
         """
-        Build PowerPoint presentation from spec and insights.
+        Build PowerPoint presentation from visual storyboard and executive summary.
+
+        COMPOSITION CONTRACT (NON-NEGOTIABLE):
+        - Slide 1: Title (project name + objective from intent.yaml)
+        - Slide 2: Executive Summary (from executive_summary.md)
+        - Slides 3-N: Visual Story (from visual_storyboard.json, charts embedded)
+        - Final Slide: Risks & Caveats (from executive_summary.md)
+
+        REQUIRED INPUTS:
+        - outputs/executive_summary.md (or .json)
+        - outputs/visual_storyboard.json
+        - outputs/charts/ (rendered chart artifacts)
+        - project_state/intent.yaml
 
         Args:
             spec: Project specification
@@ -1378,47 +1390,157 @@ class CommandHandler:
 
         Returns:
             Path to generated presentation
+
+        Raises:
+            ValueError: If required inputs are missing
         """
-        # Load insights if available
-        insights_path = self.project_root / "outputs" / "insights.yaml"
-        insights = []
-        if insights_path.exists():
-            catalog = InsightCatalog.load(str(insights_path))
-            insights = catalog.insights
+        import yaml
+
+        outputs_dir = self.project_root / "outputs"
+        project_state_dir = self.project_root / "project_state"
+
+        # VALIDATE REQUIRED INPUTS
+        storyboard_path = outputs_dir / "visual_storyboard.json"
+        exec_summary_md = outputs_dir / "executive_summary.md"
+        exec_summary_json = outputs_dir / "executive_summary.json"
+        intent_path = project_state_dir / "intent.yaml"
+        charts_dir = outputs_dir / "charts"
+
+        # Check storyboard (REQUIRED)
+        if not storyboard_path.exists():
+            raise ValueError(
+                "❌ PPT build failed: visual_storyboard.json not found.\n"
+                "   Run /analyze first to generate the visual storyboard."
+            )
+
+        # Check executive summary (REQUIRED)
+        if not exec_summary_md.exists() and not exec_summary_json.exists():
+            raise ValueError(
+                "❌ PPT build failed: executive_summary.md not found.\n"
+                "   Run /analyze first to generate the executive summary."
+            )
+
+        # Check intent (REQUIRED)
+        if not intent_path.exists():
+            raise ValueError(
+                "❌ PPT build failed: intent.yaml not found.\n"
+                "   Run /intent set \"<objective>\" or /interview first."
+            )
+
+        # Load required inputs
+        with open(storyboard_path) as f:
+            storyboard_data = json.load(f)
+
+        with open(intent_path) as f:
+            intent_data = yaml.safe_load(f)
+
+        # Load executive summary
+        exec_summary_content = self._load_executive_summary(exec_summary_md, exec_summary_json)
 
         # Create presentation (theme is loaded internally via get_theme())
         builder = SlideBuilder(title=spec.get("project_name", "Analysis"))
 
-        # Title slide
+        # SLIDE 1: TITLE
+        objective = intent_data.get("objective", spec.get("objective", ""))
         builder.add_title_slide(
             title=spec.get("project_name", "Analysis"),
-            subtitle=spec.get("description", ""),
+            subtitle=objective,
             author=spec.get("client_name", ""),
             date=datetime.now().strftime("%B %Y"),
         )
 
-        # Add insights as content slides
-        if insights:
-            for insight in insights[:10]:  # Limit to top 10 insights
-                # Build bullet points from insight attributes
-                bullet_points = [insight.supporting_text or ""]
-
-                # Add confidence and severity info
-                if insight.confidence:
-                    bullet_points.append(f"Confidence: {insight.confidence:.0%}")
-                if insight.statistical_significance:
-                    bullet_points.append(f"Statistical Significance: p={insight.statistical_significance:.3f}")
-
-                builder.add_content_slide(
-                    title=insight.headline,
-                    bullet_points=bullet_points,
-                    notes=f"Insight Type: {insight.insight_type.value}, Severity: {insight.severity.value}",
-                )
-        else:
-            # Add placeholder content
+        # SLIDE 2: EXECUTIVE SUMMARY
+        summary_bullets = self._extract_summary_bullets(exec_summary_content)
+        if summary_bullets:
             builder.add_content_slide(
-                title="Key Findings",
-                bullet_points=["Run /analyze to extract insights from your data"],
+                title="Executive Summary",
+                bullet_points=summary_bullets,
+            )
+
+        # SLIDES 3-N: VISUAL STORY (FROM STORYBOARD)
+        elements = storyboard_data.get("elements", [])
+        if not elements:
+            raise ValueError(
+                "❌ PPT build failed: visual_storyboard.json contains no elements.\n"
+                "   This indicates the storyboard generation failed."
+            )
+
+        # Group elements by section for section dividers
+        current_section = None
+        for element in elements:
+            section = element.get("section", "")
+
+            # Add section divider if section changed
+            if section != current_section and section:
+                current_section = section
+                builder.add_section_slide(section)
+
+            # Validate chart exists
+            chart_ref = element.get("chart_ref", "")
+            if not chart_ref:
+                continue  # Skip elements without charts
+
+            chart_path = charts_dir / chart_ref
+            if not chart_path.exists():
+                raise ValueError(
+                    f"❌ PPT build failed: Chart '{chart_ref}' referenced in storyboard not found.\n"
+                    f"   Expected path: {chart_path}\n"
+                    f"   This indicates chart rendering failed."
+                )
+
+            # Load chart data and config for embedding
+            chart_data, chart_config = self._load_chart_for_embedding(chart_path)
+
+            # Extract x_key and y_keys from chart config
+            x_key = None
+            y_keys = []
+            viz_type = element.get("visualization_type", "bar")
+
+            if viz_type in ["bar", "line", "area"]:
+                # Extract from xAxis and bars/lines/areas
+                if "xAxis" in chart_config:
+                    x_key = chart_config["xAxis"].get("dataKey")
+
+                if viz_type == "bar" and "bars" in chart_config:
+                    y_keys = [bar["dataKey"] for bar in chart_config["bars"]]
+                elif viz_type == "line" and "lines" in chart_config:
+                    y_keys = [line["dataKey"] for line in chart_config["lines"]]
+                elif viz_type == "area" and "areas" in chart_config:
+                    y_keys = [area["dataKey"] for area in chart_config["areas"]]
+
+            # Build slide title from role + narrative
+            role = element.get("role", "")
+            insight_title = element.get("insight_title", "")
+            slide_title = f"{role}: {insight_title}" if role and insight_title else insight_title or role
+
+            # Build supporting text
+            supporting_text = []
+            if element.get("transition_text"):
+                supporting_text.append(element["transition_text"])
+
+            # Add caveats if present
+            caveats = element.get("caveats", [])
+            if caveats:
+                supporting_text.append("")
+                supporting_text.append("Caveats:")
+                supporting_text.extend([f"• {caveat}" for caveat in caveats])
+
+            # Add chart slide with data and keys
+            builder.add_chart_slide(
+                title=slide_title,
+                chart_type=viz_type,
+                data=chart_data,
+                x_key=x_key,
+                y_keys=y_keys,
+                notes=element.get("emphasis", ""),
+            )
+
+        # FINAL SLIDE: RISKS & CAVEATS
+        caveats = self._extract_caveats(exec_summary_content)
+        if caveats:
+            builder.add_content_slide(
+                title="Risks & Caveats",
+                bullet_points=caveats,
             )
 
         # Save presentation
@@ -1429,6 +1551,85 @@ class CommandHandler:
         builder.save(str(output_path))
 
         return output_path
+
+    def _load_executive_summary(self, md_path: Path, json_path: Path) -> dict[str, Any]:
+        """Load executive summary from markdown or JSON."""
+        if md_path.exists():
+            content = md_path.read_text()
+            # Parse markdown into structured format
+            return {"markdown": content, "bullets": [], "caveats": []}
+        elif json_path.exists():
+            with open(json_path) as f:
+                return json.load(f)
+        return {}
+
+    def _extract_summary_bullets(self, exec_summary: dict[str, Any]) -> list[str]:
+        """Extract summary bullets from executive summary."""
+        bullets = []
+
+        # Try structured format first
+        if exec_summary.get("bullets"):
+            return exec_summary["bullets"]
+
+        # Parse from markdown
+        markdown = exec_summary.get("markdown", "")
+        if markdown:
+            lines = markdown.split("\n")
+            for line in lines:
+                line = line.strip()
+                # Extract bullet points
+                if line.startswith("-") or line.startswith("*") or line.startswith("•"):
+                    bullet = line.lstrip("-*• ").strip()
+                    if bullet and not bullet.lower().startswith("risk") and not bullet.lower().startswith("caveat"):
+                        bullets.append(bullet)
+
+        return bullets[:6]  # Limit to 6 bullets for executive summary
+
+    def _extract_caveats(self, exec_summary: dict[str, Any]) -> list[str]:
+        """Extract caveats from executive summary."""
+        caveats = []
+
+        # Try structured format first
+        if exec_summary.get("caveats"):
+            return exec_summary["caveats"]
+
+        # Parse from markdown
+        markdown = exec_summary.get("markdown", "")
+        if markdown:
+            lines = markdown.split("\n")
+            in_caveats_section = False
+            for line in lines:
+                line = line.strip()
+                # Check for caveats section
+                if "risk" in line.lower() or "caveat" in line.lower():
+                    in_caveats_section = True
+                    continue
+                # Extract bullets in caveats section
+                if in_caveats_section and (line.startswith("-") or line.startswith("*") or line.startswith("•")):
+                    caveat = line.lstrip("-*• ").strip()
+                    if caveat:
+                        caveats.append(caveat)
+
+        return caveats
+
+    def _load_chart_for_embedding(self, chart_path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """
+        Load chart data and config from JSON file for PowerPoint embedding.
+
+        Returns:
+            Tuple of (data, chart_config_dict) where chart_config_dict has keys like xAxis, yAxis, bars
+        """
+        try:
+            with open(chart_path) as f:
+                chart_json = json.load(f)
+
+            data = chart_json.get("data", [])
+            config = chart_json.get("config", {})
+
+            return data, config
+        except Exception as e:
+            print(f"Warning: Could not load chart from {chart_path}: {e}")
+            return [], {}
 
     def _build_dashboard(self, spec: dict[str, Any], node_bin: Path | None = None, theme: str = "dark") -> Path:
         """
