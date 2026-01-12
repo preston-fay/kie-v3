@@ -1289,8 +1289,45 @@ class CommandHandler:
         try:
             results = {}
 
-            # RENDER CHARTS FROM VISUALIZATION PLAN (deterministic, judgment-driven)
-            if target in ["all", "charts", "dashboard", "presentation"]:
+            # CHARTS-ONLY PATH: Render charts without requiring story manifest or deliverables
+            # Used by battery tests and chart-only workflows
+            if target == "charts":
+                try:
+                    from kie.charts.renderer import ChartRenderer
+
+                    renderer = ChartRenderer(self.project_root)
+                    chart_result = renderer.render_charts()
+                    results["charts"] = chart_result
+                    print(f"✓ Rendered {chart_result['charts_rendered']} charts from visualization plan")
+
+                    # Update status
+                    status["status"] = "completed"
+                    status["completed_at"] = datetime.now().isoformat()
+                    with open(self.state_path, "w") as f:
+                        json.dump(status, f, indent=2)
+
+                    return {
+                        "success": True,
+                        "message": f"Rendered {chart_result['charts_rendered']} charts",
+                        "charts_rendered": chart_result['charts_rendered'],
+                        "charts": chart_result['charts'],
+                    }
+                except FileNotFoundError as e:
+                    # visualization_plan.json missing - block build
+                    return {
+                        "success": False,
+                        "blocked": True,
+                        "message": str(e),
+                    }
+                except Exception as e:
+                    # Chart rendering failed
+                    return {
+                        "success": False,
+                        "message": f"Chart rendering failed: {e}",
+                    }
+
+            # RENDER CHARTS FROM VISUALIZATION PLAN (for full builds)
+            if target in ["all", "dashboard", "presentation"]:
                 try:
                     from kie.charts.renderer import ChartRenderer
 
@@ -1312,7 +1349,7 @@ class CommandHandler:
 
             # Build dashboard FIRST (generates Recharts HTML)
             # This is what users actually want to see!
-            if target in ["all", "dashboard", "charts"]:
+            if target in ["all", "dashboard"]:
                 # Get Node runtime with automatic provisioning
                 from kie.tooling import get_node_bin
 
