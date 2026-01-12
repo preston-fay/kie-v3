@@ -2051,12 +2051,16 @@ class CommandHandler:
                 results = registry.execute_skills_for_stage("eda", skill_context)
                 skill_results = results
 
-                log(f"Executed {len(results)} skills for eda stage")
-                for skill_id, result in results.items():
-                    if result.success:
-                        log(f"  ✓ {skill_id}: {list(result.artifacts.keys())}")
+                skills_executed = results.get("skills_executed", [])
+                log(f"Executed {len(skills_executed)} skills for eda stage")
+                for skill_info in skills_executed:
+                    skill_id = skill_info.get("skill_id", "unknown")
+                    success = skill_info.get("success", False)
+                    artifacts = skill_info.get("artifacts", {})
+                    if success:
+                        log(f"  ✓ {skill_id}: {list(artifacts.keys())}")
                     else:
-                        log(f"  ✗ {skill_id}: {result.errors}")
+                        log(f"  ✗ {skill_id}: failed")
 
             except Exception as e:
                 log(f"Warning: Skill execution failed: {e}")
