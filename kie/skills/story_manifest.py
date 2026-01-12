@@ -169,7 +169,11 @@ class StoryManifestSkill(Skill):
         actionability_path = outputs_dir / "actionability_scores.json"
         visual_qc_path = outputs_dir / "visual_qc.json"
         intent_path = project_state_dir / "intent.yaml"
-        exec_summary_md = outputs_dir / "executive_summary.md"
+
+        # PREFER CONSULTANT VERSION if available (fallback to original)
+        exec_summary_md = outputs_dir / "executive_summary_consultant.md"
+        if not exec_summary_md.exists():
+            exec_summary_md = outputs_dir / "executive_summary.md"
         exec_summary_json = outputs_dir / "executive_summary.json"
 
         # Check inputs exist

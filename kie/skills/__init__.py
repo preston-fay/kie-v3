@@ -18,6 +18,7 @@ from kie.skills.registry import SkillRegistry, get_registry, register_skill
 from kie.skills.actionability_scoring import ActionabilityScoringSkill
 from kie.skills.client_pack import ClientPackSkill
 from kie.skills.client_readiness import ClientReadinessSkill
+from kie.skills.consultant_voice import ConsultantVoiceSkill
 from kie.skills.eda_review import EDAReviewSkill
 from kie.skills.eda_synthesis import EDASynthesisSkill
 from kie.skills.executive_summary import ExecutiveSummarySkill
@@ -34,6 +35,7 @@ from kie.skills.visual_storyboard import VisualStoryboardSkill
 register_skill(ActionabilityScoringSkill())
 register_skill(ClientPackSkill())
 register_skill(ClientReadinessSkill())
+register_skill(ConsultantVoiceSkill())
 register_skill(EDAReviewSkill())
 register_skill(EDASynthesisSkill())
 register_skill(ExecutiveSummarySkill())
@@ -56,6 +58,7 @@ __all__ = [
     "ActionabilityScoringSkill",
     "ClientPackSkill",
     "ClientReadinessSkill",
+    "ConsultantVoiceSkill",
     "EDAReviewSkill",
     "EDASynthesisSkill",
     "ExecutiveSummarySkill",
