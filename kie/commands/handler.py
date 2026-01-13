@@ -1205,13 +1205,14 @@ class CommandHandler:
             "total_issues": summary["total_issues"],
         }
 
-    def handle_build(self, target: str = "all", preview: bool = False) -> dict[str, Any]:
+    def handle_build(self, target: str = "all", preview: bool = False, interactive: bool = False) -> dict[str, Any]:
         """
         Handle /build command.
 
         Args:
             target: What to build ('all', 'charts', 'presentation', 'dashboard')
             preview: If True, show preview of all chart versions before building
+            interactive: If True, let user select which chart versions to render
 
         Returns:
             Build results
@@ -1306,6 +1307,37 @@ class CommandHandler:
                             "preview": True,
                             "message": "Chart preview displayed",
                             **preview_result,
+                        }
+
+                    # CHART EXCELLENCE PLAN: Interactive selection mode
+                    if interactive:
+                        # Show preview first
+                        preview_result = self._preview_chart_versions(renderer)
+
+                        if preview_result.get("multi_version_count", 0) == 0:
+                            print("No multi-version insights found. Building all charts.")
+                            chart_result = renderer.render_charts()
+                        else:
+                            # Prompt user to select versions
+                            selections = self._prompt_version_selection(preview_result)
+
+                            # Apply selections and render
+                            chart_result = self._render_with_selections(renderer, selections)
+
+                        results["charts"] = chart_result
+                        print(f"✓ Rendered {chart_result['charts_rendered']} charts from visualization plan")
+
+                        # Update status
+                        status["status"] = "completed"
+                        status["completed_at"] = datetime.now().isoformat()
+                        with open(self.state_path, "w") as f:
+                            json.dump(status, f, indent=2)
+
+                        return {
+                            "success": True,
+                            "message": f"Rendered {chart_result['charts_rendered']} charts",
+                            "interactive": True,
+                            "selections": selections,
                         }
 
                     chart_result = renderer.render_charts()
@@ -4002,8 +4034,8 @@ project_state/  - Project tracking
 
         print("=" * 70)
         print()
-        print("To render all versions: /build charts")
-        print("To select specific versions: Not yet implemented (Week 4)")
+        print("To render all versions: python3 -m kie.cli build charts")
+        print("To select specific versions: python3 -m kie.cli build charts --interactive")
         print()
 
         return {
@@ -4013,3 +4045,168 @@ project_state/  - Project tracking
             "multi_version_count": len(insights_with_versions),
             "total_versions": total_versions,
         }
+
+    def _prompt_version_selection(self, preview_result: dict[str, Any]) -> dict[str, str]:
+        """
+        Prompt user to select which chart versions to render (Chart Excellence Plan).
+
+        Args:
+            preview_result: Result from _preview_chart_versions()
+
+        Returns:
+            Dictionary mapping insight_id to selected version_id
+            Example: {"insight_1": "primary", "insight_2": "alt1"}
+        """
+        insights_with_versions = preview_result.get("insights_with_versions", [])
+
+        if not insights_with_versions:
+            return {}
+
+        selections = {}
+
+        print()
+        print("=" * 70)
+        print("📊 INTERACTIVE CHART VERSION SELECTION")
+        print("=" * 70)
+        print()
+        print("For each insight, select which version to render:")
+        print()
+
+        for info in insights_with_versions:
+            insight_id = info["insight_id"]
+            title = info["title"]
+            versions = info["versions"]
+
+            print(f"Insight: {title}")
+            print(f"ID: {insight_id}")
+            print()
+
+            # Show numbered options
+            for i, v in enumerate(versions, 1):
+                primary_marker = " [PRIMARY]" if v.get("is_primary") else ""
+                print(f"  {i}. {v['type']} ({v['purpose']}){primary_marker}")
+
+            print()
+
+            # Prompt for selection
+            while True:
+                try:
+                    choice = input(f"Select version [1-{len(versions)}] (default: 1): ").strip()
+
+                    if not choice:
+                        # Default to primary (version 1)
+                        selected_version = versions[0]
+                        break
+
+                    choice_num = int(choice)
+                    if 1 <= choice_num <= len(versions):
+                        selected_version = versions[choice_num - 1]
+                        break
+                    else:
+                        print(f"Invalid choice. Please enter a number between 1 and {len(versions)}.")
+                except ValueError:
+                    print(f"Invalid input. Please enter a number between 1 and {len(versions)}.")
+                except KeyboardInterrupt:
+                    print("\n\nSelection cancelled. Using primary versions for all insights.")
+                    # Default all to primary
+                    return {info["insight_id"]: info["versions"][0]["version_id"] for info in insights_with_versions}
+
+            selections[insight_id] = selected_version["version_id"]
+            print(f"✓ Selected: {selected_version['type']}")
+            print()
+
+        print("=" * 70)
+        print()
+
+        return selections
+
+    def _render_with_selections(self, renderer, selections: dict[str, str]) -> dict[str, Any]:
+        """
+        Render charts with user-selected versions (Chart Excellence Plan).
+
+        Args:
+            renderer: ChartRenderer instance
+            selections: Dictionary mapping insight_id to selected version_id
+
+        Returns:
+            Chart rendering results
+        """
+        import json
+        from pathlib import Path
+
+        # Load visualization plan
+        viz_plan_path = self.project_root / "outputs" / "visualization_plan.json"
+
+        if not viz_plan_path.exists():
+            raise FileNotFoundError("visualization_plan.json not found")
+
+        with open(viz_plan_path) as f:
+            viz_plan = json.load(f)
+
+        specs = viz_plan.get("specifications", [])
+
+        # Filter specs based on selections
+        filtered_specs = []
+
+        for spec in specs:
+            insight_id = spec.get("insight_id", "unknown")
+
+            # Check if this insight has multi-version
+            if "chart_versions" in spec:
+                versions = spec["chart_versions"]
+
+                if insight_id in selections:
+                    # User made a selection - keep only selected version
+                    selected_version_id = selections[insight_id]
+
+                    # Find selected version
+                    selected_version = None
+                    for v in versions:
+                        if v.get("version_id") == selected_version_id:
+                            selected_version = v
+                            break
+
+                    if selected_version:
+                        # Create new spec with only selected version
+                        filtered_spec = spec.copy()
+                        filtered_spec["chart_versions"] = [selected_version]
+                        filtered_specs.append(filtered_spec)
+                    else:
+                        # Fallback: Use primary version
+                        primary = [v for v in versions if v.get("is_primary")][0]
+                        filtered_spec = spec.copy()
+                        filtered_spec["chart_versions"] = [primary]
+                        filtered_specs.append(filtered_spec)
+                else:
+                    # No selection made - use primary version
+                    primary = [v for v in versions if v.get("is_primary")][0]
+                    filtered_spec = spec.copy()
+                    filtered_spec["chart_versions"] = [primary]
+                    filtered_specs.append(filtered_spec)
+
+            elif "visuals" in spec:
+                # Visual Pattern Library - keep all visuals (no filtering)
+                filtered_specs.append(spec)
+
+            else:
+                # Single visualization - keep as is
+                filtered_specs.append(spec)
+
+        # Save original plan as backup
+        backup_plan_path = self.project_root / "outputs" / "visualization_plan_original.json"
+        viz_plan_path.rename(backup_plan_path)
+
+        try:
+            # Save filtered plan in place of original
+            with open(viz_plan_path, "w") as f:
+                json.dump({"specifications": filtered_specs}, f, indent=2)
+
+            # Render charts from filtered plan
+            result = renderer.render_charts()
+
+        finally:
+            # Restore original plan
+            if backup_plan_path.exists():
+                backup_plan_path.rename(viz_plan_path)
+
+        return result

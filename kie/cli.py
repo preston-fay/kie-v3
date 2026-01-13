@@ -182,12 +182,15 @@ Type a command to get started!
         # Handle help (including --help flag for any command)
         if cmd in ["/help", "help"] or (args and "--help" in args):
             if cmd in ["/build", "build"] and args and "--help" in args:
-                print("Usage: build [target]")
+                print("Usage: build [target] [--preview] [--interactive]")
                 print("\nTargets:")
                 print("  all          - Build all deliverables (default)")
                 print("  dashboard    - Build React dashboard")
                 print("  presentation - Build PowerPoint presentation")
                 print("  charts       - Build charts only")
+                print("\nFlags:")
+                print("  --preview    - Show chart version preview without rendering")
+                print("  --interactive- Let user select which chart versions to render")
                 return (True, True)
             elif cmd in ["/spec", "spec"] and args and "--help" in args:
                 print("Usage: spec [--init | --repair | --set key=value [...]]")
@@ -264,8 +267,23 @@ Type a command to get started!
             elif cmd == "/validate":
                 result = self.handler.handle_validate()
             elif cmd == "/build":
-                target = args or "all"
-                result = self.handler.handle_build(target=target)
+                # Parse target and flags
+                target = "all"
+                preview = False
+                interactive = False
+
+                if args:
+                    parts = args.split()
+                    # First non-flag argument is target
+                    for part in parts:
+                        if part == "--preview":
+                            preview = True
+                        elif part == "--interactive":
+                            interactive = True
+                        elif not part.startswith("--"):
+                            target = part
+
+                result = self.handler.handle_build(target=target, preview=preview, interactive=interactive)
             elif cmd == "/preview":
                 result = self.handler.handle_preview()
             elif cmd == "/preview-internal":
