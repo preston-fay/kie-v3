@@ -39,12 +39,15 @@ class ChartRenderer:
         self.charts_dir = self.outputs_dir / "charts"
         self.data_dir = project_root / "data"
 
-    def render_charts(self, data_file: Path | None = None) -> dict[str, Any]:
+    def render_charts(
+        self, data_file: Path | None = None, validate: bool = True
+    ) -> dict[str, Any]:
         """
         Render all charts from visualization plan.
 
         Args:
             data_file: Data file to use for charts (optional, will auto-detect)
+            validate: If True, validate charts for KDS compliance (default: True)
 
         Returns:
             Dictionary with success status and rendered charts info
@@ -52,6 +55,7 @@ class ChartRenderer:
         Raises:
             FileNotFoundError: If visualization_plan.json is missing
             ValueError: If data file cannot be found
+            BrandComplianceError: If charts violate KDS guidelines (when validate=True)
         """
         # REQUIREMENT: visualization_plan.json MUST exist
         viz_plan_path = self.outputs_dir / "visualization_plan.json"
@@ -107,6 +111,11 @@ class ChartRenderer:
                 chart_info = self._render_chart(spec, df)
                 rendered_charts.append(chart_info)
 
+        # PR #1: RENDER-TIME KDS VALIDATION
+        # Validate all rendered chart configs for KDS compliance
+        if validate and rendered_charts:
+            self._validate_kds_compliance()
+
         return {
             "success": True,
             "message": f"Rendered {len(rendered_charts)} charts from visualization plan",
@@ -114,6 +123,7 @@ class ChartRenderer:
             "charts": rendered_charts,
             "visualizations_planned": len([s for s in specs if s.get("visualization_required", False)]),
             "visualizations_skipped": len([s for s in specs if not s.get("visualization_required", False)]),
+            "kds_validated": validate,
         }
 
     def _auto_detect_data_file(self) -> Path | None:
@@ -180,7 +190,7 @@ class ChartRenderer:
             viz_type, df, x_axis, y_axis, grouping, suppress, highlights
         )
 
-        # Build chart config
+        # Build chart config with KDS-compliant settings
         chart_config = {
             "insight_id": insight_id,
             "insight_title": spec.get("insight_title", "Untitled"),
@@ -199,6 +209,14 @@ class ChartRenderer:
             "annotations": annotations,
             "caveats": caveats,
             "confidence": confidence,
+            "config": {
+                # KDS compliance settings
+                "gridLines": False,  # KDS: no gridlines
+                "axisLine": False,   # KDS: no axis lines
+                "tickLine": False,   # KDS: no tick lines
+                "dataLabels": True,  # KDS: show data labels
+                "fontFamily": "Inter, Arial, sans-serif",  # KDS typography
+            },
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
                 "source": "visualization_plan",
@@ -251,7 +269,7 @@ class ChartRenderer:
             viz_type, df, x_axis, y_axis, grouping, suppress, highlights
         )
 
-        # Build chart config
+        # Build chart config with KDS-compliant settings
         chart_config = {
             "insight_id": insight_id,
             "insight_title": spec.get("insight_title", "Untitled"),
@@ -268,6 +286,14 @@ class ChartRenderer:
             "annotations": annotations,
             "caveats": caveats,
             "confidence": confidence,
+            "config": {
+                # KDS compliance settings
+                "gridLines": False,  # KDS: no gridlines
+                "axisLine": False,   # KDS: no axis lines
+                "tickLine": False,   # KDS: no tick lines
+                "dataLabels": True,  # KDS: show data labels
+                "fontFamily": "Inter, Arial, sans-serif",  # KDS typography
+            },
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
                 "source": "visualization_plan",
@@ -737,3 +763,50 @@ class ChartRenderer:
             {"metric": "Correlation", "value": round(correlation, 3)},
             {"metric": "Assessment", "value": trend},
         ]
+
+    def _validate_kds_compliance(self) -> None:
+        """
+        Validate all rendered chart configs for KDS compliance.
+
+        This is the CRITICAL ENFORCEMENT GATE that prevents non-KDS
+        charts from reaching consultants.
+
+        Raises:
+            BrandComplianceError: If any chart violates KDS guidelines
+        """
+        from kie.brand.validator import BrandValidator
+        from kie.exceptions import BrandComplianceError
+
+        validator = BrandValidator(strict=True)
+
+        # Validate all chart JSON files in charts directory
+        validation_result = validator.validate_directory(self.charts_dir)
+
+        if not validation_result["compliant"]:
+            # Build detailed error message
+            error_lines = [
+                "❌ KDS COMPLIANCE FAILURE",
+                "",
+                f"Charts violate Kearney Design System guidelines:",
+                "",
+            ]
+
+            for violation in validation_result["violations"]:
+                error_lines.append(f"  • {violation}")
+
+            error_lines.extend([
+                "",
+                "Fix required before charts can be published.",
+                "Charts must use KDS palette, no gridlines, proper typography.",
+            ])
+
+            error_message = "\n".join(error_lines)
+
+            raise BrandComplianceError(
+                error_message,
+                details={
+                    "violations": validation_result["violations"],
+                    "files_checked": validation_result["files_checked"],
+                    "charts_dir": str(self.charts_dir),
+                },
+            )
