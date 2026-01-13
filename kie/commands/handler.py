@@ -3044,7 +3044,22 @@ To regenerate deliverables:
             has_state = mapping.get('state')
 
             if map_type == 'auto':
-                if has_latlon:
+                # PR #3: BLOCK auto-selection when BOTH lat/lon AND state exist
+                # Require explicit user choice to prevent wrong map type
+                if has_latlon and has_state:
+                    return {
+                        "success": False,
+                        "message": "⚠️  Ambiguous map type - data has BOTH state AND lat/lon columns.",
+                        "hint": "Your data contains:\n  • State column: '" + mapping['state'] + "'\n  • Latitude/Longitude: '" + mapping['latitude'] + "', '" + mapping['longitude'] + "'\n\nPlease specify map type explicitly:\n  • /map choropleth (for state-based US map)\n  • /map marker (for point-based marker map)",
+                        "requires_explicit_type": True,
+                        "available_types": ["choropleth", "marker"],
+                        "detected_columns": {
+                            "state": mapping.get('state'),
+                            "latitude": mapping.get('latitude'),
+                            "longitude": mapping.get('longitude')
+                        }
+                    }
+                elif has_latlon:
                     map_type = 'marker'
                 elif has_state:
                     map_type = 'choropleth'
