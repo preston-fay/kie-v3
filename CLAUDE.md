@@ -111,6 +111,56 @@ Before claiming something works, ask yourself:
 
 **If you answered "guessing," "assuming," "no," "external systems," or "yes" to any of these, STOP and revise your claim.**
 
+### Rule 7: NEVER Use Forbidden Visualization Libraries
+
+**CRITICAL: Matplotlib and Seaborn are FORBIDDEN in KIE v3.**
+
+KIE v3 uses Recharts (React-based charting) for ALL visualizations. This is non-negotiable for KDS brand compliance.
+
+**FORBIDDEN LIBRARIES:**
+- ❌ matplotlib (any imports: `matplotlib`, `matplotlib.pyplot`, `plt`)
+- ❌ seaborn (any imports: `seaborn`, `sns`)
+- ❌ plotly (any imports: `plotly`, `plotly.express`, `px`)
+- ❌ altair (any imports: `altair`, `alt`)
+- ❌ bokeh (any imports: `bokeh`)
+
+**ONLY PERMITTED:**
+- ✅ KIE ChartFactory: `from kie.charts import ChartFactory`
+- ✅ Recharts (React): Auto-handled by web frontend
+
+**Why This Matters:**
+1. **Brand Compliance**: Only Recharts + KDS tokens guarantee KDS compliance
+2. **Validation**: Non-Recharts charts bypass KDS validation (forbidden colors, gridlines)
+3. **Deliverables**: Only Recharts charts can be included in client PPT/dashboards
+4. **Theme Support**: Only Recharts charts support dark/light mode switching
+
+**What To Do When You Want Visualizations:**
+
+```python
+# ✅ CORRECT - Use KIE ChartFactory
+from kie.charts import ChartFactory
+
+chart = ChartFactory.bar(data, x='region', y=['revenue'])
+chart.to_json('outputs/charts/revenue.json')
+```
+
+```python
+# ❌ FORBIDDEN - Never use matplotlib
+import matplotlib.pyplot as plt  # FORBIDDEN
+plt.bar(...)  # FORBIDDEN
+plt.savefig('chart.png')  # FORBIDDEN
+```
+
+**This applies EVEN in freeform mode:**
+- Freeform mode allows custom Python analysis scripts
+- Freeform mode does NOT allow matplotlib/seaborn/plotly
+- All visualizations MUST go through KIE ChartFactory for KDS enforcement
+
+**If user explicitly requests matplotlib:**
+- Explain that KIE v3 uses Recharts for KDS compliance
+- Offer to create the chart via `ChartFactory` instead
+- Reference this rule: "Rule 7: NEVER Use Forbidden Visualization Libraries"
+
 ---
 
 ## Bootstrap Detection (Auto-Setup)
