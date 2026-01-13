@@ -1,0 +1,63 @@
+name: KDS Compliance
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  kds-compliance:
+    name: KDS Compliance Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all]"
+
+      - name: Check for forbidden imports (matplotlib/seaborn/plotly)
+        run: |
+          echo "🔍 Checking for forbidden visualization libraries..."
+
+          # Check for forbidden imports in kie/ directory
+          if grep -r "import matplotlib\|from matplotlib\|import seaborn\|from seaborn\|import plotly\|from plotly\|import altair\|from altair\|import bokeh\|from bokeh" kie/ 2>/dev/null; then
+            echo "❌ FAILURE: Forbidden visualization library imports detected in kie/"
+            echo "KIE v3 uses Recharts exclusively for KDS compliance."
+            exit 1
+          else
+            echo "✅ No forbidden imports detected"
+          fi
+
+      - name: Run import guard test
+        run: |
+          echo "🧪 Testing import guard..."
+          python3 -c "import kie" && echo "✅ Import guard test passed"
+
+      - name: Run battery tests
+        run: |
+          echo "🧪 Running battery tests..."
+          python3 -m pytest tests/acceptance/test_consultant_reality_battery.py -v
+
+      - name: Run all KDS compliance tests
+        run: |
+          echo "🧪 Running KDS compliance test suite..."
+          python3 -m pytest tests/test_visualization_planner.py tests/test_html_validator.py tests/test_map_type_selection.py -v
+
+      - name: Report success
+        if: success()
+        run: |
+          echo "✅ KDS Compliance checks passed"
+          echo "   - No forbidden imports"
+          echo "   - Import guard working"
+          echo "   - Battery tests passing"
+          echo "   - Compliance tests passing"

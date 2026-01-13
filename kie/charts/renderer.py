@@ -106,6 +106,12 @@ class ChartRenderer:
                 for visual_spec in spec["visuals"]:
                     chart_info = self._render_chart_from_visual(spec, visual_spec, df)
                     rendered_charts.append(chart_info)
+            # Chart Excellence Plan: Check if spec has multiple chart versions
+            elif "chart_versions" in spec:
+                # Multiple chart versions - render each version
+                for version_spec in spec["chart_versions"]:
+                    chart_info = self._render_chart_version(spec, version_spec, df)
+                    rendered_charts.append(chart_info)
             else:
                 # Single visualization (original behavior)
                 chart_info = self._render_chart(spec, df)
@@ -236,6 +242,97 @@ class ChartRenderer:
             "insight_id": insight_id,
             "visualization_type": viz_type,
             "pattern_role": pattern_role,
+            "filename": filename,
+            "path": str(output_path),
+            "data_points": len(chart_data) if isinstance(chart_data, list) else 0,
+        }
+
+    def _render_chart_version(
+        self, spec: dict[str, Any], version_spec: dict[str, Any], df: pd.DataFrame
+    ) -> dict[str, Any]:
+        """
+        Render a chart version from specification (Chart Excellence Plan).
+
+        Args:
+            spec: Parent specification (contains insight metadata)
+            version_spec: Version-specific visualization specification
+            df: Source data
+
+        Returns:
+            Chart info dictionary
+        """
+        insight_id = spec.get("insight_id", "unknown")
+        viz_type = version_spec.get("visualization_type", "bar")
+        purpose = version_spec.get("purpose", "comparison")
+        version_id = version_spec.get("version_id", "primary")
+        is_primary = version_spec.get("is_primary", True)
+        x_axis = version_spec.get("x_axis")
+        y_axis = version_spec.get("y_axis")
+        grouping = version_spec.get("grouping")
+        highlights = version_spec.get("highlights", [])
+        suppress = version_spec.get("suppress", [])
+        annotations = version_spec.get("annotations", [])
+        caveats = version_spec.get("caveats", [])
+        confidence = spec.get("confidence", {})
+
+        # Map visualization type to chart implementation
+        chart_data = self._map_visualization_type(
+            viz_type, df, x_axis, y_axis, grouping, suppress, highlights
+        )
+
+        # Build chart config with KDS-compliant settings
+        chart_config = {
+            "insight_id": insight_id,
+            "insight_title": spec.get("insight_title", "Untitled"),
+            "visualization_type": viz_type,
+            "purpose": purpose,
+            "version_id": version_id,
+            "is_primary": is_primary,
+            "data": chart_data,
+            "axes": {
+                "x": x_axis,
+                "y": y_axis,
+                "grouping": grouping,
+            },
+            "highlights": highlights,
+            "suppress": suppress,
+            "annotations": annotations,
+            "caveats": caveats,
+            "confidence": confidence,
+            "config": {
+                # KDS compliance settings
+                "gridLines": False,  # KDS: no gridlines
+                "axisLine": False,   # KDS: no axis lines
+                "tickLine": False,   # KDS: no tick lines
+                "dataLabels": True,  # KDS: show data labels
+                "fontFamily": "Inter, Arial, sans-serif",  # KDS typography
+            },
+            "metadata": {
+                "generated_at": datetime.now().isoformat(),
+                "source": "visualization_plan",
+                "chart_version": version_id,
+            },
+        }
+
+        # Deterministic filename with version suffix
+        # Primary: insight_123__bar.json
+        # Alternative: insight_123__horizontal_bar__alt1.json
+        if is_primary:
+            filename = f"{insight_id}__{viz_type}.json"
+        else:
+            filename = f"{insight_id}__{viz_type}__{version_id}.json"
+
+        output_path = self.charts_dir / filename
+
+        # Save chart config
+        with open(output_path, "w") as f:
+            json.dump(chart_config, f, indent=2)
+
+        return {
+            "insight_id": insight_id,
+            "visualization_type": viz_type,
+            "version_id": version_id,
+            "is_primary": is_primary,
             "filename": filename,
             "path": str(output_path),
             "data_points": len(chart_data) if isinstance(chart_data, list) else 0,

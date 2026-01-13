@@ -12,7 +12,63 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from kie.insights.schema import InsightType
 from kie.skills.base import Skill, SkillContext, SkillResult
+
+
+# Chart Excellence Plan: InsightType → ChartType Multi-Version Mapping
+# Each InsightType returns LIST of (chart_type, purpose, version_id) tuples
+# version_id: "primary" (default), "alt1", "alt2"
+# Auto-detection logic filters alternatives based on data characteristics
+INSIGHT_TYPE_TO_CHART_TYPE = {
+    # Core insight types (8 existing) - now with alternatives
+    InsightType.COMPARISON: [
+        ("bar", "comparison", "primary"),           # Default
+        ("horizontal_bar", "comparison", "alt1"),   # If >8 categories or long labels
+    ],
+    InsightType.TREND: [
+        ("line", "trend", "primary"),               # Default
+        ("area", "trend", "alt1"),                  # Emphasis on magnitude
+    ],
+    InsightType.DISTRIBUTION: [
+        ("bar", "distribution", "primary"),         # Histogram-style bar chart
+    ],
+    InsightType.CORRELATION: [
+        ("scatter", "risk", "primary"),             # Default
+    ],
+    InsightType.CONCENTRATION: [
+        ("bar", "concentration", "primary"),        # Default
+        ("pie", "concentration", "alt1"),           # If 2-4 categories only (KDS max 4 slices)
+    ],
+    InsightType.OUTLIER: [
+        ("bar", "comparison", "primary"),           # With highlighting
+    ],
+    InsightType.VARIANCE: [
+        ("bar", "distribution", "primary"),         # Histogram-style bar chart
+    ],
+    InsightType.BENCHMARK: [
+        ("bar", "comparison", "primary"),           # Default
+    ],
+
+    # Sophisticated chart types (4 new)
+    InsightType.COMPOSITION: [
+        ("stacked_bar", "composition", "primary"),  # Primary: Part-to-whole stacked
+        ("bar", "comparison", "alt1"),              # Alternative: Ungrouped comparison
+        ("pie", "composition", "alt2"),             # Alternative: If ≤4 categories
+    ],
+    InsightType.DUAL_METRIC: [
+        ("combo", "dual_metric", "primary"),        # Primary: Bar + line combo
+        ("bar", "comparison", "alt1"),              # Alternative: Primary metric only
+    ],
+    InsightType.CONTRIBUTION: [
+        ("waterfall", "contribution", "primary"),   # Primary: KDS-compliant waterfall
+        ("stacked_bar", "composition", "alt1"),     # Alternative: Composition view
+    ],
+    InsightType.DRIVER: [
+        ("scatter", "risk", "primary"),             # Primary: Correlation view
+        ("bar", "comparison", "alt1"),              # Alternative: Magnitude view
+    ],
+}
 
 
 class VisualizationPlannerSkill(Skill):
@@ -332,8 +388,11 @@ class VisualizationPlannerSkill(Skill):
         evidence = insight.get("evidence", [])
         caveats = insight.get("caveats", [])
 
-        # Infer visualization type from content
-        viz_type, purpose = self._infer_visualization_type(title, why_matters)
+        # Chart Excellence Plan: Get all versions (primary + alternatives)
+        versions = self._infer_visualization_type(insight, title, why_matters)
+
+        # Use primary version for pattern library and axes extraction
+        viz_type, purpose, version_id = versions[0]
 
         # Extract axes and grouping from content
         axes = self._extract_axes(why_matters, viz_type)
@@ -352,9 +411,9 @@ class VisualizationPlannerSkill(Skill):
             purpose, viz_type, title, why_matters, axes, highlights, suppress, annotations, caveats
         )
 
-        # If pattern returned multiple visuals, use them; otherwise use single viz
+        # If pattern returned multiple visuals, use them; otherwise generate version alternatives
         if len(pattern_visuals) > 1:
-            # Multi-visual pattern
+            # Multi-visual pattern (Visual Pattern Library)
             base_spec = {
                 "insight_id": insight.get("id", f"insight_{index}"),
                 "insight_title": title,
@@ -367,25 +426,57 @@ class VisualizationPlannerSkill(Skill):
             }
             return base_spec
         else:
-            # Single visualization (original behavior)
-            return {
-                "insight_id": insight.get("id", f"insight_{index}"),
-                "insight_title": title,
-                "visualization_required": True,
-                "visualization_type": viz_type,
-                "purpose": purpose,
-                "x_axis": axes.get("x"),
-                "y_axis": axes.get("y"),
-                "grouping": axes.get("grouping"),
-                "highlights": highlights,
-                "suppress": suppress,
-                "annotations": annotations,
-                "caveats": caveats,
-                "confidence": {
-                    "numeric": confidence_numeric,
-                    "label": confidence_label,
-                },
-            }
+            # Chart Excellence Plan: Generate specs for all versions
+            if len(versions) > 1:
+                # Multiple versions available - generate spec for each
+                version_specs = []
+                for viz_type_v, purpose_v, version_id_v in versions:
+                    version_specs.append({
+                        "visualization_type": viz_type_v,
+                        "purpose": purpose_v,
+                        "version_id": version_id_v,
+                        "is_primary": version_id_v == "primary",
+                        "x_axis": axes.get("x"),
+                        "y_axis": axes.get("y"),
+                        "grouping": axes.get("grouping"),
+                        "highlights": highlights,
+                        "suppress": suppress,
+                        "annotations": annotations,
+                        "caveats": caveats,
+                    })
+
+                return {
+                    "insight_id": insight.get("id", f"insight_{index}"),
+                    "insight_title": title,
+                    "visualization_required": True,
+                    "confidence": {
+                        "numeric": confidence_numeric,
+                        "label": confidence_label,
+                    },
+                    "chart_versions": version_specs,  # Multiple chart versions
+                }
+            else:
+                # Single version only (backward compatibility)
+                return {
+                    "insight_id": insight.get("id", f"insight_{index}"),
+                    "insight_title": title,
+                    "visualization_required": True,
+                    "visualization_type": viz_type,
+                    "purpose": purpose,
+                    "version_id": version_id,
+                    "is_primary": True,
+                    "x_axis": axes.get("x"),
+                    "y_axis": axes.get("y"),
+                    "grouping": axes.get("grouping"),
+                    "highlights": highlights,
+                    "suppress": suppress,
+                    "annotations": annotations,
+                    "caveats": caveats,
+                    "confidence": {
+                        "numeric": confidence_numeric,
+                        "label": confidence_label,
+                    },
+                }
 
     def _apply_visual_patterns(
         self,
@@ -535,39 +626,184 @@ class VisualizationPlannerSkill(Skill):
         ]
 
     def _infer_visualization_type(
-        self, title: str, why_matters: str
-    ) -> tuple[str, str]:
+        self, insight: dict, title: str, why_matters: str
+    ) -> list[tuple[str, str, str]]:
         """
-        Infer visualization type and purpose from insight content.
+        Infer visualization type(s) from insight content.
 
-        Returns: (visualization_type, purpose)
+        Chart Excellence Plan: Returns LIST of (chart_type, purpose, version_id) tuples.
+        Primary version is always first. Auto-detection logic filters alternatives.
+
+        Args:
+            insight: Full insight dictionary (may contain insight_type)
+            title: Insight title (fallback)
+            why_matters: Insight why_it_matters (fallback)
+
+        Returns: List of (visualization_type, purpose, version_id)
         """
+        # Step 1: Try InsightType mapping (primary method)
+        insight_type_str = insight.get("insight_type")
+        if insight_type_str:
+            try:
+                insight_type = InsightType(insight_type_str)
+                if insight_type in INSIGHT_TYPE_TO_CHART_TYPE:
+                    alternatives = INSIGHT_TYPE_TO_CHART_TYPE[insight_type]
+
+                    # Analyze data shape for filtering
+                    evidence = insight.get("evidence", [])
+                    data_shape = self._analyze_data_shape(insight, evidence)
+
+                    # Filter alternatives based on data characteristics
+                    return self._filter_alternatives(alternatives, insight, data_shape)
+            except (ValueError, KeyError):
+                pass  # Fall back to keyword matching
+
+        # Step 2: Keyword matching (fallback) - returns PRIMARY only
         text = (title + " " + why_matters).lower()
 
-        # Map patterns to visualization types
         if any(kw in text for kw in ["trend", "over time", "growth", "decline", "quarter", "year"]):
-            return "line", "trend"
+            return [("line", "trend", "primary")]
 
         if any(kw in text for kw in ["compare", "vs", "versus", "higher", "lower", "between", "share", "lead", "top", "dominat"]):
-            return "bar", "comparison"
+            return [("bar", "comparison", "primary")]
 
         if any(kw in text for kw in ["distribution", "spread", "range", "variance"]):
-            return "distribution", "distribution"
+            return [("bar", "distribution", "primary")]
 
         if any(kw in text for kw in ["correlation", "relationship", "associated", "driver", "impact", "affect", "influence"]):
-            return "scatter", "risk"
+            return [("scatter", "risk", "primary")]
 
         if any(kw in text for kw in ["region", "location", "geographic", "area", "city", "state"]):
-            return "map", "concentration"
+            return [("map", "concentration", "primary")]
 
         if any(kw in text for kw in ["concentration", "concentrat"]):
-            return "bar", "concentration"
+            return [("bar", "concentration", "primary")]
 
         if any(kw in text for kw in ["segment", "category", "group", "type"]):
-            return "bar", "segmentation"
+            return [("bar", "segmentation", "primary")]
 
         # Default to bar chart for comparison
-        return "bar", "comparison"
+        return [("bar", "comparison", "primary")]
+
+    def _analyze_data_shape(self, insight: dict, evidence: list) -> dict:
+        """
+        Analyze data characteristics to inform chart selection.
+
+        Args:
+            insight: Full insight dictionary
+            evidence: List of evidence items
+
+        Returns:
+            {
+                "num_categories": int,
+                "max_label_length": int,
+                "has_grouping": bool,
+                "num_groups": int,
+                "has_dual_metrics": bool,
+                "is_sequential_change": bool,
+            }
+        """
+        # Extract from evidence
+        num_categories = len([e for e in evidence if e.get("evidence_type") == "data_point"])
+
+        # Check label lengths
+        labels = [e.get("label", "") for e in evidence]
+        max_label_length = max(len(str(label)) for label in labels) if labels else 0
+
+        # Detect grouping (e.g., "Region: North | Product: Widget")
+        has_grouping = any("|" in str(e.get("label", "")) for e in evidence)
+
+        # Detect dual metrics (two different scales)
+        metric_values = [e.get("value") for e in evidence if e.get("evidence_type") == "metric" and isinstance(e.get("value"), (int, float))]
+        has_dual_metrics = False
+        if len(metric_values) >= 2:
+            # Heuristic: One large (>1000), one small (<10) = different scales
+            max_val = max(metric_values)
+            min_val = min(metric_values)
+            has_dual_metrics = (max_val > 1000 and min_val < 10)
+
+        # Detect sequential change pattern (waterfall triggers)
+        title_lower = insight.get("title", "").lower()
+        why_matters_lower = insight.get("why_it_matters", "").lower()
+        combined_text = title_lower + " " + why_matters_lower
+        is_sequential_change = any(kw in combined_text for kw in [
+            "budget vs actual", "variance", "bridge", "contribution",
+            "starting", "ending", "what explains", "waterfall"
+        ])
+
+        return {
+            "num_categories": num_categories,
+            "max_label_length": max_label_length,
+            "has_grouping": has_grouping,
+            "num_groups": 0,  # TODO: Parse from evidence
+            "has_dual_metrics": has_dual_metrics,
+            "is_sequential_change": is_sequential_change,
+        }
+
+    def _filter_alternatives(
+        self,
+        alternatives: list[tuple[str, str, str]],
+        insight: dict,
+        data_shape: dict
+    ) -> list[tuple[str, str, str]]:
+        """
+        Filter alternative chart types based on data characteristics.
+
+        Args:
+            alternatives: List of (chart_type, purpose, version_id)
+            insight: Full insight dictionary
+            data_shape: {"num_categories": int, "max_label_length": int, ...}
+
+        Returns:
+            Filtered list of alternatives that make sense for this data
+        """
+        filtered = []
+
+        for chart_type, purpose, version_id in alternatives:
+            # Rule 1: Pie charts only if 2-4 categories (KDS max 4 slices)
+            if chart_type in ["pie", "donut"]:
+                if 2 <= data_shape.get("num_categories", 0) <= 4:
+                    filtered.append((chart_type, purpose, version_id))
+                # Skip pie if outside valid range
+                continue
+
+            # Rule 2: Horizontal bar if long labels (>15 chars) or many categories (>8)
+            if chart_type == "horizontal_bar":
+                if (data_shape.get("max_label_length", 0) > 15 or
+                    data_shape.get("num_categories", 0) > 8):
+                    filtered.append((chart_type, purpose, version_id))
+                # Skip horizontal if not needed
+                continue
+
+            # Rule 3: Stacked bar only if grouping detected AND ≤4 groups
+            if chart_type == "stacked_bar":
+                if (data_shape.get("has_grouping", False) and
+                    data_shape.get("num_groups", 0) <= 4):
+                    filtered.append((chart_type, purpose, version_id))
+                # Skip stacked if no grouping or too many groups
+                continue
+
+            # Rule 4: Combo chart only if dual metrics detected
+            if chart_type == "combo":
+                if data_shape.get("has_dual_metrics", False):
+                    filtered.append((chart_type, purpose, version_id))
+                # Skip combo if not dual metrics
+                continue
+
+            # Rule 5: Waterfall only if sequential change pattern detected
+            if chart_type == "waterfall":
+                if data_shape.get("is_sequential_change", False):
+                    filtered.append((chart_type, purpose, version_id))
+                continue
+
+            # Default: Include all other chart types
+            filtered.append((chart_type, purpose, version_id))
+
+        # Always return at least the primary version
+        if not filtered and alternatives:
+            filtered = [alternatives[0]]
+
+        return filtered
 
     def _extract_axes(
         self, why_matters: str, viz_type: str

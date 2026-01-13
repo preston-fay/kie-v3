@@ -14,6 +14,7 @@ import yaml
 
 class InsightType(Enum):
     """Types of insights that can be generated."""
+    # Core insight types (8 existing)
     COMPARISON = "comparison"
     TREND = "trend"
     DISTRIBUTION = "distribution"
@@ -22,6 +23,12 @@ class InsightType(Enum):
     CONCENTRATION = "concentration"
     VARIANCE = "variance"
     BENCHMARK = "benchmark"
+
+    # Sophisticated chart types (4 new - Chart Excellence Plan)
+    COMPOSITION = "composition"      # Part-to-whole by category (stacked bar/pie)
+    DUAL_METRIC = "dual_metric"      # Two scales (combo chart: bar + line)
+    CONTRIBUTION = "contribution"    # Sequential changes (waterfall chart)
+    DRIVER = "driver"                # Causal analysis (scatter with trend line)
 
 
 class InsightSeverity(Enum):
