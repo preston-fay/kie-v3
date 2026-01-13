@@ -1205,12 +1205,13 @@ class CommandHandler:
             "total_issues": summary["total_issues"],
         }
 
-    def handle_build(self, target: str = "all") -> dict[str, Any]:
+    def handle_build(self, target: str = "all", preview: bool = False) -> dict[str, Any]:
         """
         Handle /build command.
 
         Args:
             target: What to build ('all', 'charts', 'presentation', 'dashboard')
+            preview: If True, show preview of all chart versions before building
 
         Returns:
             Build results
@@ -1296,6 +1297,17 @@ class CommandHandler:
                     from kie.charts.renderer import ChartRenderer
 
                     renderer = ChartRenderer(self.project_root)
+
+                    # CHART EXCELLENCE PLAN: Preview mode
+                    if preview:
+                        preview_result = self._preview_chart_versions(renderer)
+                        return {
+                            "success": True,
+                            "preview": True,
+                            "message": "Chart preview displayed",
+                            **preview_result,
+                        }
+
                     chart_result = renderer.render_charts()
                     results["charts"] = chart_result
                     print(f"✓ Rendered {chart_result['charts_rendered']} charts from visualization plan")
@@ -3867,4 +3879,137 @@ project_state/  - Project tracking
             "artifacts_created": artifacts_created,
             "failed_skills": failed_skills,
             "manifest_exists": manifest_path.exists()
+        }
+
+    def _preview_chart_versions(self, renderer) -> dict[str, Any]:
+        """
+        Preview all chart versions before building (Chart Excellence Plan).
+
+        Shows which insights have multiple chart versions available and
+        provides a summary of visualization options.
+
+        Args:
+            renderer: ChartRenderer instance
+
+        Returns:
+            Dictionary with preview information
+        """
+        from kie.charts.renderer import ChartRenderer
+
+        # Load visualization plan
+        viz_plan_path = self.project_root / "outputs" / "visualization_plan.json"
+        if not viz_plan_path.exists():
+            return {
+                "error": "visualization_plan.json not found. Run /analyze first.",
+                "insights_with_versions": [],
+                "total_insights": 0,
+                "total_versions": 0,
+            }
+
+        with open(viz_plan_path) as f:
+            viz_plan = json.load(f)
+
+        specs = viz_plan.get("specifications", [])
+
+        # Analyze specs for multi-version insights
+        insights_with_versions = []
+        total_versions = 0
+        single_version_count = 0
+
+        for spec in specs:
+            insight_id = spec.get("insight_id", "unknown")
+            insight_title = spec.get("insight_title", "Untitled")
+
+            # Check for chart_versions field (Chart Excellence Plan)
+            if "chart_versions" in spec:
+                versions = spec["chart_versions"]
+                total_versions += len(versions)
+
+                if len(versions) > 1:
+                    # Multi-version insight
+                    version_info = {
+                        "insight_id": insight_id,
+                        "title": insight_title,
+                        "versions": [
+                            {
+                                "type": v["visualization_type"],
+                                "purpose": v["purpose"],
+                                "version_id": v["version_id"],
+                                "is_primary": v.get("is_primary", False),
+                            }
+                            for v in versions
+                        ],
+                    }
+                    insights_with_versions.append(version_info)
+                else:
+                    single_version_count += 1
+
+            # Check for visuals field (Visual Pattern Library)
+            elif "visuals" in spec:
+                visuals = spec["visuals"]
+                total_versions += len(visuals)
+
+                if len(visuals) > 1:
+                    # Multi-visual pattern (e.g., bar + pareto)
+                    version_info = {
+                        "insight_id": insight_id,
+                        "title": insight_title,
+                        "versions": [
+                            {
+                                "type": v["visualization_type"],
+                                "purpose": v["purpose"],
+                                "version_id": v.get("pattern_role", "visual"),
+                                "is_primary": False,  # Pattern library doesn't have primary/alt distinction
+                            }
+                            for v in visuals
+                        ],
+                    }
+                    insights_with_versions.append(version_info)
+                else:
+                    single_version_count += 1
+
+            # Single visualization (old format)
+            else:
+                total_versions += 1
+                single_version_count += 1
+
+        # Print preview
+        print()
+        print("=" * 70)
+        print("📊 CHART VERSION PREVIEW")
+        print("=" * 70)
+        print()
+        print(f"Total insights: {len(specs)}")
+        print(f"  • Single-version insights: {single_version_count}")
+        print(f"  • Multi-version insights: {len(insights_with_versions)}")
+        print(f"  • Total chart versions to render: {total_versions}")
+        print()
+
+        if insights_with_versions:
+            print("Multi-version insights:")
+            print()
+
+            for info in insights_with_versions:
+                print(f"  Insight: {info['title']}")
+                print(f"  ID: {info['insight_id']}")
+                print(f"  Versions ({len(info['versions'])}):")
+
+                for v in info["versions"]:
+                    primary_marker = " [PRIMARY]" if v.get("is_primary") else ""
+                    print(f"    • {v['type']} ({v['purpose']}){primary_marker}")
+
+                print()
+
+        print("=" * 70)
+        print()
+        print("To render all versions: /build charts")
+        print("To select specific versions: Not yet implemented (Week 4)")
+        print()
+
+        return {
+            "insights_with_versions": insights_with_versions,
+            "total_insights": len(specs),
+            "single_version_count": single_version_count,
+            "multi_version_count": len(insights_with_versions),
+            "total_versions": total_versions,
         }
