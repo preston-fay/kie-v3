@@ -52,6 +52,7 @@ from typing import Any
 import pandas as pd
 import yaml
 
+from kie.base import RechartsConfig
 from kie.skills.base import Skill, SkillContext, SkillResult
 
 
@@ -657,17 +658,21 @@ class EDASynthesisSkill(Skill):
             if col not in df.columns:
                 continue
 
-            dist_chart = {
-                "chart_type": "histogram",
-                "title": f"Distribution of {col}",
-                "data": df[col].dropna().tolist(),
-                "x_label": col,
-                "y_label": "Frequency",
-                "bins": 20,
-            }
+            # Create histogram data using pandas binning
+            hist_data = pd.cut(df[col].dropna(), bins=20).value_counts().sort_index()
+
+            # Convert to RechartsConfig for SVG rendering
+            config = RechartsConfig(
+                chart_type="bar",  # Pygal doesn't support histogram, use bar
+                data=[{"category": f"Bin {i+1}", "value": int(v)}
+                      for i, v in enumerate(hist_data)],
+                config={},
+                title=f"Distribution of {col}"
+            )
+
             dist_path = charts_dir / f"distribution_{col}.json"
-            with open(dist_path, "w") as f:
-                json.dump(dist_chart, f, indent=2)
+            config.to_json(dist_path)
+            config.to_svg(dist_path.with_suffix('.svg'))
             chart_paths[f"distribution_{col}"] = dist_path
 
         # 2. Contribution chart (first numeric by first categorical)
@@ -682,19 +687,18 @@ class EDASynthesisSkill(Skill):
                     .head(10)
                 )
 
-                contrib_chart = {
-                    "chart_type": "bar",
-                    "title": f"{metric} by {category}",
-                    "data": [
-                        {"category": str(k), "value": float(v)}
-                        for k, v in contrib_data.items()
-                    ],
-                    "x_label": category,
-                    "y_label": metric,
-                }
+                # Convert to RechartsConfig for SVG rendering
+                config = RechartsConfig(
+                    chart_type="bar",
+                    data=[{"category": str(k), "value": float(v)}
+                          for k, v in contrib_data.items()],
+                    config={},
+                    title=f"{metric} by {category}"
+                )
+
                 contrib_path = charts_dir / f"contribution_{metric}.json"
-                with open(contrib_path, "w") as f:
-                    json.dump(contrib_chart, f, indent=2)
+                config.to_json(contrib_path)
+                config.to_svg(contrib_path.with_suffix('.svg'))
                 chart_paths[f"contribution_{metric}"] = contrib_path
 
         # 3. Missingness heatmap
@@ -706,16 +710,18 @@ class EDASynthesisSkill(Skill):
                 "null_percent": float(null_percent)
             })
 
-        miss_chart = {
-            "chart_type": "bar",
-            "title": "Missingness by Column",
-            "data": miss_data,
-            "x_label": "Column",
-            "y_label": "Null %",
-        }
+        # Convert to RechartsConfig for SVG rendering
+        config = RechartsConfig(
+            chart_type="bar",
+            data=[{"category": d["column"], "value": d["null_percent"]}
+                  for d in miss_data],
+            config={},
+            title="Missingness by Column"
+        )
+
         miss_path = charts_dir / "missingness_heatmap.json"
-        with open(miss_path, "w") as f:
-            json.dump(miss_chart, f, indent=2)
+        config.to_json(miss_path)
+        config.to_svg(miss_path.with_suffix('.svg'))
         chart_paths["missingness_heatmap"] = miss_path
 
         return chart_paths
