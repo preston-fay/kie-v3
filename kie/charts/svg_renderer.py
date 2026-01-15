@@ -222,14 +222,24 @@ def _create_bar_chart(data: list[dict[str, Any]], title: str | None, config: Rec
     if title:
         chart.title = title
 
+    # Extract x-axis and y-axis keys from config (RechartsConfig structure)
+    chart_config = config.config if hasattr(config, 'config') else {}
+    x_axis_config = chart_config.get('xAxis', {})
+    bars_config = chart_config.get('bars', [])
+
+    # Determine keys to extract
+    x_key = x_axis_config.get('dataKey', 'category')
+    # For bars, use the first bar's dataKey, or fallback to 'value'
+    y_key = bars_config[0].get('dataKey', 'value') if bars_config else 'value'
+
     # Extract x-axis labels and values
     x_labels = []
     values = []
 
     for item in data:
-        # Handle various data formats
-        category = item.get('category', item.get('name', item.get('x', 'Unknown')))
-        value = item.get('value', item.get('y', 0))
+        # Try configured keys first, then fallbacks
+        category = item.get(x_key, item.get('category', item.get('name', item.get('x', 'Unknown'))))
+        value = item.get(y_key, item.get('value', item.get('y', 0)))
 
         x_labels.append(str(category))
         values.append(value)
