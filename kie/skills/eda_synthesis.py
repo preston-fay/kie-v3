@@ -810,9 +810,14 @@ class EDASynthesisSkill(Skill):
             config.to_svg(dist_path.with_suffix('.svg'))
             chart_paths[f"distribution_{col}"] = dist_path
 
-        # 2. Contribution chart (first numeric by first categorical)
+        # 2. Contribution chart (dominant metric by first categorical)
         if numeric_cols and categorical_cols:
-            metric = numeric_cols[0]
+            # Use dominant metric if available, otherwise fallback to first non-ID column
+            metric = dominance_analysis.get("dominant_metric")
+            if not metric or metric not in df.columns or self._is_id_column(df, metric):
+                # Fallback to first non-ID column
+                metric = numeric_cols[0]
+
             category = categorical_cols[0]
             if metric in df.columns and category in df.columns:
                 contrib_data = (
