@@ -138,6 +138,9 @@ class LineChartBuilder(ChartBuilder):
         x_axis = AxisConfig(dataKey=x_label)
         y_axis = AxisConfig(dataKey="value")
 
+        # Detect formatters for smart number formatting
+        formatters = self._detect_formatters(data, y_keys)
+
         # Build chart config
         chart_config = LineChartConfig(
             title=title,
@@ -153,15 +156,91 @@ class LineChartBuilder(ChartBuilder):
         )
 
         # Create Recharts config (using beautified data)
+        config_dict = chart_config.model_dump(exclude_none=True)
+
+        # Add formatters to config for frontend consumption
+        if formatters:
+            config_dict["formatters"] = formatters
+
         recharts_config = RechartsConfig(
             chart_type="line",
             data=beautified_data,
-            config=chart_config.model_dump(exclude_none=True),
+            config=config_dict,
             title=title,
             subtitle=subtitle,
         )
 
         return recharts_config
+
+    def _detect_formatters(self, data: pd.DataFrame | list[dict[str, Any]], y_keys: list[str]) -> dict[str, Any]:
+        """
+        Detect appropriate formatters for Y-axis columns based on data characteristics.
+
+        Args:
+            data: Input data
+            y_keys: Y-axis column names
+
+        Returns:
+            Dictionary with formatter specifications for yAxis and tooltip
+        """
+        # Convert to DataFrame if needed
+        if isinstance(data, list):
+            df = pd.DataFrame(data)
+        else:
+            df = data
+
+        formatters = {}
+
+        for y_key in y_keys:
+            if y_key not in df.columns:
+                continue
+
+            col_data = df[y_key].dropna()
+            if len(col_data) == 0:
+                continue
+
+            # Check column name for hints
+            col_lower = y_key.lower()
+
+            # Currency detection
+            if any(keyword in col_lower for keyword in ['revenue', 'cost', 'price', 'sales', 'profit', 'margin', 'value', 'amount']):
+                formatters[y_key] = {
+                    "type": "currency",
+                    "currency": "$",
+                    "abbreviate": bool(col_data.max() >= 1000)  # Use K/M/B for large numbers
+                }
+            # Percentage detection
+            elif any(keyword in col_lower for keyword in ['percent', 'rate', '%', 'share', 'ratio']):
+                # Check if values are 0-1 (need multiply) or 0-100 (don't multiply)
+                is_decimal = col_data.max() <= 1.0
+                formatters[y_key] = {
+                    "type": "percentage",
+                    "multiply_by_100": bool(is_decimal)
+                }
+            # Large number detection
+            elif col_data.max() >= 1000:
+                formatters[y_key] = {
+                    "type": "number",
+                    "abbreviate": True
+                }
+            # Small decimal detection
+            elif col_data.max() < 10 and (col_data % 1 != 0).any():
+                formatters[y_key] = {
+                    "type": "number",
+                    "precision": 2,
+                    "abbreviate": False
+                }
+
+        # If we detected any formatters, structure them for frontend
+        if formatters:
+            # For now, apply the first Y column's formatter to the Y-axis
+            first_formatter = formatters.get(y_keys[0], {})
+            return {
+                "yAxis": first_formatter,
+                "tooltip": formatters  # Pass all formatters for tooltip
+            }
+
+        return {}
 
 
 # Convenience functions
