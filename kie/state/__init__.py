@@ -14,6 +14,7 @@ from .intent import (
     is_intent_clarified,
     print_intent_required_message,
 )
+from .manager import StateManager, StateType
 from .rails_state import (
     RailsState,
     get_rails_progress,
@@ -38,4 +39,6 @@ __all__ = [
     "get_execution_mode",
     "is_freeform_enabled",
     "print_mode_restriction_message",
+    "StateManager",
+    "StateType",
 ]

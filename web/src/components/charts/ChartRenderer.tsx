@@ -10,6 +10,8 @@ import { BarChartRenderer } from './BarChartRenderer';
 import { LineChartRenderer } from './LineChartRenderer';
 import { AreaChartRenderer } from './AreaChartRenderer';
 import { PieChartRenderer } from './PieChartRenderer';
+import { ScatterChartRenderer } from './ScatterChartRenderer';
+import { ComboChartRenderer } from './ComboChartRenderer';
 
 interface RechartsConfig {
   type: 'bar' | 'line' | 'area' | 'pie' | 'scatter' | 'combo' | 'waterfall' | 'bullet';
@@ -49,6 +51,10 @@ export function ChartRenderer({ config, className = '' }: ChartRendererProps) {
         return <AreaChartRenderer config={config as any} />;
       case 'pie':
         return <PieChartRenderer config={config as any} />;
+      case 'scatter':
+        return <ScatterChartRenderer config={config as any} />;
+      case 'combo':
+        return <ComboChartRenderer config={config as any} />;
       default:
         return (
           <div className="flex items-center justify-center h-64">

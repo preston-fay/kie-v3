@@ -91,11 +91,16 @@ class NarrativeSynthesisSkill(Skill):
             triage_data, intent_text, evidence_hashes
         )
 
-        # Save outputs
-        narrative_md_path = outputs_dir / "executive_narrative.md"
-        narrative_json_path = outputs_dir / "executive_narrative.json"
-
+        # Save markdown to deliverables/ (consultant-facing)
+        deliverables_dir = outputs_dir / "deliverables"
+        deliverables_dir.mkdir(parents=True, exist_ok=True)
+        narrative_md_path = deliverables_dir / "executive_narrative.md"
         narrative_md_path.write_text(narrative_md)
+
+        # Save JSON to internal/ (structured data)
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+        narrative_json_path = internal_dir / "executive_narrative.json"
         narrative_json_path.write_text(json.dumps(narrative_json, indent=2))
 
         return SkillResult(
@@ -120,8 +125,14 @@ class NarrativeSynthesisSkill(Skill):
             "sections": {},
         }
 
-        narrative_md_path = outputs_dir / "executive_narrative.md"
-        narrative_json_path = outputs_dir / "executive_narrative.json"
+        # Save to organized directories
+        deliverables_dir = outputs_dir / "deliverables"
+        deliverables_dir.mkdir(parents=True, exist_ok=True)
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+
+        narrative_md_path = deliverables_dir / "executive_narrative.md"
+        narrative_json_path = internal_dir / "executive_narrative.json"
 
         narrative_md_path.write_text(narrative_md)
         narrative_json_path.write_text(json.dumps(narrative_json, indent=2))
@@ -154,8 +165,14 @@ class NarrativeSynthesisSkill(Skill):
             "sections": {},
         }
 
-        narrative_md_path = outputs_dir / "executive_narrative.md"
-        narrative_json_path = outputs_dir / "executive_narrative.json"
+        # Save to organized directories
+        deliverables_dir = outputs_dir / "deliverables"
+        deliverables_dir.mkdir(parents=True, exist_ok=True)
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+
+        narrative_md_path = deliverables_dir / "executive_narrative.md"
+        narrative_json_path = internal_dir / "executive_narrative.json"
 
         narrative_md_path.write_text(narrative_md)
         narrative_json_path.write_text(json.dumps(narrative_json, indent=2))

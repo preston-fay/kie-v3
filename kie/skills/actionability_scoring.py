@@ -111,7 +111,8 @@ class ActionabilityScoringSkill(Skill):
         project_state_dir = context.project_root / "project_state"
 
         # Validate required inputs
-        triage_path = outputs_dir / "insight_triage.json"
+        (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+        triage_path = outputs_dir / "internal" / "insight_triage.json"
         intent_path = project_state_dir / "intent.yaml"
 
         if not triage_path.exists():
@@ -162,12 +163,12 @@ class ActionabilityScoringSkill(Skill):
         output = {"insights": scored_insights, "summary": summary}
 
         # Save JSON
-        scores_json_path = outputs_dir / "actionability_scores.json"
+        scores_json_path = outputs_dir / "internal" / "actionability_scores.json"
         with open(scores_json_path, "w") as f:
             json.dump(output, f, indent=2)
 
         # Save Markdown
-        scores_md_path = outputs_dir / "actionability_scores.md"
+        scores_md_path = outputs_dir / "internal" / "actionability_scores.md"
         markdown = self._generate_markdown(output)
         scores_md_path.write_text(markdown)
 

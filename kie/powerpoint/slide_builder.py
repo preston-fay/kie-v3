@@ -274,6 +274,52 @@ class SlideBuilder:
 
         return slide
 
+    def add_image_slide(
+        self,
+        title: str,
+        image_path: Path | str,
+        notes: str | None = None,
+    ):
+        """
+        Add slide with embedded image (PNG/JPG).
+
+        Args:
+            title: Slide title
+            image_path: Path to image file
+            notes: Speaker notes
+
+        Returns:
+            Slide object
+        """
+        from pathlib import Path
+        from pptx.util import Inches
+
+        slide_layout = self.prs.slide_layouts[6]
+        slide = self.prs.slides.add_slide(slide_layout)
+
+        self._set_slide_background(slide)
+        self._add_slide_title(slide, title)
+
+        # Embed image
+        # Position: (left, top, width, height) - leave room for title and branding
+        left = Inches(1)
+        top = Inches(2)
+        width = Inches(11.333)
+
+        image_path = Path(image_path)
+        if image_path.exists():
+            slide.shapes.add_picture(str(image_path), left, top, width=width)
+
+        # Speaker notes
+        if notes:
+            notes_slide = slide.notes_slide
+            notes_slide.notes_text_frame.text = notes
+
+        self._add_branding(slide)
+        self._add_slide_number(slide)
+
+        return slide
+
     def add_two_chart_slide(
         self,
         title: str,

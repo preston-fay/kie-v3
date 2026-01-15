@@ -73,7 +73,8 @@ class EDAAnalysisBridgeSkill(Skill):
         outputs_dir = context.project_root / "outputs"
 
         # Load EDA synthesis (required)
-        synthesis_path = outputs_dir / "eda_synthesis.json"
+        (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+        synthesis_path = outputs_dir / "internal" / "eda_synthesis.json"
         if not synthesis_path.exists():
             return SkillResult(
                 success=False,
@@ -98,11 +99,11 @@ class EDAAnalysisBridgeSkill(Skill):
         bridge_json = self._generate_bridge_json(context, synthesis, intent_text)
 
         # Save markdown
-        md_path = outputs_dir / "eda_analysis_bridge.md"
+        md_path = outputs_dir / "internal" / "eda_analysis_bridge.md"
         md_path.write_text(bridge_md)
 
         # Save JSON
-        json_path = outputs_dir / "eda_analysis_bridge.json"
+        json_path = outputs_dir / "internal" / "eda_analysis_bridge.json"
         with open(json_path, "w") as f:
             json.dump(bridge_json, f, indent=2)
 

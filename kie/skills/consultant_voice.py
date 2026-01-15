@@ -96,12 +96,17 @@ class ConsultantVoiceSkill(Skill):
         evidence = []
         edits_summary = []
 
-        # Process executive_summary.md
-        summary_path = outputs_dir / "executive_summary.md"
+        # Ensure directories exist
+        deliverables_dir = outputs_dir / "deliverables"
+        deliverables_dir.mkdir(parents=True, exist_ok=True)
+
+        # Process executive_summary.md (now in internal/)
+        internal_dir = outputs_dir / "internal"
+        summary_path = internal_dir / "executive_summary.md"
         if summary_path.exists():
             original = summary_path.read_text()
             polished = self._polish_text(original)
-            consultant_path = outputs_dir / "executive_summary_consultant.md"
+            consultant_path = deliverables_dir / "executive_summary_consultant.md"
             consultant_path.write_text(polished)
             evidence.append(f"Polished executive_summary.md → executive_summary_consultant.md")
 
@@ -112,12 +117,12 @@ class ConsultantVoiceSkill(Skill):
         else:
             warnings.append("executive_summary.md not found, skipping")
 
-        # Process executive_narrative.md
-        narrative_path = outputs_dir / "executive_narrative.md"
+        # Process executive_narrative.md (now in deliverables/)
+        narrative_path = deliverables_dir / "executive_narrative.md"
         if narrative_path.exists():
             original = narrative_path.read_text()
             polished = self._polish_text(original)
-            consultant_path = outputs_dir / "executive_narrative_consultant.md"
+            consultant_path = deliverables_dir / "executive_narrative_consultant.md"
             consultant_path.write_text(polished)
             evidence.append(f"Polished executive_narrative.md → executive_narrative_consultant.md")
 
@@ -127,12 +132,12 @@ class ConsultantVoiceSkill(Skill):
         else:
             warnings.append("executive_narrative.md not found, skipping")
 
-        # Process story_manifest.md (if exists)
-        manifest_md_path = outputs_dir / "story_manifest.md"
+        # Process story_manifest.md (if exists, now in deliverables/)
+        manifest_md_path = deliverables_dir / "story_manifest.md"
         if manifest_md_path.exists():
             original = manifest_md_path.read_text()
             polished = self._polish_text(original)
-            consultant_path = outputs_dir / "story_manifest_consultant.md"
+            consultant_path = deliverables_dir / "story_manifest_consultant.md"
             consultant_path.write_text(polished)
             evidence.append(f"Polished story_manifest.md → story_manifest_consultant.md")
 
@@ -143,9 +148,9 @@ class ConsultantVoiceSkill(Skill):
             # Not a warning - this file is optional
             pass
 
-        # Write diff summary
+        # Write diff summary to deliverables/
         if edits_summary:
-            diff_path = outputs_dir / "consultant_voice.md"
+            diff_path = deliverables_dir / "consultant_voice.md"
             diff_content = "# Consultant Voice Edits\n\n"
             diff_content += "\n".join(edits_summary)
             diff_path.write_text(diff_content)

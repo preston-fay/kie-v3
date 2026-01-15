@@ -93,8 +93,9 @@ class VisualQCSkill(Skill):
         charts_dir = outputs_dir / "charts"
 
         # Validate required inputs
-        viz_plan_path = outputs_dir / "visualization_plan.json"
-        manifest_path = outputs_dir / "story_manifest.json"
+        (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+        viz_plan_path = outputs_dir / "internal" / "visualization_plan.json"
+        manifest_path = outputs_dir / "internal" / "story_manifest.json"
 
         if not viz_plan_path.exists():
             errors.append("visualization_plan.json not found")
@@ -157,12 +158,12 @@ class VisualQCSkill(Skill):
         output = {"charts": chart_evaluations, "summary": summary}
 
         # Save JSON
-        qc_json_path = outputs_dir / "visual_qc.json"
+        qc_json_path = outputs_dir / "internal" / "visual_qc.json"
         with open(qc_json_path, "w") as f:
             json.dump(output, f, indent=2)
 
         # Save Markdown
-        qc_md_path = outputs_dir / "visual_qc.md"
+        qc_md_path = outputs_dir / "internal" / "visual_qc.md"
         markdown = self._generate_markdown(output)
         qc_md_path.write_text(markdown)
 

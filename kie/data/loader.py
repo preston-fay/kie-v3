@@ -10,6 +10,74 @@ from typing import Optional, Union, List, Dict
 from dataclasses import dataclass
 import pandas as pd
 import numpy as np
+import re
+
+
+def extract_domain_keywords(objective: str) -> list[str]:
+    """
+    Extract meaningful domain-specific keywords from user's objective text.
+
+    Filters out common stop words and keeps nouns and domain terms that
+    could match column names.
+
+    Args:
+        objective: User's objective/intent text
+
+    Returns:
+        List of meaningful keywords (lowercase, deduplicated)
+
+    Example:
+        >>> extract_domain_keywords("the relationship between seed (soybeans and corn) and gpos")
+        ['relationship', 'seed', 'soybeans', 'soybean', 'corn', 'gpos']
+    """
+    if not objective:
+        return []
+
+    # Convert to lowercase
+    text = objective.lower()
+
+    # Remove punctuation but keep underscores (common in column names)
+    text = re.sub(r'[^\w\s_]', ' ', text)
+
+    # Split into words
+    words = text.split()
+
+    # Common stop words to filter out
+    stop_words = {
+        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+        'of', 'with', 'by', 'from', 'up', 'about', 'into', 'through', 'during',
+        'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further',
+        'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all',
+        'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no',
+        'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very',
+        'can', 'will', 'just', 'should', 'now', 'what', 'which', 'who', 'is',
+        'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+        'do', 'does', 'did', 'doing', 'would', 'could', 'ought', 'i', 'you',
+        'he', 'she', 'it', 'we', 'they', 'them', 'their', 'this', 'that',
+        'these', 'those', 'am', 'as', 'if', 'any', 'my', 'our', 'your'
+    }
+
+    # Keep meaningful words (3+ chars, not stop words)
+    keywords = []
+    for word in words:
+        if len(word) >= 3 and word not in stop_words:
+            keywords.append(word)
+
+            # Also add singular form if word ends in 's' (soybeans → soybean)
+            if word.endswith('s') and len(word) > 4 and word not in ['gpos', 'gross']:
+                singular = word[:-1]
+                if singular not in stop_words:
+                    keywords.append(singular)
+
+    # Deduplicate while preserving order
+    seen = set()
+    result = []
+    for keyword in keywords:
+        if keyword not in seen:
+            seen.add(keyword)
+            result.append(keyword)
+
+    return result
 
 
 @dataclass
@@ -199,12 +267,14 @@ class DataLoader:
     def suggest_column_mapping(
         self,
         required_columns: List[str],
-        overrides: Optional[Dict[str, str]] = None
+        overrides: Optional[Dict[str, str]] = None,
+        objective_text: Optional[str] = None
     ) -> Dict[str, Optional[str]]:
         """
-        Suggest mapping from required columns to actual columns using 4-Tier Semantic Scoring.
+        Suggest mapping from required columns to actual columns using Objective-Aware Scoring.
 
         Phase 3 + 4: Expert Intelligence with:
+        - Tier 0: Objective Keyword Match (NEW - domain-specific terms from user's objective)
         - Tier 1: Semantic Match (revenue, cost, margin keywords)
         - Tier 2: ID/ZipCode Avoidance
         - Tier 3: Percentage/Ratio Handling
@@ -216,6 +286,7 @@ class DataLoader:
             required_columns: List of desired column names/concepts
             overrides: Optional dict of explicit column mappings (e.g., {'revenue': 'CustomCol'})
                       These bypass ALL intelligence logic and are used as-is.
+            objective_text: Optional user objective text for extracting domain-specific keywords
 
         Returns:
             Dict mapping required names to actual column names (or None if not found)
@@ -308,8 +379,11 @@ class DataLoader:
 
                         candidate = best_cat if best_cat else unused_categorical[0]
 
-                    # If requesting numeric - Apply 4-Tier Scoring
+                    # If requesting numeric - Apply 5-Tier Scoring (with Tier 0: Objective Keywords)
                     elif unused_numeric:
+                        # Extract objective keywords if provided
+                        objective_keywords = extract_domain_keywords(objective_text) if objective_text else []
+
                         scores = {}
                         for col in unused_numeric:
                             try:
@@ -318,7 +392,16 @@ class DataLoader:
                                 std = self.last_loaded[col].std()
                                 cv = (std / mean) if mean > 0 and not pd.isna(std) else 0
 
-                                # TIER 1: Semantic Match (Highest Priority)
+                                # TIER 0: OBJECTIVE KEYWORD MATCH (HIGHEST PRIORITY)
+                                # If user's objective mentions specific terms, STRONGLY boost those columns
+                                objective_match = False
+                                if objective_keywords:
+                                    for keyword in objective_keywords:
+                                        if keyword in col_lower:
+                                            objective_match = True
+                                            break
+
+                                # TIER 1: Semantic Match
                                 percentage_keywords = ['rate', 'percent', 'margin', 'share', 'ratio', 'pct', '%']
                                 is_percentage = any(kw in col_lower for kw in percentage_keywords)
 
@@ -385,10 +468,18 @@ class DataLoader:
                                 if not is_percentage and mean > 100:
                                     base_score *= 1.1  # Tiny nudge for larger values
 
+                                # TIER 0 BOOST: Apply MASSIVE multiplier if column matches objective keywords
+                                if objective_match:
+                                    base_score *= 50.0  # DOMINATES all other scoring
+
                                 scores[col] = base_score
 
-                            except Exception:
-                                scores[col] = 0
+                            except Exception as e:
+                                # ISSUE #2 FIX: Log exception instead of silent failure
+                                import logging
+                                logger = logging.getLogger(__name__)
+                                logger.warning(f"Column scoring failed for '{col}': {e}")
+                                scores[col] = 0.1  # Minimal fallback score instead of zero
 
                         # Pick column with highest score
                         if scores:

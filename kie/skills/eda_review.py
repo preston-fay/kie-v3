@@ -89,11 +89,11 @@ class EDAReviewSkill(Skill):
         review_data = self._generate_review_data(profile, data_file, is_sample_data)
 
         # Save as markdown
-        review_path = outputs_dir / "eda_review.md"
+        review_path = outputs_dir / "internal" / "eda_review.md"
         review_path.write_text(review_content)
 
         # Save as JSON
-        review_json_path = outputs_dir / "eda_review.json"
+        review_json_path = outputs_dir / "internal" / "eda_review.json"
         review_json_path.write_text(json.dumps(review_data, indent=2))
 
         return SkillResult(
@@ -131,7 +131,7 @@ class EDAReviewSkill(Skill):
 Run /eda to generate profiling artifacts first.
 """
 
-        review_path = outputs_dir / "eda_review.md"
+        review_path = outputs_dir / "internal" / "eda_review.md"
         review_path.write_text(failure_content)
 
         return SkillResult(

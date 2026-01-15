@@ -1,114 +1,105 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
 
-# Virtual environments
-.venv/
-venv/
-ENV/
-env/
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-*.bak
-*.tmp
-.DS_Store
-
-# Testing
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.hypothesis/
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Project-specific
-data/
-outputs/
-exports/
-*.log
-project_state/
-
-# Web (React)
-web/node_modules/
-web/dist/
-web/build/
-web/.vite/
-web/*.local
-
-# Environment
-.env
-.env.local
-*.pem
-*.key
-
+# Automator development artifacts (should be in tools/mac_launcher/archive/)
+# Backups
+# CC local verification scratch
+# Claude Code project-specific config (not for repo)
 # Documentation builds
-docs/_build/
-docs/.doctrees/
-
+# Environment
 # Generated workspace template artifacts
-kie_workspace_starter.zip
-
+# IDE
+# IDEs
+# Jupyter
+# MCP server config (contains API keys - SECURITY)
+# Project planning and debug files
+# Project specific
+# Project-specific
+# Python
 # Ralph autonomous agent state files
-.ralph/
+# Temporary
+# Testing
+# Virtual environments
+# Web (React)
+# mypy
+*$py.class
+*.backup
+*.bak
+*.egg
+*.egg-info/
+*.key
+*.log
+*.pem
+*.py[cod]
+*.so
+*.swo
+*.swp
+*.tmp
+*~
+.DS_Store
+.Python
 .call_count
 .circuit_breaker_history
 .circuit_breaker_state
+.claude/settings.json
+.coverage
+.coverage.*
+.dmypy.json
+.eggs/
+.env
+.env.local
 .exit_signals
+.hypothesis/
+.idea/
+.installed.cfg
+.ipynb_checkpoints/
+.kie/
 .last_output_length
 .last_reset
-.response_analysis
-
-# Project planning and debug files
-@fix_plan.md
-PROMPT.md
-progress.json
-status.json
-coverage.json
-debug_api.py
-
-# Claude Code project-specific config (not for repo)
-.claude/settings.json
-
-# MCP server config (contains API keys - SECURITY)
 .mcp.json
-
-# Automator development artifacts (should be in tools/mac_launcher/archive/)
+.mypy_cache/
+.pytest_cache/
+.ralph/
+.response_analysis
+.tmp_cc_verify_pydup/
+.tox/
+.venv/
+.vscode/
+@fix_plan.md
+ENV/
+MANIFEST
+PROMPT.md
+__pycache__/
+build/
+coverage.json
+data/
+debug_api.py
+develop-eggs/
+dist/
+dmypy.json
+docs/.doctrees/
+docs/_build/
+downloads/
+eggs/
+env/
+exports/
+htmlcov/
+kie_workspace_starter.zip
+lib/
+lib64/
+outputs/
+parts/
+pip-wheel-metadata/
+progress.json
+project_state/
+sdist/
+share/python-wheels/
+status.json
 tools/mac_launcher/AUTOMATOR_*.sh
 tools/mac_launcher/AUTOMATOR_*.txt
-
-# CC local verification scratch
-.tmp_cc_verify_pydup/
+var/
+venv/
+web/*.local
+web/.vite/
+web/build/
+web/dist/
+web/node_modules/
+wheels/

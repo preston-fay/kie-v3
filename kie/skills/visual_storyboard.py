@@ -74,11 +74,17 @@ class VisualStoryboardSkill(Skill):
         "Implications & Actions",
     ]
 
-    # Maximum visuals allowed
-    MAX_VISUALS = 6
-
     # Garbage categories to filter from suppression lists
     GARBAGE_CATEGORIES = ["unassigned", "unknown", "n/a", "null", "none", "other"]
+
+    def _get_max_visuals(self, context: str) -> int:
+        """Get max visuals based on deliverable type."""
+        limits = {
+            "dashboard": 25,      # Rich, exploratory
+            "presentation": 8,    # Focused slides
+            "executive": 5,       # Brief exec summary
+        }
+        return limits.get(context, 8)
 
     @property
     def skill_id(self) -> str:
@@ -114,10 +120,11 @@ class VisualStoryboardSkill(Skill):
         errors = []
 
         outputs_dir = context.project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
 
-        # Load required inputs
-        triage_path = outputs_dir / "insight_triage.json"
-        viz_plan_path = outputs_dir / "visualization_plan.json"
+        # Load required inputs (from internal/ directory)
+        triage_path = internal_dir / "insight_triage.json"
+        viz_plan_path = internal_dir / "visualization_plan.json"
 
         if not viz_plan_path.exists():
             return SkillResult(
@@ -141,10 +148,13 @@ class VisualStoryboardSkill(Skill):
         # Load narrative (optional)
         narrative_data = self._load_narrative(outputs_dir)
 
+        # Get build context before generating storyboard
+        build_context = context.metadata.get("build_context", "presentation")
+
         # Generate storyboard
         try:
             storyboard_elements = self._generate_storyboard(
-                triage_data, viz_plan, narrative_data
+                triage_data, viz_plan, narrative_data, build_context
             )
         except Exception as e:
             return SkillResult(
@@ -152,19 +162,25 @@ class VisualStoryboardSkill(Skill):
                 errors=[f"Storyboard generation failed: {e}"]
             )
 
-        # Enforce visual limit
-        if len(storyboard_elements) > self.MAX_VISUALS:
+        # Enforce visual limit (context-aware)
+        max_visuals = self._get_max_visuals(build_context)
+        if len(storyboard_elements) > max_visuals:
             warnings.append(
                 f"Storyboard has {len(storyboard_elements)} visuals, "
-                f"exceeding recommended maximum of {self.MAX_VISUALS}"
+                f"exceeding recommended maximum of {max_visuals}"
             )
 
-        # Generate outputs
-        storyboard_json_path = outputs_dir / "visual_storyboard.json"
-        storyboard_md_path = outputs_dir / "visual_storyboard.md"
+        # Generate outputs to organized directories
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+        deliverables_dir = outputs_dir / "deliverables"
+        deliverables_dir.mkdir(parents=True, exist_ok=True)
 
-        self._generate_json(storyboard_elements, storyboard_json_path, viz_plan)
-        self._generate_markdown(storyboard_elements, storyboard_md_path, viz_plan)
+        storyboard_json_path = internal_dir / "visual_storyboard.json"
+        storyboard_md_path = deliverables_dir / "visual_storyboard.md"
+
+        self._generate_json(storyboard_elements, storyboard_json_path, viz_plan, build_context)
+        self._generate_markdown(storyboard_elements, storyboard_md_path, viz_plan, build_context)
 
         return SkillResult(
             success=True,
@@ -203,7 +219,8 @@ class VisualStoryboardSkill(Skill):
         self,
         triage_data: dict[str, Any],
         viz_plan: dict[str, Any],
-        narrative_data: dict[str, Any] | None
+        narrative_data: dict[str, Any] | None,
+        build_context: str = "presentation"
     ) -> list[StoryboardElement]:
         """Generate storyboard elements from visualization plan."""
         elements = []
@@ -226,9 +243,10 @@ class VisualStoryboardSkill(Skill):
             if spec.get("insight_id") not in suppressed_insights
         ]
 
-        # Enforce visual limit
-        if len(viz_specs) > self.MAX_VISUALS:
-            viz_specs = viz_specs[:self.MAX_VISUALS]
+        # Enforce visual limit (context-aware)
+        max_visuals = self._get_max_visuals(build_context)
+        if len(viz_specs) > max_visuals:
+            viz_specs = viz_specs[:max_visuals]
 
         # Categorize specs by their purpose
         context_specs = []
@@ -346,8 +364,25 @@ class VisualStoryboardSkill(Skill):
     ) -> StoryboardElement:
         """Create a storyboard element from a visualization spec."""
         insight_id = spec.get("insight_id", "unknown")
-        viz_type = spec.get("visualization_type", "unknown")
-        chart_ref = f"{insight_id}__{viz_type}.json"
+
+        # CRITICAL FIX: Handle multi-version charts (spec.visuals array)
+        # Pick the first visual from the alternatives array
+        visuals = spec.get("visuals", [])
+        if visuals and isinstance(visuals, list):
+            # Use first visual (primary chart)
+            first_visual = visuals[0]
+            viz_type = first_visual.get("visualization_type", "unknown")
+            pattern_role = first_visual.get("pattern_role", "")
+
+            # Build chart_ref matching actual filename pattern
+            if pattern_role:
+                chart_ref = f"{insight_id}__{viz_type}__{pattern_role}.json"
+            else:
+                chart_ref = f"{insight_id}__{viz_type}.json"
+        else:
+            # Fallback for old format (single viz_type at spec level)
+            viz_type = spec.get("visualization_type", "unknown")
+            chart_ref = f"{insight_id}__{viz_type}.json"
 
         # Generate transition text
         if is_first:
@@ -433,7 +468,8 @@ class VisualStoryboardSkill(Skill):
         self,
         elements: list[StoryboardElement],
         output_path: Path,
-        viz_plan: dict[str, Any]
+        viz_plan: dict[str, Any],
+        build_context: str = "presentation"
     ) -> None:
         """Generate JSON storyboard."""
         storyboard_json = {
@@ -443,7 +479,7 @@ class VisualStoryboardSkill(Skill):
             "metadata": {
                 "artifact_classification": "INTERNAL",
                 "skill_id": self.skill_id,
-                "visual_limit": self.MAX_VISUALS,
+                "visual_limit": self._get_max_visuals(build_context),
                 "diversity_required": True,
             }
         }
@@ -488,7 +524,8 @@ class VisualStoryboardSkill(Skill):
         self,
         elements: list[StoryboardElement],
         output_path: Path,
-        viz_plan: dict[str, Any]
+        viz_plan: dict[str, Any],
+        build_context: str = "presentation"
     ) -> None:
         """Generate markdown storyboard."""
         lines = []
@@ -497,7 +534,7 @@ class VisualStoryboardSkill(Skill):
         lines.append("*Consultant-grade visual narrative sequencing*\n")
         lines.append("")
         lines.append(f"**Total Visuals**: {len(elements)}")
-        lines.append(f"**Visual Limit**: {self.MAX_VISUALS}")
+        lines.append(f"**Visual Limit**: {self._get_max_visuals(build_context)}")
         lines.append("")
 
         # Group by section

@@ -221,6 +221,7 @@ class PolicyEngine:
                 recovery_steps=[
                     "/eda        # Run EDA first to profile data",
                     "/analyze    # Then extract insights",
+                    "# ISSUE #4 FIX: If EDA was run but file missing, check outputs/ folder permissions",
                 ]
             )
 
@@ -244,6 +245,7 @@ class PolicyEngine:
                 recovery_steps=[
                     "/analyze    # Extract insights first",
                     "/build      # Then generate deliverables",
+                    "# ISSUE #4 FIX: If analyze was run but file missing, check outputs/ folder",
                 ]
             )
 

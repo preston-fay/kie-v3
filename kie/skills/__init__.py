@@ -21,6 +21,7 @@ from kie.skills.client_readiness import ClientReadinessSkill
 from kie.skills.consultant_voice import ConsultantVoiceSkill
 from kie.skills.decision_brief import DecisionBriefSkill
 from kie.skills.eda_analysis_bridge import EDAAnalysisBridgeSkill
+from kie.skills.eda_consultant_report import EDAConsultantReport
 from kie.skills.eda_review import EDAReviewSkill
 from kie.skills.eda_synthesis import EDASynthesisSkill
 from kie.skills.executive_summary import ExecutiveSummarySkill
@@ -41,6 +42,7 @@ register_skill(ClientReadinessSkill())
 register_skill(ConsultantVoiceSkill())
 register_skill(DecisionBriefSkill())
 register_skill(EDAAnalysisBridgeSkill())
+register_skill(EDAConsultantReport())
 register_skill(EDAReviewSkill())
 register_skill(EDASynthesisSkill())
 register_skill(ExecutiveSummarySkill())
@@ -67,6 +69,7 @@ __all__ = [
     "ConsultantVoiceSkill",
     "DecisionBriefSkill",
     "EDAAnalysisBridgeSkill",
+    "EDAConsultantReport",
     "EDAReviewSkill",
     "EDASynthesisSkill",
     "ExecutiveSummarySkill",

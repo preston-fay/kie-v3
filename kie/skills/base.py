@@ -28,6 +28,7 @@ class SkillContext:
     current_stage: str | None
     artifacts: dict[str, Any] = field(default_factory=dict)
     evidence_ledger_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def get_artifact_path(self, artifact_name: str) -> Path | None:
         """Get path to an artifact if it exists."""

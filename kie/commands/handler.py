@@ -930,19 +930,30 @@ class CommandHandler:
         if ".kie" in str(kie_package_root) and "src" in str(kie_package_root):
             checks.append(f"✓ Using vendored KIE runtime: {kie_package_root}")
         else:
-            # Check if from expected repo or site-packages
-            expected_repo_root = Path("/Users/pfay01/Projects/kie-v3")
-            is_editable_from_this_repo = expected_repo_root in kie_package_root.parents
+            # ISSUE #1 FIX: Dynamic detection - works on any machine
+            # Check if installed as editable (development mode)
+            # Look for pyproject.toml in parent directory
+            parent_has_pyproject = (kie_package_root.parent / "pyproject.toml").exists()
 
-            site_packages = None
-            for path in sys.path:
-                if "site-packages" in path:
-                    site_packages = Path(path)
-                    break
+            # Check if pyproject.toml declares this as the kie package
+            is_editable_install = False
+            if parent_has_pyproject:
+                try:
+                    import tomllib
+                    with open(kie_package_root.parent / "pyproject.toml", "rb") as f:
+                        pyproject = tomllib.load(f)
+                        package_name = pyproject.get("project", {}).get("name", "")
+                        is_editable_install = (package_name == "kie")
+                except Exception:
+                    # Fallback: assume editable if pyproject.toml exists and kie/ folder present
+                    is_editable_install = (kie_package_root.name == "kie")
 
-            is_from_site_packages = site_packages and site_packages in kie_package_root.parents
+            # Check if in site-packages (production install)
+            is_from_site_packages = any(
+                "site-packages" in str(p) for p in kie_package_root.parents
+            )
 
-            if is_editable_from_this_repo or is_from_site_packages:
+            if is_editable_install or is_from_site_packages:
                 checks.append(f"✓ KIE package location: {kie_package_root}")
             else:
                 warnings.append(
@@ -1202,7 +1213,9 @@ class CommandHandler:
             "passed": summary["passed"],
             "failed": summary["failed"],
             "pass_rate": summary["pass_rate"],
-            "total_issues": summary["total_issues"],
+            "total_issues": summary["total_issues"],  # Dict with critical/warning/info
+            "by_output_type": summary.get("by_output_type", {}),
+            "by_category": summary.get("by_category", {}),
         }
 
     def handle_build(self, target: str = "all", preview: bool = False, interactive: bool = False) -> dict[str, Any]:
@@ -1254,10 +1267,12 @@ class CommandHandler:
 
         # CRITICAL: Check output theme preference is set before building
         # THEME GATE: User must explicitly choose theme - no silent defaults, no stdin
+        # ISSUE #5 FIX: Allow environment variable for automation
+        import os
         from kie.preferences import OutputPreferences
 
         prefs = OutputPreferences(self.project_root)
-        output_theme = prefs.get_theme()
+        output_theme = prefs.get_theme() or os.getenv("KIE_DEFAULT_THEME")
 
         if output_theme is None:
             # Theme not set - BLOCK (non-interactive)
@@ -1271,11 +1286,71 @@ class CommandHandler:
             print("  /theme light  - Light backgrounds, dark text")
             print("  /theme dark   - Dark backgrounds, white text")
             print()
+            print("For automated scripts:")
+            print("  export KIE_DEFAULT_THEME=dark")
+            print("  python3 -m kie.cli build")
+            print()
             return {
                 "success": False,
                 "blocked": True,
-                "message": "Output theme is required. Set it with: /theme light OR /theme dark",
+                "message": "Output theme is required. Set with: /theme light|dark OR export KIE_DEFAULT_THEME=dark",
             }
+
+        # PRE-FLIGHT VALIDATION: Check required artifacts exist before attempting build
+        outputs_dir = self.project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
+
+        # Check 1: Required artifacts from /analyze (for presentation/dashboard builds)
+        if target in ["presentation", "dashboard", "all"]:
+            required_analyze_artifacts = [
+                ("insight_triage.json", "/analyze", internal_dir),  # JSON in internal/
+                ("visualization_plan.json", "/analyze", internal_dir),  # JSON in internal/
+                ("executive_narrative.md", "/analyze", outputs_dir / "deliverables"),  # MD in deliverables/
+            ]
+
+            missing = []
+            for artifact_info in required_analyze_artifacts:
+                artifact = artifact_info[0]
+                command = artifact_info[1]
+                check_dir = artifact_info[2]
+                if not (check_dir / artifact).exists():
+                    missing.append((artifact, command))
+
+            if missing:
+                print("\n" + "="*70)
+                print("❌ BUILD BLOCKED - MISSING REQUIRED ARTIFACTS")
+                print("="*70)
+                print("\nThe following artifacts are required but not found:\n")
+                for artifact, command in missing:
+                    print(f"  ✗ {artifact}")
+                    print(f"    → Run: python3 -m kie.cli {command.lstrip('/')}\n")
+                print("These artifacts are created during the analysis phase.")
+                print("Run the listed commands to generate them, then try building again.")
+                print("="*70 + "\n")
+
+                return {
+                    "success": False,
+                    "blocked": True,
+                    "message": "Missing required artifacts from /analyze",
+                    "missing_artifacts": [a for a, _ in missing]
+                }
+
+            # Check 2: Charts exist (if building presentation/dashboard)
+            charts = list((outputs_dir / "charts").glob("*.json"))
+            if not charts:
+                print("\n" + "="*70)
+                print("❌ BUILD BLOCKED - NO CHARTS FOUND")
+                print("="*70)
+                print("\nPresentation and dashboard require rendered charts.")
+                print("\nRun: python3 -m kie.cli build charts")
+                print("\nThen try building again.")
+                print("="*70 + "\n")
+
+                return {
+                    "success": False,
+                    "blocked": True,
+                    "message": "No charts found - run /build charts first"
+                }
 
         # Update status
         status = {
@@ -1344,6 +1419,41 @@ class CommandHandler:
                     results["charts"] = chart_result
                     print(f"✓ Rendered {chart_result['charts_rendered']} charts from visualization plan")
 
+                    # CONSULTANT UX: Convert chart JSONs to SVG for consultant-friendly outputs
+                    charts_dir = self.project_root / "outputs" / "charts"
+                    svg_count = 0
+                    if charts_dir.exists():
+                        from kie.base import RechartsConfig
+
+                        for json_file in charts_dir.glob("*.json"):
+                            try:
+                                # Load chart config
+                                with open(json_file) as f:
+                                    chart_data = json.load(f)
+
+                                # Create RechartsConfig and render to SVG
+                                config = RechartsConfig(
+                                    chart_type=chart_data.get("type", chart_data.get("visualization_type", "bar")),
+                                    data=chart_data.get("data", []),
+                                    config=chart_data.get("config", {}),
+                                    title=chart_data.get("title"),
+                                    subtitle=chart_data.get("subtitle")
+                                )
+
+                                # Render to SVG (gracefully falls back to JSON if Node.js unavailable)
+                                svg_path = json_file.with_suffix('.svg')
+                                result_path = config.to_svg(svg_path)
+
+                                if result_path.suffix == '.svg':
+                                    svg_count += 1
+                            except Exception as e:
+                                # Don't block build on SVG rendering failures - just log warning
+                                print(f"   ⚠️  Could not render {json_file.name} to SVG: {e}")
+                                continue
+
+                        if svg_count > 0:
+                            print(f"✓ Generated {svg_count} SVG charts for consultant-friendly outputs")
+
                     # Update status
                     status["status"] = "completed"
                     status["completed_at"] = datetime.now().isoformat()
@@ -1370,6 +1480,56 @@ class CommandHandler:
                         "message": f"Chart rendering failed: {e}",
                     }
 
+            # INSIGHT BRIEF PATH: Generate markdown and PowerPoint brief
+            if target == "insight_brief":
+                try:
+                    from kie.skills.insight_brief import InsightBriefSkill
+                    from kie.skills.insight_brief_pptx_exporter import InsightBriefPPTXExporter
+                    from kie.skills.base import SkillContext
+
+                    # Generate insight brief (markdown + JSON)
+                    skill = InsightBriefSkill()
+                    context = SkillContext(project_root=self.project_root, current_stage="build")
+                    brief_result = skill.execute(context)
+
+                    if not brief_result.success:
+                        return {
+                            "success": False,
+                            "message": f"Insight brief generation failed: {brief_result.metadata.get('message', 'Unknown error')}",
+                            "warnings": brief_result.warnings,
+                        }
+
+                    # Generate PowerPoint from JSON
+                    exporter = InsightBriefPPTXExporter(self.project_root)
+                    brief_json_path = self.project_root / "outputs" / "internal" / "insight_brief.json"
+                    pptx_path = self.project_root / "outputs" / "deliverables" / "insight_brief.pptx"
+
+                    exporter.export(brief_json_path, pptx_path)
+
+                    print(f"✓ Generated insight brief:")
+                    print(f"  → {brief_result.artifacts.get('brief_markdown', '')}")
+                    print(f"  → {pptx_path}")
+
+                    # Update status
+                    status["status"] = "completed"
+                    status["completed_at"] = datetime.now().isoformat()
+                    with open(self.state_path, "w") as f:
+                        json.dump(status, f, indent=2)
+
+                    return {
+                        "success": True,
+                        "message": "Insight brief generated (markdown + PPTX)",
+                        "artifacts": {
+                            "markdown": brief_result.artifacts.get("brief_markdown"),
+                            "pptx": str(pptx_path),
+                        },
+                    }
+                except Exception as e:
+                    return {
+                        "success": False,
+                        "message": f"Insight brief generation failed: {e}",
+                    }
+
             # RENDER CHARTS FROM VISUALIZATION PLAN (for full builds)
             if target in ["all", "dashboard", "presentation"]:
                 try:
@@ -1379,6 +1539,41 @@ class CommandHandler:
                     chart_result = renderer.render_charts()
                     results["charts"] = chart_result
                     print(f"✓ Rendered {chart_result['charts_rendered']} charts from visualization plan")
+
+                    # CONSULTANT UX: Convert chart JSONs to SVG for consultant-friendly outputs
+                    charts_dir = self.project_root / "outputs" / "charts"
+                    svg_count = 0
+                    if charts_dir.exists():
+                        from kie.base import RechartsConfig
+
+                        for json_file in charts_dir.glob("*.json"):
+                            try:
+                                # Load chart config
+                                with open(json_file) as f:
+                                    chart_data = json.load(f)
+
+                                # Create RechartsConfig and render to SVG
+                                config = RechartsConfig(
+                                    chart_type=chart_data.get("type", chart_data.get("visualization_type", "bar")),
+                                    data=chart_data.get("data", []),
+                                    config=chart_data.get("config", {}),
+                                    title=chart_data.get("title"),
+                                    subtitle=chart_data.get("subtitle")
+                                )
+
+                                # Render to SVG (gracefully falls back to JSON if Node.js unavailable)
+                                svg_path = json_file.with_suffix('.svg')
+                                result_path = config.to_svg(svg_path)
+
+                                if result_path.suffix == '.svg':
+                                    svg_count += 1
+                            except Exception as e:
+                                # Don't block build on SVG rendering failures - just log warning
+                                print(f"   ⚠️  Could not render {json_file.name} to SVG: {e}")
+                                continue
+
+                        if svg_count > 0:
+                            print(f"✓ Generated {svg_count} SVG charts for consultant-friendly outputs")
                 except FileNotFoundError as e:
                     # visualization_plan.json missing - block build
                     return {
@@ -1387,42 +1582,166 @@ class CommandHandler:
                         "message": str(e),
                     }
                 except Exception as e:
-                    # Chart rendering failed - report but continue
-                    print(f"⚠️  Chart rendering failed: {e}")
-                    results["charts_error"] = str(e)
+                    # PHASE 6: Chart rendering failures BLOCK the build
+                    print("\n" + "="*70)
+                    print("❌ CHART RENDERING FAILED")
+                    print("="*70)
+                    print(f"\nError: {e}")
+                    print("\nCharts are required for presentation and dashboard generation.")
+                    print("Fix the chart rendering error before proceeding.")
+                    print("="*70 + "\n")
 
+                    return {
+                        "success": False,
+                        "blocked": True,
+                        "message": "Chart rendering failed",
+                        "error": str(e)
+                    }
+
+                # PHASE 1: TWO-PASS SKILL EXECUTION (copied from handle_analyze pattern)
                 # Execute build-stage skills after charts are rendered
                 try:
                     from kie.skills import get_registry, SkillContext
 
                     registry = get_registry()
                     outputs_dir = self.project_root / "outputs"
+                    internal_dir = outputs_dir / "internal"
 
-                    # Scan for artifacts
-                    artifacts = {}
-                    if (outputs_dir / "story_manifest.json").exists():
-                        artifacts["story_manifest"] = outputs_dir / "story_manifest.json"
-                    if (outputs_dir / "actionability_scores.json").exists():
-                        artifacts["actionability_scores"] = outputs_dir / "actionability_scores.json"
-                    if (outputs_dir / "visual_qc.json").exists():
-                        artifacts["visual_qc"] = outputs_dir / "visual_qc.json"
+                    # PASS 1: Load existing artifacts from /analyze + execute build skills
+                    artifacts_pass1 = {}
+
+                    # Load analysis artifacts (created by /analyze)
+                    # IMPORTANT: JSON artifacts are in internal/, MD artifacts may be in root or internal/
+                    if (outputs_dir / "insights.yaml").exists():
+                        artifacts_pass1["insights_catalog"] = outputs_dir / "insights.yaml"
+                    if (internal_dir / "insight_triage.json").exists():
+                        artifacts_pass1["insight_triage"] = internal_dir / "insight_triage.json"
                     if (outputs_dir / "executive_summary.md").exists():
-                        artifacts["executive_summary"] = outputs_dir / "executive_summary.md"
+                        artifacts_pass1["executive_summary"] = outputs_dir / "executive_summary.md"
                     if (outputs_dir / "executive_summary_consultant.md").exists():
-                        artifacts["executive_summary_consultant"] = outputs_dir / "executive_summary_consultant.md"
+                        artifacts_pass1["executive_summary_consultant"] = outputs_dir / "executive_summary_consultant.md"
+                    if (internal_dir / "visualization_plan.json").exists():
+                        artifacts_pass1["visualization_plan"] = internal_dir / "visualization_plan.json"
+                    if (internal_dir / "executive_narrative.json").exists():
+                        artifacts_pass1["executive_narrative"] = internal_dir / "executive_narrative.json"
 
-                    skill_context = SkillContext(
+                    # Load chart artifacts (created by chart rendering)
+                    charts = list((outputs_dir / "charts").glob("*.json"))
+                    if charts:
+                        artifacts_pass1["rendered_charts"] = [str(c) for c in charts]
+
+                    # Determine build context based on target
+                    build_context_map = {
+                        "charts": "dashboard",       # Assume exploratory if just charts
+                        "dashboard": "dashboard",    # Rich, exploratory
+                        "presentation": "presentation",  # Focused slides
+                        "all": "dashboard",          # Default to rich when building everything
+                    }
+                    build_context = build_context_map.get(target, "dashboard")
+
+                    skill_context_pass1 = SkillContext(
                         project_root=self.project_root,
                         current_stage="build",
-                        artifacts=artifacts,
+                        artifacts=artifacts_pass1,
                         evidence_ledger_id=None,
                     )
+                    # Pass build context to skills
+                    skill_context_pass1.metadata["build_context"] = build_context
 
-                    registry.execute_skills_for_stage("build", skill_context)
+                    # Execute Pass 1 - creates visual_storyboard, actionability_scores, visual_qc
+                    registry.execute_skills_for_stage("build", skill_context_pass1)
+
+                    # PASS 2: Re-scan for Pass 1 outputs + execute story_manifest skill
+                    # NOTE: artifacts_pass2 inherits all Pass 1 keys (insight_triage, etc.)
+                    artifacts_pass2 = artifacts_pass1.copy()
+
+                    # Add Pass 1 outputs (created by build-stage skills in Pass 1)
+                    # IMPORTANT: Skills write JSON artifacts to internal/ directory
+                    internal_dir = outputs_dir / "internal"
+                    if (internal_dir / "visual_storyboard.json").exists():
+                        artifacts_pass2["visual_storyboard_json"] = internal_dir / "visual_storyboard.json"
+                    if (internal_dir / "actionability_scores.json").exists():
+                        artifacts_pass2["actionability_scores_json"] = internal_dir / "actionability_scores.json"
+                    if (internal_dir / "visual_qc.json").exists():
+                        artifacts_pass2["visual_qc_json"] = internal_dir / "visual_qc.json"
+
+                    skill_context_pass2 = SkillContext(
+                        project_root=self.project_root,
+                        current_stage="build",
+                        artifacts=artifacts_pass2,
+                        evidence_ledger_id=None,
+                    )
+                    # Pass build context to Pass 2 skills as well
+                    skill_context_pass2.metadata["build_context"] = build_context
+
+                    # Execute Pass 2 - creates story_manifest.json
+                    pass2_results = registry.execute_skills_for_stage("build", skill_context_pass2)
+
+                    # VERIFY story_manifest was created (critical for presentation/dashboard)
+                    if target in ["presentation", "dashboard", "all"]:
+                        if not (internal_dir / "story_manifest.json").exists():
+                            # Story manifest skill didn't run - collect diagnostic info
+                            print("\n" + "="*70)
+                            print("❌ STORY MANIFEST GENERATION FAILED")
+                            print("="*70)
+                            print("\nThe story_manifest skill did not execute successfully.")
+                            print("This usually means required artifacts are missing or have wrong names.")
+                            print("\nDiagnostic Info:")
+                            print(f"  Artifacts in Pass 2 context: {list(artifacts_pass2.keys())}")
+                            print(f"\n  Story manifest requires: {['insight_triage', 'executive_summary', 'visual_storyboard_json', 'visualization_plan', 'actionability_scores_json', 'visual_qc_json']}")
+                            print("\n  Check if all required files exist:")
+                            # JSON files are in internal/, MD files may be in root
+                            json_files_in_internal = ["insight_triage.json", "visual_storyboard.json", "visualization_plan.json", "actionability_scores.json", "visual_qc.json"]
+                            md_files_in_root = ["executive_summary.md"]
+
+                            for req_file in json_files_in_internal:
+                                exists = (internal_dir / req_file).exists()
+                                status = "✓" if exists else "✗"
+                                print(f"    {status} internal/{req_file}")
+                            for req_file in md_files_in_root:
+                                exists = (outputs_dir / req_file).exists()
+                                status = "✓" if exists else "✗"
+                                print(f"    {status} {req_file}")
+
+                            # Show any errors from skill execution
+                            if pass2_results.get("errors"):
+                                print("\n  Skill execution errors:")
+                                for error in pass2_results["errors"]:
+                                    print(f"    • {error}")
+
+                            # Show which skills executed
+                            skills_executed = [s["skill_id"] for s in pass2_results.get("skills_executed", [])]
+                            print(f"\n  Skills that executed in Pass 2: {skills_executed}")
+
+                            print("="*70 + "\n")
+
+                            return {
+                                "success": False,
+                                "blocked": True,
+                                "message": "Story manifest generation failed - see diagnostic info above",
+                                "artifacts_available": list(artifacts_pass2.keys())
+                            }
+
                 except Exception as e:
-                    # Don't fail build if skills fail
-                    print(f"⚠️  Build skills execution failed: {e}")
-                    results["build_skills_error"] = str(e)
+                    # PHASE 2: Skills MUST succeed for build to continue
+                    print("\n" + "="*70)
+                    print("❌ BUILD FAILED - SKILL EXECUTION ERROR")
+                    print("="*70)
+                    print(f"\nError: {e}")
+                    print("\nSkills must complete successfully before presentation/dashboard generation.")
+                    print("Check that all required artifacts exist:")
+                    print("  - insight_triage.json (run /analyze)")
+                    print("  - visualization_plan.json (run /analyze)")
+                    print("  - charts/*.json (run /build charts)")
+                    print("\nDebug: Check outputs/ folder for missing files")
+                    print("="*70 + "\n")
+
+                    return {
+                        "success": False,
+                        "blocked": True,
+                        "message": "Build skills failed - see error above",
+                        "error": str(e)
+                    }
 
             # Build dashboard FIRST (generates Recharts HTML)
             # This is what users actually want to see!
@@ -1461,6 +1780,84 @@ class CommandHandler:
             with open(self.state_path, "w") as f:
                 json.dump(status, f, indent=2)
 
+            # PHASE 6: Generate HTML reports from markdown outputs (Consultant UX)
+            try:
+                from kie.reports.html_generator import markdown_to_html, DEPENDENCIES_AVAILABLE
+
+                if DEPENDENCIES_AVAILABLE:
+                    outputs_dir = self.project_root / "outputs"
+                    exports_dir = self.project_root / "exports"
+                    exports_dir.mkdir(exist_ok=True)
+
+                    html_count = 0
+
+                    # Convert executive_summary.md to HTML
+                    exec_summary_md = outputs_dir / "executive_summary.md"
+                    if exec_summary_md.exists():
+                        try:
+                            project_name = spec.get("project_name", "KIE Analysis")
+                            html_path = markdown_to_html(
+                                exec_summary_md,
+                                exports_dir / "Executive_Summary.html",
+                                title=f"{project_name} - Executive Summary",
+                                subtitle="Internal Consultant-Grade Synthesis"
+                            )
+                            html_count += 1
+                        except Exception as e:
+                            print(f"   ⚠️  Could not convert executive_summary.md to HTML: {e}")
+
+                    # Convert insight_brief.md (PRIMARY deliverable) from deliverables/
+                    insight_brief_md = outputs_dir / "deliverables" / "insight_brief.md"
+                    if insight_brief_md.exists():
+                        try:
+                            html_path = markdown_to_html(
+                                insight_brief_md,
+                                exports_dir / "Insight_Brief.html",
+                                title=f"{spec.get('project_name', 'KIE')} - Insight Brief",
+                                subtitle="Comprehensive Analysis Results"
+                            )
+                            html_count += 1
+                        except Exception as e:
+                            print(f"   ⚠️  Could not convert insight_brief.md to HTML: {e}")
+
+                    # Convert other consultant-friendly markdown files from outputs/ root
+                    for md_file in ["client_readiness.md"]:
+                        md_path = outputs_dir / md_file
+                        if md_path.exists():
+                            try:
+                                title = md_file.replace("_", " ").replace(".md", "").title()
+                                html_path = markdown_to_html(
+                                    md_path,
+                                    exports_dir / f"{md_file.replace('.md', '.html')}",
+                                    title=f"{spec.get('project_name', 'KIE')} - {title}"
+                                )
+                                html_count += 1
+                            except Exception as e:
+                                print(f"   ⚠️  Could not convert {md_file} to HTML: {e}")
+
+                    # Convert EDA Report from deliverables/
+                    eda_report_md = outputs_dir / "deliverables" / "EDA_Report.md"
+                    if eda_report_md.exists():
+                        try:
+                            html_path = markdown_to_html(
+                                eda_report_md,
+                                exports_dir / "EDA_Report.html",
+                                title=f"{spec.get('project_name', 'KIE')} - EDA Report"
+                            )
+                            html_count += 1
+                        except Exception as e:
+                            print(f"   ⚠️  Could not convert EDA_Report.md to HTML: {e}")
+
+                    if html_count > 0:
+                        print(f"✓ Generated {html_count} HTML reports in exports/")
+                else:
+                    # Dependencies not available - skip HTML generation
+                    print("⚠️  HTML generation skipped (install: pip install markdown jinja2)")
+
+            except Exception as e:
+                # Don't fail build if HTML generation fails
+                print(f"⚠️  HTML report generation failed: {e}")
+
             # Update Rails state
             from kie.state import update_rails_state
             update_rails_state(self.project_root, "build", success=True)
@@ -1472,14 +1869,22 @@ class CommandHandler:
             }
 
         except Exception as e:
+            import traceback
+            error_msg = str(e) if str(e) else repr(e)
+            traceback_str = traceback.format_exc()
+
             status["status"] = "failed"
-            status["error"] = str(e)
+            status["error"] = error_msg
             with open(self.state_path, "w") as f:
                 json.dump(status, f, indent=2)
 
+            print(f"\n❌ BUILD EXCEPTION: {error_msg}")
+            print(f"\nFull traceback:\n{traceback_str}")
+
             return {
                 "success": False,
-                "message": f"Build failed: {str(e)}",
+                "message": f"Build failed: {error_msg}",
+                "traceback": traceback_str,
             }
         finally:
             # Always create deliverables pack (even if build fails)
@@ -1515,9 +1920,10 @@ class CommandHandler:
         """
         outputs_dir = self.project_root / "outputs"
         charts_dir = outputs_dir / "charts"
+        internal_dir = outputs_dir / "internal"
 
         # VALIDATE REQUIRED INPUTS
-        manifest_path = outputs_dir / "story_manifest.json"
+        manifest_path = internal_dir / "story_manifest.json"
 
         # Check manifest (REQUIRED)
         if not manifest_path.exists():
@@ -1648,6 +2054,22 @@ class CommandHandler:
                     elif viz_type == "area" and "areas" in chart_config:
                         y_keys = [area["dataKey"] for area in chart_config["areas"]]
 
+                    # FALLBACK: If x_key/y_keys not found in config, infer from data structure
+                    if not x_key and chart_data:
+                        # Look for common category field names
+                        first_item = chart_data[0]
+                        for key in ["category", "name", "label", "x"]:
+                            if key in first_item:
+                                x_key = key
+                                break
+
+                    if not y_keys and chart_data:
+                        # Look for value fields (anything that's not the x_key and is numeric)
+                        first_item = chart_data[0]
+                        for key, value in first_item.items():
+                            if key != x_key and isinstance(value, (int, float)):
+                                y_keys.append(key)
+
                 # Build slide title from role + headline
                 role = visual.get("role", "")
                 headline = narrative.get("headline", "")
@@ -1719,25 +2141,26 @@ class CommandHandler:
                         f"   This indicates chart rendering failed."
                     )
 
-                # Load chart data and config for embedding
-                chart_data, chart_config = self._load_chart_for_embedding(chart_path)
+                # FIX: Use PNG images instead of native chart embedding
+                # Load SVG file (already generated during build)
+                svg_path = charts_dir / chart_ref.replace('.json', '.svg')
+                if not svg_path.exists():
+                    print(f"⚠️  Warning: SVG not found for {chart_ref}, skipping slide")
+                    continue
 
-                # Extract x_key and y_keys from chart config
-                x_key = None
-                y_keys = []
-                viz_type = visual.get("visualization_type", "bar")
-
-                if viz_type in ["bar", "line", "area"]:
-                    # Extract from xAxis and bars/lines/areas
-                    if "xAxis" in chart_config:
-                        x_key = chart_config["xAxis"].get("dataKey")
-
-                    if viz_type == "bar" and "bars" in chart_config:
-                        y_keys = [bar["dataKey"] for bar in chart_config["bars"]]
-                    elif viz_type == "line" and "lines" in chart_config:
-                        y_keys = [line["dataKey"] for line in chart_config["lines"]]
-                    elif viz_type == "area" and "areas" in chart_config:
-                        y_keys = [area["dataKey"] for area in chart_config["areas"]]
+                # Convert SVG to PNG for PowerPoint compatibility
+                from kie.charts.svg_renderer import svg_to_png
+                png_path = svg_path.with_suffix('.png')
+                if not png_path.exists():
+                    try:
+                        svg_to_png(svg_path, png_path, dpi=300)  # High-res for print
+                    except ImportError as e:
+                        print(f"⚠️  Cannot convert SVG to PNG: {e}")
+                        print(f"   Install cairosvg: pip install cairosvg")
+                        continue
+                    except Exception as e:
+                        print(f"⚠️  SVG to PNG conversion failed: {e}")
+                        continue
 
                 # Build slide title from role + headline with [APPENDIX] prefix
                 role = visual.get("role", "")
@@ -1756,13 +2179,10 @@ class CommandHandler:
                 elif visual_quality == "client_ready_with_caveats":
                     slide_title = f"⚠️ {slide_title}"
 
-                # Add chart slide with data and keys
-                builder.add_chart_slide(
+                # Embed PNG image instead of native chart
+                builder.add_image_slide(
                     title=slide_title,
-                    chart_type=viz_type,
-                    data=chart_data,
-                    x_key=x_key,
-                    y_keys=y_keys,
+                    image_path=png_path,
                     notes=visual.get("emphasis", ""),
                 )
 
@@ -1883,7 +2303,8 @@ class CommandHandler:
 
         # VALIDATE REQUIRED INPUTS
         outputs_dir = self.project_root / "outputs"
-        manifest_path = outputs_dir / "story_manifest.json"
+        internal_dir = outputs_dir / "internal"
+        manifest_path = internal_dir / "story_manifest.json"
 
         # Check manifest (REQUIRED)
         if not manifest_path.exists():
@@ -1973,7 +2394,11 @@ class CommandHandler:
 
         # Get intelligent column mapping (with overrides!)
         required_cols = [metric_request, 'category', 'date']
-        column_mapping = loader.suggest_column_mapping(required_cols, overrides=column_overrides)
+        column_mapping = loader.suggest_column_mapping(
+            required_cols,
+            overrides=column_overrides,
+            objective_text=objective  # Enable Tier 0: Objective Keyword Match
+        )
 
         # Build dashboard with INTELLIGENT column selection (Phase 5!)
         builder = ReactDashboardBuilder(
@@ -2110,6 +2535,24 @@ class CommandHandler:
             from kie.state import update_rails_state
             update_rails_state(self.project_root, "eda", success=True)
 
+            # Check/prompt for theme selection before chart generation
+            from kie.preferences import OutputPreferences
+            prefs = OutputPreferences(self.project_root)
+            current_theme = prefs.get_theme()
+            if not current_theme:
+                print("\n📊 Chart Theme Selection")
+                print("─" * 50)
+                print("Choose theme for EDA chart rendering:")
+                print("  1. Light mode (white background)")
+                print("  2. Dark mode (dark background)")
+                theme_choice = input("\nEnter 1 or 2 [default: 1]: ").strip() or "1"
+
+                selected_theme = "light" if theme_choice == "1" else "dark"
+                prefs.set_theme(selected_theme)
+                print(f"✓ Theme set to: {selected_theme}\n")
+            else:
+                print(f"✓ Using saved theme: {current_theme}\n")
+
             # Execute EDA stage skills
             skill_results = {}
             try:
@@ -2125,8 +2568,9 @@ class CommandHandler:
                         "selected_data_file": data_file,
                         "eda_profile": str(profile_path),
                         "is_sample_data": is_sample_data,
+                        "theme": prefs.get_theme(),  # Include theme in artifacts
                     },
-                    evidence_ledger_id=None,  # No ledger for direct calls
+                    evidence_ledger_id=None  # No ledger for direct calls
                 )
 
                 # Execute skills for eda stage
@@ -2287,7 +2731,12 @@ class CommandHandler:
             # Request the appropriate metric type + supporting columns
             required_cols = [metric_request, 'category', 'date']
             # Phase 5: Pass overrides to loader - they take absolute precedence
-            mapping = loader.suggest_column_mapping(required_cols, overrides=column_overrides)
+            # NEW: Pass full objective text for domain-specific keyword extraction
+            mapping = loader.suggest_column_mapping(
+                required_cols,
+                overrides=column_overrides,
+                objective_text=objective  # Enable Tier 0: Objective Keyword Match
+            )
 
             # Extract mapped columns
             value_column = mapping.get(metric_request)
@@ -2308,11 +2757,16 @@ class CommandHandler:
 
             # Extract insights using the intelligently mapped columns
             engine = InsightEngine()
-            insights = engine.auto_extract(
+
+            # Use comprehensive extraction for rich datasets
+            # (Comprehensive mode discovers 15-20+ insights vs 5 in basic mode)
+            insights = engine.auto_extract_comprehensive(
                 df,
                 value_column=value_column,
                 group_column=group_column,
-                time_column=time_column
+                time_column=time_column,
+                max_insights=20,
+                objective=objective  # Pass objective for correlation prioritization
             )
 
             # Build catalog
@@ -2321,10 +2775,19 @@ class CommandHandler:
                 business_question="What are the key findings from this data?"
             )
 
-            # Save catalog
-            catalog_path = self.project_root / "outputs" / "insights.yaml"
-            catalog_path.parent.mkdir(parents=True, exist_ok=True)
-            catalog.save(str(catalog_path))
+            # Save catalog (both YAML and JSON for compatibility)
+            catalog_path_yaml = self.project_root / "outputs" / "insights.yaml"
+            catalog_path_json = self.project_root / "outputs" / "insights_catalog.json"
+            catalog_path_yaml.parent.mkdir(parents=True, exist_ok=True)
+
+            # Save as YAML (primary format)
+            catalog.save(str(catalog_path_yaml))
+
+            # ALSO save as JSON for skill compatibility
+            # Skills expect insights_catalog.json, so write both formats
+            import json
+            with open(catalog_path_json, 'w', encoding='utf-8') as f:
+                json.dump(catalog.to_dict(), f, indent=2, ensure_ascii=False)
 
             # Maps must be created explicitly via /map command
             # Auto-map generation removed to avoid incoherent outputs
@@ -2332,7 +2795,7 @@ class CommandHandler:
             result = {
                 "success": True,
                 "insights_count": len(insights),
-                "catalog_saved": str(catalog_path),
+                "catalog_saved": str(catalog_path_yaml),
                 "data_file": data_file,
                 "insights": [
                     {
@@ -2351,13 +2814,14 @@ class CommandHandler:
 
                 registry = get_registry()
                 outputs_dir = self.project_root / "outputs"
+                internal_dir = outputs_dir / "internal"
 
                 # Pass 1: Execute skills with initial artifacts
                 artifacts_pass1 = {}
                 if (outputs_dir / "insights.yaml").exists():
                     artifacts_pass1["insights_catalog"] = outputs_dir / "insights.yaml"
-                if (outputs_dir / "insight_triage.json").exists():
-                    artifacts_pass1["insight_triage"] = outputs_dir / "insight_triage.json"
+                if (internal_dir / "insight_triage.json").exists():
+                    artifacts_pass1["insight_triage"] = internal_dir / "insight_triage.json"
 
                 skill_context_pass1 = SkillContext(
                     project_root=self.project_root,
@@ -2365,6 +2829,8 @@ class CommandHandler:
                     artifacts=artifacts_pass1,
                     evidence_ledger_id=None,
                 )
+                # Default to dashboard context for analyze stage (most comprehensive)
+                skill_context_pass1.metadata["build_context"] = "dashboard"
 
                 registry.execute_skills_for_stage("analyze", skill_context_pass1)
 
@@ -2372,12 +2838,12 @@ class CommandHandler:
                 artifacts_pass2 = {}
                 if (outputs_dir / "insights.yaml").exists():
                     artifacts_pass2["insights_catalog"] = outputs_dir / "insights.yaml"
-                if (outputs_dir / "insight_triage.json").exists():
-                    artifacts_pass2["insight_triage"] = outputs_dir / "insight_triage.json"
-                if (outputs_dir / "visualization_plan.json").exists():
-                    artifacts_pass2["visualization_plan"] = outputs_dir / "visualization_plan.json"
-                if (outputs_dir / "executive_narrative.json").exists():
-                    artifacts_pass2["executive_narrative"] = outputs_dir / "executive_narrative.json"
+                if (internal_dir / "insight_triage.json").exists():
+                    artifacts_pass2["insight_triage"] = internal_dir / "insight_triage.json"
+                if (internal_dir / "visualization_plan.json").exists():
+                    artifacts_pass2["visualization_plan"] = internal_dir / "visualization_plan.json"
+                if (internal_dir / "executive_narrative.json").exists():
+                    artifacts_pass2["executive_narrative"] = internal_dir / "executive_narrative.json"
 
                 skill_context_pass2 = SkillContext(
                     project_root=self.project_root,
@@ -2385,12 +2851,15 @@ class CommandHandler:
                     artifacts=artifacts_pass2,
                     evidence_ledger_id=None,
                 )
+                # Default to dashboard context for analyze stage (most comprehensive)
+                skill_context_pass2.metadata["build_context"] = "dashboard"
 
                 registry.execute_skills_for_stage("analyze", skill_context_pass2)
 
             except Exception as e:
-                # Don't fail the command if skills fail
-                pass
+                # Don't fail the command if skills fail, but log the error
+                logger.warning(f"Analyze skills failed: {e}", exc_info=True)
+                print(f"⚠️  Warning: Some analysis skills failed: {e}")
 
             # Update Rails state
             from kie.state import update_rails_state
@@ -2654,15 +3123,16 @@ To regenerate deliverables:
 
             registry = get_registry()
             outputs_dir = self.project_root / "outputs"
+            internal_dir = outputs_dir / "internal"
 
-            # Scan for artifacts
+            # Scan for artifacts (internal JSON files are in internal/ directory)
             artifacts = {}
-            if (outputs_dir / "story_manifest.json").exists():
-                artifacts["story_manifest"] = outputs_dir / "story_manifest.json"
-            if (outputs_dir / "actionability_scores.json").exists():
-                artifacts["actionability_scores"] = outputs_dir / "actionability_scores.json"
-            if (outputs_dir / "visual_qc.json").exists():
-                artifacts["visual_qc"] = outputs_dir / "visual_qc.json"
+            if (internal_dir / "story_manifest.json").exists():
+                artifacts["story_manifest"] = internal_dir / "story_manifest.json"
+            if (internal_dir / "actionability_scores.json").exists():
+                artifacts["actionability_scores"] = internal_dir / "actionability_scores.json"
+            if (internal_dir / "visual_qc.json").exists():
+                artifacts["visual_qc"] = internal_dir / "visual_qc.json"
             if (outputs_dir / "executive_summary.md").exists():
                 artifacts["executive_summary"] = outputs_dir / "executive_summary.md"
             if (outputs_dir / "executive_summary_consultant.md").exists():
@@ -2765,16 +3235,18 @@ To regenerate deliverables:
                     previews["insights_json"].append("insights.yaml")
                 if (outputs_dir / "insights_catalog.json").exists():
                     previews["insights_json"].append("insights_catalog.json")
-                if (outputs_dir / "insight_triage.json").exists():
-                    previews["insights_json"].append("insight_triage.json")
-                if (outputs_dir / "executive_narrative.json").exists():
-                    previews["insights_json"].append("executive_narrative.json")
-                if (outputs_dir / "visualization_plan.json").exists():
-                    previews["insights_json"].append("visualization_plan.json")
-                if (outputs_dir / "visual_storyboard.json").exists():
-                    previews["insights_json"].append("visual_storyboard.json")
-                if (outputs_dir / "story_manifest.json").exists():
-                    previews["insights_json"].append("story_manifest.json")
+                # Check internal/ for JSON artifacts
+                if (internal_dir / "insight_triage.json").exists():
+                    previews["insights_json"].append("internal/insight_triage.json")
+                if (internal_dir / "executive_narrative.json").exists():
+                    previews["insights_json"].append("internal/executive_narrative.json")
+                if (internal_dir / "visualization_plan.json").exists():
+                    previews["insights_json"].append("internal/visualization_plan.json")
+                # Check internal/ directory for JSON artifacts
+                if (internal_dir / "visual_storyboard.json").exists():
+                    previews["insights_json"].append("internal/visual_storyboard.json")
+                if (internal_dir / "story_manifest.json").exists():
+                    previews["insights_json"].append("internal/story_manifest.json")
 
         # Launch React dashboard if requested
         dashboard_url = None
@@ -3867,19 +4339,20 @@ project_state/  - Project tracking
 
         # Summary
         outputs_dir = self.project_root / "outputs"
-        manifest_path = outputs_dir / "story_manifest.json"
+        internal_dir = outputs_dir / "internal"
+        manifest_path = internal_dir / "story_manifest.json"
 
         artifacts_created = []
         if (outputs_dir / "insights_catalog.json").exists():
             artifacts_created.append("insights_catalog.json")
-        if (outputs_dir / "insight_triage.json").exists():
-            artifacts_created.append("insight_triage.json")
+        if (internal_dir / "insight_triage.json").exists():
+            artifacts_created.append("internal/insight_triage.json")
         if (outputs_dir / "narrative_synthesis.md").exists():
             artifacts_created.append("narrative_synthesis.md")
-        if (outputs_dir / "visual_storyboard.json").exists():
-            artifacts_created.append("visual_storyboard.json")
+        if (internal_dir / "visual_storyboard.json").exists():
+            artifacts_created.append("internal/visual_storyboard.json")
         if manifest_path.exists():
-            artifacts_created.append("story_manifest.json")
+            artifacts_created.append("internal/story_manifest.json")
 
         print("📦 Artifacts Created:")
         for artifact in artifacts_created:

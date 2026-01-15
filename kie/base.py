@@ -50,6 +50,46 @@ class RechartsConfig:
 
         return json_str
 
+    def to_svg(self, output_path: Path | str) -> Path:
+        """
+        Render chart to SVG using Pygal (pure Python).
+
+        Falls back to JSON if rendering fails.
+
+        Args:
+            output_path: Path to save SVG file
+
+        Returns:
+            Path to saved file (SVG if successful, JSON if fallback)
+        """
+        output_path = Path(output_path)
+
+        # First save JSON (for backward compatibility and debugging)
+        json_path = output_path.with_suffix('.json')
+        self.to_json(json_path)
+
+        # Render using Pygal (pure Python - no Node.js needed)
+        try:
+            from kie.charts.svg_renderer import to_svg as pygal_to_svg
+
+            svg_path = pygal_to_svg(self, output_path)
+
+            if svg_path.exists():
+                # print(f"✓ Rendered chart to {svg_path}")  # Commented to reduce noise
+                return svg_path
+            else:
+                print(f"⚠️  SVG rendering failed - chart saved as JSON only")
+                return json_path
+
+        except ValueError as e:
+            # KDS validation failure or unsupported chart type
+            print(f"⚠️  Chart rendering failed: {e}")
+            return json_path
+        except Exception as e:
+            print(f"⚠️  Unexpected rendering error: {e}")
+            return json_path
+
+
     @classmethod
     def from_json(cls, json_str: str) -> "RechartsConfig":
         """Load from JSON string."""

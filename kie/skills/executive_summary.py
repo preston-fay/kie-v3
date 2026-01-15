@@ -6,6 +6,8 @@ This is NOT a fixed-length bullet generator - it optimizes for correctness,
 clarity, and impact, not arbitrary brevity.
 
 This is the slide a Partner would actually read.
+
+ENHANCED (Phase 5): Now includes formatted tables and chart embeds.
 """
 
 import json
@@ -13,6 +15,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from kie.reports.markdown_enhancer import (
+    create_confidence_distribution_table,
+    create_insight_distribution_table,
+    embed_chart,
+    format_markdown_table,
+)
 from kie.skills.base import Skill, SkillContext, SkillResult
 
 
@@ -36,6 +44,40 @@ class ExecutiveSummarySkill(Skill):
     - preview
     """
 
+    @staticmethod
+    def _get_confidence_numeric(insight: dict) -> float:
+        """Extract numeric confidence from insight, handling multiple formats."""
+        conf = insight.get("confidence")
+        if isinstance(conf, dict):
+            return conf.get("numeric", 0)
+        elif isinstance(conf, str):
+            # Map string confidence to numeric
+            conf_map = {"Very High": 0.9, "High": 0.8, "Medium": 0.65, "Low": 0.4}
+            return conf_map.get(conf, 0.5)
+        elif isinstance(conf, (int, float)):
+            return conf
+        return 0
+
+    @staticmethod
+    def _get_confidence_label(insight: dict) -> str:
+        """Extract confidence label from insight, handling multiple formats."""
+        conf = insight.get("confidence")
+        if isinstance(conf, dict):
+            return conf.get("label", "UNKNOWN")
+        elif isinstance(conf, str):
+            return conf
+        elif isinstance(conf, (int, float)):
+            # Map numeric to label
+            if conf >= 0.85:
+                return "Very High"
+            elif conf >= 0.7:
+                return "High"
+            elif conf >= 0.5:
+                return "Medium"
+            else:
+                return "Low"
+        return "UNKNOWN"
+
     @property
     def skill_id(self) -> str:
         """Unique identifier for this skill."""
@@ -57,13 +99,14 @@ class ExecutiveSummarySkill(Skill):
             SkillResult with summary paths and metadata
         """
         outputs_dir = context.project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
         project_state_dir = context.project_root / "project_state"
 
-        # Load required inputs
-        triage_json_path = outputs_dir / "insight_triage.json"
-        narrative_md_path = outputs_dir / "executive_narrative.md"
-        narrative_json_path = outputs_dir / "executive_narrative.json"
-        viz_plan_path = outputs_dir / "visualization_plan.json"
+        # Load required inputs (JSON artifacts are in internal/ directory)
+        triage_json_path = internal_dir / "insight_triage.json"
+        narrative_md_path = outputs_dir / "executive_narrative.md"  # MD may be in root
+        narrative_json_path = internal_dir / "executive_narrative.json"
+        viz_plan_path = internal_dir / "visualization_plan.json"
 
         # Check prerequisites
         if not triage_json_path.exists():
@@ -104,9 +147,10 @@ class ExecutiveSummarySkill(Skill):
             triage_data, narrative_data, viz_plan, intent_text
         )
 
-        # Save outputs
-        summary_md_path = outputs_dir / "executive_summary.md"
-        summary_json_path = outputs_dir / "executive_summary.json"
+        # Save outputs (internal artifacts)
+        internal_dir.mkdir(parents=True, exist_ok=True)
+        summary_md_path = internal_dir / "executive_summary.md"
+        summary_json_path = internal_dir / "executive_summary.json"
 
         summary_md_path.write_text(summary_md)
         summary_json_path.write_text(json.dumps(summary_json, indent=2))
@@ -150,8 +194,10 @@ class ExecutiveSummarySkill(Skill):
             "message": f"Required artifact missing: {missing_artifact}",
         }
 
-        summary_md_path = outputs_dir / "executive_summary.md"
-        summary_json_path = outputs_dir / "executive_summary.json"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+        summary_md_path = internal_dir / "executive_summary.md"
+        summary_json_path = internal_dir / "executive_summary.json"
 
         summary_md_path.write_text(summary_md)
         summary_json_path.write_text(json.dumps(summary_json, indent=2))
@@ -189,7 +235,7 @@ class ExecutiveSummarySkill(Skill):
         viz_plan: dict[str, Any],
         intent_text: str,
     ) -> str:
-        """Generate executive summary markdown."""
+        """Generate executive summary markdown with enhanced formatting."""
         lines = []
         lines.append("# Executive Summary")
         lines.append("")
@@ -200,7 +246,29 @@ class ExecutiveSummarySkill(Skill):
             lines.append(f"**Project Objective:** {intent_text}")
             lines.append("")
 
-        # Section 1: Situation Overview
+        # Section 1: Insight Overview Table (NEW - shows distribution at a glance)
+        top_insights = triage_data.get("top_insights", [])
+        if top_insights:
+            lines.append("## Insight Overview")
+            lines.append("")
+
+            # Create distribution table
+            insight_table = create_insight_distribution_table(
+                top_insights, strength_key="confidence", confidence_key="confidence"
+            )
+            lines.append(insight_table)
+            lines.append("")
+
+            # Also show confidence distribution
+            lines.append("### Confidence Distribution")
+            lines.append("")
+            confidence_table = create_confidence_distribution_table(
+                top_insights, confidence_field="confidence"
+            )
+            lines.append(confidence_table)
+            lines.append("")
+
+        # Section 2: Situation Overview
         lines.append("## Situation Overview")
         lines.append("")
         situation_bullets = self._generate_situation_overview(
@@ -210,17 +278,32 @@ class ExecutiveSummarySkill(Skill):
             lines.append(f"- {bullet}")
         lines.append("")
 
-        # Section 2: Key Findings
+        # Section 3: Key Findings
         lines.append("## Key Findings")
         lines.append("")
-        top_insights = triage_data.get("top_insights", [])
         for insight in top_insights:
-            confidence_label = insight.get("confidence", {}).get("label", "UNKNOWN")
+            confidence_label = self._get_confidence_label(insight)
             finding_text = self._format_finding(insight, confidence_label)
             lines.append(f"- {finding_text}")
         lines.append("")
 
-        # Section 3: Why This Matters
+        # NEW: Embed chart if top insight has associated visualization
+        # Check if charts are available in outputs/charts/
+        if top_insights and len(top_insights) > 0:
+            first_insight = top_insights[0]
+            chart_id = first_insight.get("chart_id") or first_insight.get("id")
+
+            if chart_id:
+                lines.append("### Supporting Visualization")
+                lines.append("")
+                lines.append(embed_chart(
+                    chart_id,
+                    "Key Insights Visualization",
+                    charts_dir="../charts"  # Relative to outputs/
+                ))
+                lines.append("")
+
+        # Section 4: Why This Matters
         lines.append("## Why This Matters")
         lines.append("")
         implications = self._generate_implications(top_insights)
@@ -228,7 +311,7 @@ class ExecutiveSummarySkill(Skill):
             lines.append(f"- {implication}")
         lines.append("")
 
-        # Section 4: Recommended Actions (Internal)
+        # Section 5: Recommended Actions (Internal)
         lines.append("## Recommended Actions (Internal)")
         lines.append("")
         actions = self._generate_recommended_actions(top_insights, viz_plan)
@@ -236,7 +319,7 @@ class ExecutiveSummarySkill(Skill):
             lines.append(f"- {action}")
         lines.append("")
 
-        # Section 5: Risks & Caveats
+        # Section 6: Risks & Caveats
         lines.append("## Risks & Caveats")
         lines.append("")
         caveats = self._consolidate_caveats(triage_data, viz_plan)
@@ -253,6 +336,8 @@ class ExecutiveSummarySkill(Skill):
         lines.append(f"*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")
         lines.append("")
         lines.append("*This summary synthesizes judged insights from triage, narrative, and visualization planning.*")
+        lines.append("")
+        lines.append("*For HTML version: Convert with `kie.reports.markdown_to_html()`*")
 
         return "\n".join(lines)
 
@@ -277,7 +362,7 @@ class ExecutiveSummarySkill(Skill):
                     "insight_id": insight.get("id", ""),
                     "title": insight.get("title", ""),
                     "confidence": insight.get("confidence", {}),
-                    "decision_enabling": insight.get("confidence", {}).get("numeric", 0) >= 0.7,
+                    "decision_enabling": self._get_confidence_numeric(insight) >= 0.7,
                 }
                 for insight in top_insights
             ],
@@ -318,8 +403,9 @@ class ExecutiveSummarySkill(Skill):
 
         # Synthesize overview
         total_insights = len(top_insights)
+
         high_conf_count = sum(
-            1 for i in top_insights if i.get("confidence", {}).get("numeric", 0) >= 0.7
+            1 for i in top_insights if self._get_confidence_numeric(i) >= 0.7
         )
 
         bullets.append(
@@ -362,7 +448,7 @@ class ExecutiveSummarySkill(Skill):
         - indicate whether it is decision-enabling or directional
         """
         title = insight.get("title", "Untitled Insight")
-        numeric_conf = insight.get("confidence", {}).get("numeric", 0)
+        numeric_conf = self._get_confidence_numeric(insight)
         decision_enabling = numeric_conf >= 0.7
 
         suffix = (
@@ -385,7 +471,7 @@ class ExecutiveSummarySkill(Skill):
 
         for insight in top_insights[:6]:  # Max 6 implications
             title = insight.get("title", "")
-            confidence = insight.get("confidence", {}).get("numeric", 0)
+            confidence = self._get_confidence_numeric(insight)
 
             # Generate implication based on confidence level
             if confidence >= 0.8:
@@ -446,13 +532,13 @@ class ExecutiveSummarySkill(Skill):
         actions = []
 
         # Actions based on confidence levels
-        high_conf = [i for i in top_insights if i.get("confidence", {}).get("numeric", 0) >= 0.7]
+        high_conf = [i for i in top_insights if self._get_confidence_numeric(i) >= 0.7]
         medium_conf = [
             i
             for i in top_insights
-            if 0.5 <= i.get("confidence", {}).get("numeric", 0) < 0.7
+            if 0.5 <= self._get_confidence_numeric(i) < 0.7
         ]
-        low_conf = [i for i in top_insights if i.get("confidence", {}).get("numeric", 0) < 0.5]
+        low_conf = [i for i in top_insights if self._get_confidence_numeric(i) < 0.5]
 
         if high_conf:
             actions.append(
@@ -524,7 +610,7 @@ class ExecutiveSummarySkill(Skill):
         low_conf_count = sum(
             1
             for i in triage_data.get("top_insights", [])
-            if i.get("confidence", {}).get("numeric", 0) < 0.5
+            if self._get_confidence_numeric(i) < 0.5
         )
         if low_conf_count > 0:
             caveats.append(

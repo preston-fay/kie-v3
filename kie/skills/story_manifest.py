@@ -132,13 +132,14 @@ class StoryManifestSkill(Skill):
 
     @property
     def required_artifacts(self) -> list[str]:
+        # PHASE 4 FIX: Match what skills actually produce (_json suffix)
         return [
-            "insight_triage",
-            "executive_summary",
-            "visual_storyboard",
-            "visualization_plan",
-            "actionability_scores",
-            "visual_qc",
+            "insight_triage",  # No suffix - analyze stage skill
+            "executive_summary",  # No suffix - analyze stage skill
+            "visual_storyboard_json",  # Build stage skill produces with _json suffix
+            "visualization_plan",  # No suffix - analyze stage skill
+            "actionability_scores_json",  # Build stage skill produces with _json suffix
+            "visual_qc_json",  # Build stage skill produces with _json suffix
         ]
 
     @property
@@ -159,22 +160,23 @@ class StoryManifestSkill(Skill):
         errors = []
 
         outputs_dir = context.project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
         project_state_dir = context.project_root / "project_state"
         charts_dir = outputs_dir / "charts"
 
-        # Validate required inputs
-        triage_path = outputs_dir / "insight_triage.json"
-        storyboard_path = outputs_dir / "visual_storyboard.json"
-        viz_plan_path = outputs_dir / "visualization_plan.json"
-        actionability_path = outputs_dir / "actionability_scores.json"
-        visual_qc_path = outputs_dir / "visual_qc.json"
+        # Validate required inputs (JSON artifacts are in internal/ directory)
+        triage_path = internal_dir / "insight_triage.json"
+        storyboard_path = internal_dir / "visual_storyboard.json"
+        viz_plan_path = internal_dir / "visualization_plan.json"
+        actionability_path = internal_dir / "actionability_scores.json"
+        visual_qc_path = internal_dir / "visual_qc.json"
         intent_path = project_state_dir / "intent.yaml"
 
         # PREFER CONSULTANT VERSION if available (fallback to original)
         exec_summary_md = outputs_dir / "executive_summary_consultant.md"
         if not exec_summary_md.exists():
             exec_summary_md = outputs_dir / "executive_summary.md"
-        exec_summary_json = outputs_dir / "executive_summary.json"
+        exec_summary_json = internal_dir / "executive_summary.json"
 
         # Check inputs exist
         if not triage_path.exists():
@@ -251,6 +253,17 @@ class StoryManifestSkill(Skill):
         with open(triage_path) as f:
             triage_data = json.load(f)
 
+        # Validate triage_data structure
+        if not isinstance(triage_data, dict):
+            errors.append(f"insight_triage.json has invalid format: expected dict, got {type(triage_data).__name__}")
+            return SkillResult(
+                success=False,
+                artifacts={},
+                evidence=[],
+                warnings=warnings,
+                errors=errors,
+            )
+
         with open(actionability_path) as f:
             actionability_data = json.load(f)
 
@@ -278,10 +291,29 @@ class StoryManifestSkill(Skill):
         objective = intent_data.get("objective", "")
         execution_mode = context.artifacts.get("execution_mode", "rails")
 
-        # Validate storyboard has elements
+        # Validate storyboard has elements (handle both old and new formats)
         elements = storyboard_data.get("elements", [])
+        sections = storyboard_data.get("sections", [])
+
+        # Convert new format (sections with visuals) to old format (flat elements list)
+        if not elements and sections:
+            elements = []
+            for section in sections:
+                section_name = section.get("section", "Context & Baseline")
+                visuals = section.get("visuals", [])
+                for visual in visuals:
+                    # Flatten visual into element format
+                    element = {
+                        "section": section_name,
+                        **visual  # Merge all visual fields (order, insight_id, chart_ref, etc.)
+                    }
+                    elements.append(element)
+
+            # Update storyboard_data with converted elements for _build_manifest
+            storyboard_data["elements"] = elements
+
         if not elements:
-            errors.append("visual_storyboard.json contains no elements")
+            errors.append("visual_storyboard.json contains no visuals or elements")
             return SkillResult(
                 success=False,
                 artifacts={},
@@ -323,14 +355,23 @@ class StoryManifestSkill(Skill):
             exec_summary_content=exec_summary_content,
         )
 
-        # Save JSON
-        manifest_json_path = outputs_dir / "story_manifest.json"
+        # Save JSON to internal/ (used by dashboard/presentation builders)
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+        manifest_json_path = internal_dir / "story_manifest.json"
         manifest_dict = self._manifest_to_dict(manifest)
         with open(manifest_json_path, "w") as f:
             json.dump(manifest_dict, f, indent=2)
 
-        # Save Markdown
-        manifest_md_path = outputs_dir / "story_manifest.md"
+        # ALSO save JSON to outputs root for backward compatibility (dashboard expects it there)
+        legacy_json_path = outputs_dir / "story_manifest.json"
+        with open(legacy_json_path, "w") as f:
+            json.dump(manifest_dict, f, indent=2)
+
+        # Save Markdown to deliverables/ (consultant-facing summary)
+        deliverables_dir = outputs_dir / "deliverables"
+        deliverables_dir.mkdir(parents=True, exist_ok=True)
+        manifest_md_path = deliverables_dir / "story_manifest.md"
         manifest_md = self._generate_markdown(manifest)
         manifest_md_path.write_text(manifest_md)
 
@@ -378,19 +419,43 @@ class StoryManifestSkill(Skill):
 
         # Build actionability lookup by insight_id
         actionability_lookup: dict[str, str] = {}
-        for scored_insight in actionability_data.get("insights", []):
-            insight_id = scored_insight.get("insight_id", "")
-            actionability = scored_insight.get("actionability", "informational")
-            if insight_id:
-                actionability_lookup[insight_id] = actionability
+        try:
+            if not isinstance(actionability_data, dict):
+                errors.append(f"actionability_data is not a dict: {type(actionability_data).__name__}")
+                return SkillResult(success=False, artifacts={}, evidence=[], warnings=warnings, errors=errors)
+
+            for scored_insight in actionability_data.get("insights", []):
+                if not isinstance(scored_insight, dict):
+                    errors.append(f"scored_insight is not a dict: {type(scored_insight).__name__}")
+                    return SkillResult(success=False, artifacts={}, evidence=[], warnings=warnings, errors=errors)
+                insight_id = scored_insight.get("insight_id", "")
+                actionability = scored_insight.get("actionability", "informational")
+                if insight_id:
+                    actionability_lookup[insight_id] = actionability
+        except AttributeError as e:
+            import traceback
+            errors.append(f"AttributeError in actionability lookup: {e}\n{traceback.format_exc()}")
+            return SkillResult(success=False, artifacts={}, evidence=[], warnings=warnings, errors=errors)
 
         # Build visual_quality lookup by chart_ref
         visual_quality_lookup: dict[str, str] = {}
-        for chart_eval in visual_qc_data.get("charts", []):
-            chart_ref = chart_eval.get("chart_ref", "")
-            visual_quality = chart_eval.get("visual_quality", "client_ready")
-            if chart_ref:
-                visual_quality_lookup[chart_ref] = visual_quality
+        try:
+            if not isinstance(visual_qc_data, dict):
+                errors.append(f"visual_qc_data is not a dict: {type(visual_qc_data).__name__}")
+                return SkillResult(success=False, artifacts={}, evidence=[], warnings=warnings, errors=errors)
+
+            for chart_eval in visual_qc_data.get("charts", []):
+                if not isinstance(chart_eval, dict):
+                    errors.append(f"chart_eval is not a dict: {type(chart_eval).__name__}")
+                    return SkillResult(success=False, artifacts={}, evidence=[], warnings=warnings, errors=errors)
+                chart_ref = chart_eval.get("chart_ref", "")
+                visual_quality = chart_eval.get("visual_quality", "client_ready")
+                if chart_ref:
+                    visual_quality_lookup[chart_ref] = visual_quality
+        except AttributeError as e:
+            import traceback
+            errors.append(f"AttributeError in visual_qc lookup: {e}\n{traceback.format_exc()}")
+            return SkillResult(success=False, artifacts={}, evidence=[], warnings=warnings, errors=errors)
 
         # Extract executive summary bullets and caveats
         exec_bullets = self._extract_summary_bullets(exec_summary_content)
@@ -470,10 +535,15 @@ class StoryManifestSkill(Skill):
 
             for element in section_elements:
                 insight_id = element.get("insight_id", "")
-                if insight_id:
-                    # Find insight in triage data
-                    for insight in triage_data.get("judged_insights", []):
-                        if insight.get("insight_id") == insight_id:
+                element_title = element.get("insight_title", "")
+
+                if insight_id and element_title:
+                    # Find insight in triage data by matching titles
+                    for insight in triage_data.get("top_insights", []):
+                        triage_title = insight.get("title", "")
+
+                        # Match by title (exact match or very close match)
+                        if triage_title == element_title or triage_title.lower() == element_title.lower():
                             actionability = actionability_lookup.get(insight_id, "informational")
                             section_actionability_levels.append(actionability)
 
@@ -481,7 +551,7 @@ class StoryManifestSkill(Skill):
                                 {
                                     "insight_id": insight_id,
                                     "confidence": insight.get("confidence", "unknown"),
-                                    "headline": insight.get("headline", ""),
+                                    "headline": insight.get("title", ""),
                                     "actionability": actionability,
                                 }
                             )

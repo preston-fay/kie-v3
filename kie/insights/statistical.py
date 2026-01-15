@@ -170,6 +170,56 @@ class StatisticalAnalyzer:
         n = len(arr)
         x = np.arange(n)
 
+        # CRITICAL: Validate BEFORE calculation to prevent garbage percentages
+        start_val = arr[0]
+        end_val = arr[-1]
+
+        # Check for zero-crossing edge case (e.g., -0.0 to 0.0)
+        if abs(start_val) < 1e-6:  # Near-zero start value
+            if abs(end_val) < 1e-6:  # Both near zero
+                return {
+                    "trend": "stable",
+                    "slope": 0.0,
+                    "r_squared": 0.0,
+                    "pct_change": 0.0,
+                    "total_change": float(total_change) if 'total_change' in locals() else 0.0,
+                    "note": "Values near zero - no significant change"
+                }
+            else:
+                # Can't calculate percentage from zero - use absolute change only
+                total_change = end_val - start_val
+                return {
+                    "trend": "increasing" if end_val > 0 else "decreasing",
+                    "slope": float(end_val - start_val) / len(arr),
+                    "r_squared": 0.5,  # Moderate confidence
+                    "absolute_change": float(total_change),
+                    "note": "Starting value near zero - using absolute change instead of percentage"
+                }
+
+        # Normal percentage calculation (safe now - start_val validated non-zero)
+        total_change = end_val - start_val
+        pct_change = (total_change / start_val) * 100  # Use start_val directly (not abs) to preserve sign
+
+        # VALIDATION 1: Check for sign changes (negative to positive or vice versa)
+        # Percentage change across zero is meaningless (e.g., -0.008 to +0.027 = -442%)
+        if (start_val < 0 and end_val > 0) or (start_val > 0 and end_val < 0):
+            logger.warning(f"Rejecting trend with sign change: {start_val:.4f} → {end_val:.4f}")
+            return {
+                "error": "Invalid trend",
+                "reason": "Percentage change across zero is not meaningful",
+                "start_value": float(start_val),
+                "end_value": float(end_val)
+            }
+
+        # VALIDATION 2: Reject suspicious changes (likely data quality issues)
+        if abs(pct_change) > 500:
+            logger.warning(f"Rejecting trend with {pct_change:.1f}% change - likely data issue")
+            return {
+                "error": "Invalid trend",
+                "reason": f"Percentage change ({pct_change:.1f}%) exceeds reasonable threshold",
+                "pct_change": float(pct_change)
+            }
+
         # Linear regression
         slope, intercept = np.polyfit(x, arr, 1)
 
@@ -178,10 +228,6 @@ class StatisticalAnalyzer:
         ss_res = np.sum((arr - y_pred) ** 2)
         ss_tot = np.sum((arr - np.mean(arr)) ** 2)
         r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
-
-        # Calculate changes
-        total_change = arr[-1] - arr[0]
-        pct_change = (total_change / arr[0] * 100) if arr[0] != 0 else 0
 
         # Period-over-period changes
         changes = np.diff(arr)

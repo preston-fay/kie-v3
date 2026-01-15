@@ -32,6 +32,10 @@ dependencies = [
     "python-pptx>=0.6.21",
     "python-docx>=1.1.0",
     "reportlab>=4.0.0",
+    "cairosvg>=2.7.0",  # SVG to PNG conversion for PowerPoint
+    "markdown>=3.5.0",  # Markdown to HTML conversion
+    "jinja2>=3.1.0",  # HTML templating
+    "pygal>=3.0.0",  # SVG chart generation (replaces Node.js Recharts SSR)
 
     # API
     "fastapi>=0.104.0",

@@ -104,16 +104,19 @@ class InsightTriageSkill(Skill):
         if not catalog.insights:
             return self._handle_no_insights(outputs_dir)
 
+        # Get build context from metadata
+        build_context = context.metadata.get("build_context", "presentation")
+
         # Triage insights using strict logic
-        triage_result = self._triage_insights(catalog, artifact_hashes)
+        triage_result = self._triage_insights(catalog, artifact_hashes, build_context)
 
         # Generate markdown output
         markdown_content = self._generate_markdown(triage_result)
-        markdown_path = outputs_dir / "insight_triage.md"
+        markdown_path = outputs_dir / "internal" / "insight_triage.md"
         markdown_path.write_text(markdown_content)
 
         # Generate JSON output
-        json_path = outputs_dir / "insight_triage.json"
+        json_path = outputs_dir / "internal" / "insight_triage.json"
         json_path.write_text(json.dumps(triage_result, indent=2))
 
         return SkillResult(
@@ -161,7 +164,7 @@ This may indicate:
 *Generated: {}*
 """.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-        markdown_path = outputs_dir / "insight_triage.md"
+        markdown_path = outputs_dir / "internal" / "insight_triage.md"
         markdown_path.write_text(markdown_content)
 
         json_data = {
@@ -177,7 +180,7 @@ This may indicate:
             }
         }
 
-        json_path = outputs_dir / "insight_triage.json"
+        json_path = outputs_dir / "internal" / "insight_triage.json"
         json_path.write_text(json.dumps(json_data, indent=2))
 
         return SkillResult(
@@ -220,7 +223,7 @@ This may indicate:
         return hashes
 
     def _triage_insights(
-        self, catalog: InsightCatalog, artifact_hashes: dict[str, str]
+        self, catalog: InsightCatalog, artifact_hashes: dict[str, str], build_context: str = "presentation"
     ) -> dict[str, Any]:
         """
         Triage insights using strict scoring logic.
@@ -229,6 +232,11 @@ This may indicate:
         1. Decision relevance (Does this change what a client might do?)
         2. Evidence strength (Data completeness, artifact support)
         3. Risk of misinterpretation (Could this be misleading?)
+
+        Args:
+            catalog: Insight catalog to triage
+            artifact_hashes: Artifact hash mapping
+            build_context: Deliverable type (dashboard/presentation/executive)
 
         Returns:
             Triage result dictionary
@@ -260,8 +268,16 @@ This may indicate:
             insight = item["insight"]
             score = item["score"]
 
+            # Get context-aware insight limit
+            insight_limits = {
+                "dashboard": 15,      # Rich, exploratory
+                "presentation": 5,    # Focused, high-impact
+                "executive": 3,       # Brevity, strategic
+            }
+            max_insights = insight_limits.get(build_context, 5)
+
             # Only promote to "top" if evidence is at least Medium
-            if (len(top_insights) < 3 and
+            if (len(top_insights) < max_insights and
                 score["evidence_strength"] in [TriageScore.HIGH, TriageScore.MEDIUM]):
 
                 # Calculate confidence level

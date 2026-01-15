@@ -342,7 +342,7 @@ class ChartRenderer:
 
     def _render_chart(self, spec: dict[str, Any], df: pd.DataFrame) -> dict[str, Any]:
         """
-        Render a single chart from specification.
+        Render a single chart from specification using ChartFactory.
 
         Args:
             spec: Visualization specification
@@ -351,69 +351,160 @@ class ChartRenderer:
         Returns:
             Chart info dictionary
         """
+        from kie.charts import ChartFactory
+
         insight_id = spec.get("insight_id", "unknown")
         viz_type = spec.get("visualization_type", "bar")
-        purpose = spec.get("purpose", "comparison")
         x_axis = spec.get("x_axis")
         y_axis = spec.get("y_axis")
         grouping = spec.get("grouping")
-        highlights = spec.get("highlights", [])
         suppress = spec.get("suppress", [])
-        annotations = spec.get("annotations", [])
-        caveats = spec.get("caveats", [])
-        confidence = spec.get("confidence", {})
+        title = spec.get("insight_title", "Untitled")
 
-        # Map visualization type to chart implementation
-        chart_data = self._map_visualization_type(
-            viz_type, df, x_axis, y_axis, grouping, suppress, highlights
-        )
+        # Find actual column names (fuzzy match)
+        x_col = self._find_column(df, x_axis) if x_axis else None
+        y_col = self._find_column(df, y_axis) if y_axis else None
 
-        # Build chart config with KDS-compliant settings
-        chart_config = {
-            "insight_id": insight_id,
-            "insight_title": spec.get("insight_title", "Untitled"),
-            "visualization_type": viz_type,
-            "purpose": purpose,
-            "data": chart_data,
-            "axes": {
-                "x": x_axis,
-                "y": y_axis,
-                "grouping": grouping,
-            },
-            "highlights": highlights,
-            "suppress": suppress,
-            "annotations": annotations,
-            "caveats": caveats,
-            "confidence": confidence,
-            "config": {
-                # KDS compliance settings
-                "gridLines": False,  # KDS: no gridlines
-                "axisLine": False,   # KDS: no axis lines
-                "tickLine": False,   # KDS: no tick lines
-                "dataLabels": True,  # KDS: show data labels
-                "fontFamily": "Inter, Arial, sans-serif",  # KDS typography
-            },
-            "metadata": {
-                "generated_at": datetime.now().isoformat(),
-                "source": "visualization_plan",
-            },
-        }
+        # Apply suppressions before passing to ChartFactory
+        if suppress:
+            suppress_lower = [s.lower() for s in suppress]
+            if x_col and x_col in df.columns:
+                df = df[~df[x_col].astype(str).str.lower().isin(suppress_lower)]
+
+        # Map visualization type to ChartFactory method
+        try:
+            chart_config = self._create_chart_via_factory(
+                viz_type, df, x_col, y_col, grouping, title
+            )
+        except Exception as e:
+            print(f"⚠️  Chart generation failed for {insight_id}: {e}")
+            # Fallback to bar chart
+            if x_col and y_col:
+                chart_config = ChartFactory.bar(df, x=x_col, y=[y_col], title=title)
+            else:
+                # Last resort: use first categorical and first numeric
+                categorical_cols = df.select_dtypes(include=["object", "category"]).columns
+                numeric_cols = df.select_dtypes(include=["number"]).columns
+                if len(categorical_cols) > 0 and len(numeric_cols) > 0:
+                    chart_config = ChartFactory.bar(
+                        df, x=categorical_cols[0], y=[numeric_cols[0]], title=title
+                    )
+                else:
+                    raise ValueError(f"Cannot generate chart: insufficient columns")
 
         # Deterministic filename
         filename = f"{insight_id}__{viz_type}.json"
         output_path = self.charts_dir / filename
 
-        # Save chart config
-        with open(output_path, "w") as f:
-            json.dump(chart_config, f, indent=2)
+        # Save JSON (for React rendering)
+        chart_config.to_json(output_path)
+
+        # Also save SVG (for static exports)
+        svg_path = chart_config.to_svg(output_path.with_suffix('.svg'))
 
         return {
             "insight_id": insight_id,
             "visualization_type": viz_type,
             "filename": filename,
             "path": str(output_path),
-            "data_points": len(chart_data) if isinstance(chart_data, list) else 0,
+            "svg_path": str(svg_path),
+            "data_points": len(chart_config.data),
         }
+
+    def _create_chart_via_factory(
+        self,
+        viz_type: str,
+        df: pd.DataFrame,
+        x_col: str | None,
+        y_col: str | None,
+        grouping: str | None,
+        title: str,
+    ):
+        """
+        Create a chart using ChartFactory based on visualization type.
+
+        Args:
+            viz_type: Visualization type from planner
+            df: Source DataFrame
+            x_col: X-axis column name
+            y_col: Y-axis column name (or multiple for grouped charts)
+            grouping: Grouping column name
+            title: Chart title
+
+        Returns:
+            RechartsConfig object
+        """
+        from kie.charts import ChartFactory
+
+        # Map visualization types to ChartFactory methods
+        if viz_type == "bar":
+            return ChartFactory.bar(df, x=x_col, y=[y_col], title=title)
+
+        elif viz_type == "horizontal_bar":
+            return ChartFactory.horizontal_bar(df, x=x_col, y=[y_col], title=title)
+
+        elif viz_type == "stacked_bar":
+            # For stacked bars, we need multiple y columns
+            numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+            if y_col in numeric_cols:
+                numeric_cols.remove(y_col)
+            y_cols = [y_col] + numeric_cols[:2]  # Use up to 3 series
+            return ChartFactory.stacked_bar(df, x=x_col, y=y_cols, title=title)
+
+        elif viz_type == "line":
+            return ChartFactory.line(df, x=x_col, y=[y_col], title=title)
+
+        elif viz_type == "area":
+            return ChartFactory.area(df, x=x_col, y=[y_col], title=title)
+
+        elif viz_type == "stacked_area":
+            # For stacked areas, we need multiple y columns
+            numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+            if y_col in numeric_cols:
+                numeric_cols.remove(y_col)
+            y_cols = [y_col] + numeric_cols[:2]  # Use up to 3 series
+            return ChartFactory.stacked_area(df, x=x_col, y=y_cols, title=title)
+
+        elif viz_type == "pie":
+            return ChartFactory.pie(df, name=x_col, value=y_col, title=title)
+
+        elif viz_type == "donut":
+            return ChartFactory.donut(df, name=x_col, value=y_col, title=title)
+
+        elif viz_type == "scatter":
+            # Scatter plots need 2 numeric columns
+            category_col = grouping if grouping else None
+            return ChartFactory.scatter(df, x=x_col, y=y_col, category=category_col, title=title)
+
+        elif viz_type == "combo":
+            # Combo charts need both bars and lines
+            numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+            if y_col in numeric_cols:
+                numeric_cols.remove(y_col)
+            bar_cols = [y_col]
+            line_cols = numeric_cols[:1] if len(numeric_cols) > 0 else [y_col]
+            return ChartFactory.combo(df, x=x_col, bars=bar_cols, lines=line_cols, title=title)
+
+        elif viz_type == "waterfall":
+            # Waterfall charts need labels and values
+            return ChartFactory.waterfall(df, labels=x_col, values=y_col, title=title)
+
+        elif viz_type in ["distribution", "histogram"]:
+            # Distribution charts are handled specially (not a standard chart type)
+            # Fall back to bar chart of binned data
+            return ChartFactory.bar(df, x=x_col if x_col else df.columns[0], y=[y_col], title=title)
+
+        elif viz_type == "pareto":
+            # Pareto is a combo of bar + line (cumulative %)
+            return ChartFactory.combo(df, x=x_col, bars=[y_col], lines=["cumulative"], title=title)
+
+        elif viz_type in ["map", "table"]:
+            # Maps and tables are not chart types - skip
+            raise ValueError(f"Chart type '{viz_type}' is not a visualization chart")
+
+        else:
+            # Default to bar chart
+            return ChartFactory.bar(df, x=x_col, y=[y_col], title=title)
 
     def _map_visualization_type(
         self,

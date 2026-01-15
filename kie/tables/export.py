@@ -388,8 +388,11 @@ def export_table(
             try:
                 path = exporter.to_pdf(config, output_dir / f"{base_name}.pdf")
                 output_paths["pdf"] = path
-            except ImportError:
-                # reportlab not installed - skip PDF export silently
-                pass
+            except ImportError as e:
+                # ISSUE #3 FIX: Raise clear error - reportlab is a hard dependency
+                raise RuntimeError(
+                    "PDF export requires reportlab (should be installed with KIE). "
+                    "Run: pip install --upgrade kie[all]"
+                ) from e
 
     return output_paths

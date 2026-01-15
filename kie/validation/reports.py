@@ -274,6 +274,13 @@ class ValidationReportGenerator:
                 "passed": 0,
                 "failed": 0,
                 "pass_rate": 0.0,
+                "total_issues": {
+                    "critical": 0,
+                    "warning": 0,
+                    "info": 0,
+                },
+                "by_output_type": {},
+                "by_category": {},
             }
 
         total = len(self.reports)
