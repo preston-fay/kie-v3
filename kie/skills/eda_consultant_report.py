@@ -254,6 +254,10 @@ class EDAConsultantReport(Skill):
             if count >= 2:
                 break
 
+            # Skip ID columns
+            if self._is_likely_id_column(col, stats):
+                continue
+
             mean_val = stats.get("mean", 0)
             median_val = stats.get("median", 0)
             std_val = stats.get("std", 0)
@@ -381,6 +385,40 @@ class EDAConsultantReport(Skill):
             })
 
         return insights[:5]
+
+    def _is_likely_id_column(self, col_name: str, stats: dict) -> bool:
+        """
+        Check if a column is likely an ID based on name and statistical properties.
+
+        Args:
+            col_name: Column name
+            stats: Distribution statistics dict with min, max, mean, std
+
+        Returns:
+            True if column appears to be an ID
+        """
+        col_lower = col_name.lower()
+
+        # Check for ID keywords in name
+        id_keywords = ['id', 'key', 'index', 'uuid', 'guid', '_id', 'code', 'number']
+        if any(kw in col_lower for kw in id_keywords):
+            return True
+
+        # Check if values are sequential or nearly sequential
+        # (IDs often have min=1, max=N where N is close to row count)
+        min_val = stats.get("min", 0)
+        max_val = stats.get("max", 0)
+        mean_val = stats.get("mean", 0)
+
+        # If min is very small and max is very large with mean close to halfway,
+        # it's likely a sequential ID (e.g., 1 to N)
+        if min_val > 0 and max_val > 1000 and mean_val > 0:
+            expected_mean_if_sequential = (min_val + max_val) / 2
+            # If actual mean is within 10% of expected sequential mean, likely an ID
+            if abs(mean_val - expected_mean_if_sequential) / expected_mean_if_sequential < 0.1:
+                return True
+
+        return False
 
     def _generate_quality_section(self, synthesis: dict, review: dict) -> list[str]:
         """Generate data quality summary table"""
