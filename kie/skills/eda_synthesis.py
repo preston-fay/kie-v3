@@ -317,16 +317,33 @@ class EDASynthesisSkill(Skill):
         else:
             return df.groupby(category)[metric].median()
 
+    def _is_id_column(self, df: pd.DataFrame, col: str) -> bool:
+        """Check if a column is likely an ID/identifier."""
+        col_lower = col.lower()
+
+        # Check for ID keywords in name
+        id_keywords = ['id', 'key', 'index', 'uuid', 'guid', '_id', 'code', 'number']
+        if any(kw in col_lower for kw in id_keywords):
+            return True
+
+        # Check if nearly all values are unique (>95% unique suggests ID)
+        if col in df.columns:
+            unique_pct = df[col].nunique() / len(df) if len(df) > 0 else 0
+            if unique_pct > 0.95:
+                return True
+
+        return False
+
     def _analyze_dominance(self, df: pd.DataFrame, eda_profile: dict) -> dict[str, Any]:
         """Analyze what dominates the data."""
         dominance = {}
 
-        # Find numeric columns with highest sums
+        # Find numeric columns with highest sums (excluding IDs)
         numeric_cols = eda_profile["column_types"].get("numeric", [])
         if numeric_cols:
             sums = {}
             for col in numeric_cols:
-                if col in df.columns:
+                if col in df.columns and not self._is_id_column(df, col):
                     sums[col] = float(df[col].sum())
 
             if sums:
@@ -347,11 +364,17 @@ class EDASynthesisSkill(Skill):
                 dominance["highest_cardinality_column"] = max_col
                 dominance["unique_values"] = cardinalities[max_col]
 
-        # Find top contributors for first numeric column
+        # Find top contributors for first NON-ID numeric column
         if numeric_cols and categorical_cols:
-            metric = numeric_cols[0]
+            # Find first non-ID numeric column
+            metric = None
+            for col in numeric_cols:
+                if not self._is_id_column(df, col):
+                    metric = col
+                    break
+
             category = categorical_cols[0]
-            if metric in df.columns and category in df.columns:
+            if metric and metric in df.columns and category in df.columns:
                 top_contributors = (
                     self._aggregate_metric(df, category, metric)
                     .sort_values(ascending=False)
@@ -747,9 +770,12 @@ class EDASynthesisSkill(Skill):
 
         chart_paths = {}
 
-        # Get first numeric and categorical columns for charts
+        # Get first numeric and categorical columns for charts (excluding IDs)
         numeric_cols = eda_profile["column_types"].get("numeric", [])
         categorical_cols = eda_profile["column_types"].get("categorical", [])
+
+        # Filter out ID columns
+        numeric_cols = [col for col in numeric_cols if not self._is_id_column(df, col)]
 
         # 1. Distribution charts (one per numeric column, limit to 3)
         for col in numeric_cols[:3]:
