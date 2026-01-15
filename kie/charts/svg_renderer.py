@@ -216,6 +216,7 @@ def _create_bar_chart(data: list[dict[str, Any]], title: str | None, config: Rec
         print_values_position='top',
         show_x_guides=False,  # KDS: No gridlines
         show_y_guides=False,  # KDS: No gridlines
+        show_y_labels=False,  # KDS: Hide Y-axis when data labels present
         value_formatter=kds_value_formatter,  # Smart number formatting (K/M/B)
     )
 
