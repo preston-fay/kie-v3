@@ -102,6 +102,12 @@ class EDAConsultantReport(Skill):
         lines.append("---")
         lines.append("")
 
+        # KPI Summary Section
+        lines.extend(self._generate_kpi_summary(synthesis, bridge))
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
         # Executive Summary
         insights = self._extract_insights(synthesis, bridge, review)
         lines.append("## Executive Summary")
@@ -148,6 +154,74 @@ class EDAConsultantReport(Skill):
 
         return lines
 
+    def _generate_kpi_summary(self, synthesis: dict, bridge: dict) -> list[str]:
+        """Generate executive KPI summary with key metrics"""
+        lines = []
+        lines.append("## Key Performance Indicators")
+        lines.append("")
+
+        # Get dominance analysis for primary metric
+        dom = synthesis.get("dominance_analysis", {})
+        dominant_metric = dom.get("dominant_metric")
+        dominant_value = dom.get("dominant_value", 0)
+
+        # Get distribution analysis for variability insights
+        dist_analysis = synthesis.get("distribution_analysis", {})
+
+        # Get column types for context
+        overview = synthesis.get("dataset_overview", {})
+        rows = overview.get("rows", 0)
+
+        if dominant_metric and dominant_value > 0:
+            metric_display = FieldRegistry.beautify(dominant_metric)
+            per_record = dominant_value / rows if rows > 0 else 0
+
+            lines.append(f"### Primary Metric: {metric_display}")
+            lines.append("")
+            lines.append(f"- **Total Value**: {format_currency(dominant_value) if 'revenue' in dominant_metric.lower() or 'cost' in dominant_metric.lower() or 'value' in dominant_metric.lower() or 'income' in dominant_metric.lower() or 'target' in dominant_metric.lower() else format_number(dominant_value)}")
+            lines.append(f"- **Per Record Average**: {format_currency(per_record) if 'revenue' in dominant_metric.lower() or 'cost' in dominant_metric.lower() or 'value' in dominant_metric.lower() or 'income' in dominant_metric.lower() or 'target' in dominant_metric.lower() else format_number(per_record)}")
+
+            # Add variability metric if available
+            if dominant_metric in dist_analysis:
+                stats = dist_analysis[dominant_metric]
+                std_val = stats.get("std", 0)
+                mean_val = stats.get("mean", 0)
+                cv = (std_val / mean_val * 100) if mean_val != 0 else 0
+                lines.append(f"- **Variability (CV)**: {cv:.0f}% {'(High - significant heterogeneity)' if cv > 50 else '(Moderate - some variation)' if cv > 20 else '(Low - relatively consistent)'}")
+
+            lines.append("")
+
+        # Data completeness KPI
+        quality = synthesis.get("data_quality", {})
+        null_pct = quality.get("null_percent", 0)
+        duplicate_pct = quality.get("duplicate_percent", 0)
+
+        lines.append("### Data Quality Metrics")
+        lines.append("")
+        lines.append(f"- **Completeness**: {100 - null_pct:.1f}% {'✓ Excellent' if null_pct < 1 else '⚠ Needs attention' if null_pct < 10 else '❌ Critical gaps'}")
+        lines.append(f"- **Uniqueness**: {100 - duplicate_pct:.1f}% {'✓ No duplicates' if duplicate_pct == 0 else f'⚠ {duplicate_pct:.1f}% duplicates detected'}")
+        lines.append(f"- **Sample Size**: {rows:,} records {'✓ Adequate' if rows >= 1000 else '⚠ Limited' if rows >= 100 else '❌ Insufficient'}")
+        lines.append("")
+
+        # Segment concentration (from top contributors)
+        top_contrib = dom.get("top_contributors", {})
+        if top_contrib:
+            category = FieldRegistry.beautify(top_contrib.get("category", ""))
+            values = top_contrib.get("values", {})
+            if values and dominant_value > 0:
+                # Calculate concentration (top segment %)
+                top_value = max(values.values()) if values else 0
+                concentration = (top_value / dominant_value * 100) if dominant_value > 0 else 0
+
+                lines.append("### Segment Analysis")
+                lines.append("")
+                lines.append(f"- **Segmentation Basis**: {category}")
+                lines.append(f"- **Number of Segments**: {len(values)}")
+                lines.append(f"- **Top Segment Contribution**: {concentration:.0f}% {'⚠ High concentration risk' if concentration > 60 else '✓ Balanced distribution' if concentration < 40 else 'Moderate concentration'}")
+                lines.append("")
+
+        return lines
+
     def _extract_insights(self, synthesis: dict, bridge: dict, review: dict) -> list[dict]:
         """Extract top 5 insights from analysis"""
         insights = []
@@ -173,56 +247,57 @@ class EDAConsultantReport(Skill):
                     "action": "Investigate what makes top performers successful and replicate across other periods. Consider hedging strategies to protect against concentration risk."
                 })
 
-        # Insight 2: Distribution asymmetry (plain language)
+        # Insight 2: Distribution patterns and variability
         dist_analysis = synthesis.get("distribution_analysis", {})
         count = 0
         for col, stats in dist_analysis.items():
-            if count >= 3:
+            if count >= 2:
                 break
-            skew = stats.get("skewness", 0)
-            if abs(skew) > 1.0:
-                min_val = stats.get("min", 0)
-                max_val = stats.get("max", 0)
 
-                # Use beautified field name
-                col_display = FieldRegistry.beautify(col)
+            mean_val = stats.get("mean", 0)
+            median_val = stats.get("median", 0)
+            std_val = stats.get("std", 0)
+            min_val = stats.get("min", 0)
+            max_val = stats.get("max", 0)
 
-                # Plain language translation
-                if skew < 0:
-                    # Left-skewed: worse downside than upside
-                    worst_loss = abs(min_val)
-                    best_gain = abs(max_val)
-                    ratio = worst_loss / best_gain if best_gain > 0 else 1
+            # Skip if no variation or if this is likely an ID column
+            if std_val == 0 or max_val == 0:
+                continue
 
-                    headline = f"{col_display} has worse downside than upside"
-                    summary = f"The worst loss ({format_number(abs(min_val))}) is {ratio:.1f}x the best gain ({format_number(abs(max_val))})"
-                    narrative = f"Looking at {col_display}, the pattern is clear: losses hurt more than gains help. The worst loss we see in the data ({format_number(abs(min_val))}) is {ratio:.1f} times larger than the best gain ({format_number(abs(max_val))}). This isn't just bad luck - the data shows losses happen more frequently at extreme levels."
-                    interpretation = "This creates asymmetric risk. When things go wrong, they go really wrong. When things go right, the upside is more limited."
-                    action = "Prioritize downside protection strategies. Consider stop-loss rules, position sizing limits, or hedging to cap the worst-case scenario."
-                else:
-                    # Right-skewed: better upside than downside
-                    best_gain = abs(max_val)
-                    worst_loss = abs(min_val)
-                    ratio = best_gain / worst_loss if worst_loss > 0 else 1
+            # Calculate coefficient of variation
+            cv = (std_val / mean_val) if mean_val != 0 else 0
 
-                    headline = f"{col_display} has bigger upside than downside"
-                    summary = f"The best gain ({format_number(abs(max_val))}) is {ratio:.1f}x the worst loss ({format_number(abs(min_val))})"
-                    narrative = f"Looking at {col_display}, the pattern is encouraging: gains outpace losses. The best gain we see in the data ({format_number(abs(max_val))}) is {ratio:.1f} times larger than the worst loss ({format_number(abs(min_val))}). This means when opportunities emerge, they can be substantial."
-                    interpretation = "This creates positive asymmetry. The upside potential exceeds downside risk."
-                    action = "Focus on capturing upside opportunities. When favorable conditions emerge, be positioned to benefit fully since the potential gains are significant."
+            col_display = FieldRegistry.beautify(col)
 
-                insights.append({
-                    "headline": headline,
-                    "summary": summary,
-                    "title": f"{col_display} Risk Profile",
-                    "narrative": narrative,
-                    "chart_path": f"eda_charts/distribution_{col}.svg",
-                    "interpretation": interpretation,
-                    "action": action
-                })
-                count += 1
-                if len(insights) >= 5:
-                    break
+            # Generate business-focused insight based on variation
+            if cv > 0.5:
+                # High variation - significant heterogeneity
+                range_val = max_val - min_val
+                headline = f"{col_display} shows significant variation across records"
+                summary = f"Values range from {format_number(min_val)} to {format_number(max_val)}, with {format_number(std_val)} standard deviation"
+                narrative = f"The {col_display} metric exhibits substantial variation (CV: {cv:.0%}), indicating heterogeneity across the dataset. Median value ({format_number(median_val)}) differs from mean ({format_number(mean_val)}), suggesting the presence of outliers or distinct segments. This variation presents both opportunities and risks - understanding what drives high-performing segments could unlock significant value."
+                interpretation = f"High variation suggests the presence of distinct segments or performance tiers. Not all records are created equal."
+                action = f"Segment the data by {col_display} performance tiers (top/middle/bottom terciles) and identify characteristics of high performers. Investigate drivers of variation to replicate success factors."
+            else:
+                # Low variation - relatively homogeneous
+                headline = f"{col_display} is relatively consistent across records"
+                summary = f"Values cluster around {format_number(median_val)}, with limited variation"
+                narrative = f"The {col_display} metric shows consistency across the dataset (CV: {cv:.0%}), with most values concentrated near {format_number(median_val)}. This suggests either: (1) a mature, stable process, or (2) limited differentiation opportunities. The tight distribution indicates predictability but may signal untapped potential for optimization."
+                interpretation = f"Consistency can indicate stability, but may also reveal opportunities for strategic differentiation."
+                action = f"Assess whether this consistency reflects optimal performance or missed opportunities. Consider targeted interventions to create positive outliers."
+
+            insights.append({
+                "headline": headline,
+                "summary": summary,
+                "title": f"{col_display} Distribution Pattern",
+                "narrative": narrative,
+                "chart_path": f"eda_charts/distribution_{col}.svg",
+                "interpretation": interpretation,
+                "action": action
+            })
+            count += 1
+            if len(insights) >= 5:
+                break
 
         # Insight 2b: Strong correlations (plain language)
         corr_data = synthesis.get("correlation_analysis", {})
