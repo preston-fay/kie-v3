@@ -195,8 +195,8 @@ class EDAConsultantReport(Skill):
                     ratio = worst_loss / best_gain if best_gain > 0 else 1
 
                     headline = f"{col_display} has worse downside than upside"
-                    summary = f"The worst loss ({format_percentage(abs(min_val))}) is {ratio:.1f}x the best gain ({format_percentage(abs(max_val))})"
-                    narrative = f"Looking at {col_display}, the pattern is clear: losses hurt more than gains help. The worst loss we see in the data ({format_percentage(abs(min_val))}) is {ratio:.1f} times larger than the best gain ({format_percentage(abs(max_val))}). This isn't just bad luck - the data shows losses happen more frequently at extreme levels."
+                    summary = f"The worst loss ({format_number(abs(min_val))}) is {ratio:.1f}x the best gain ({format_number(abs(max_val))})"
+                    narrative = f"Looking at {col_display}, the pattern is clear: losses hurt more than gains help. The worst loss we see in the data ({format_number(abs(min_val))}) is {ratio:.1f} times larger than the best gain ({format_number(abs(max_val))}). This isn't just bad luck - the data shows losses happen more frequently at extreme levels."
                     interpretation = "This creates asymmetric risk. When things go wrong, they go really wrong. When things go right, the upside is more limited."
                     action = "Prioritize downside protection strategies. Consider stop-loss rules, position sizing limits, or hedging to cap the worst-case scenario."
                 else:
@@ -206,8 +206,8 @@ class EDAConsultantReport(Skill):
                     ratio = best_gain / worst_loss if worst_loss > 0 else 1
 
                     headline = f"{col_display} has bigger upside than downside"
-                    summary = f"The best gain ({format_percentage(abs(max_val))}) is {ratio:.1f}x the worst loss ({format_percentage(abs(min_val))})"
-                    narrative = f"Looking at {col_display}, the pattern is encouraging: gains outpace losses. The best gain we see in the data ({format_percentage(abs(max_val))}) is {ratio:.1f} times larger than the worst loss ({format_percentage(abs(min_val))}). This means when opportunities emerge, they can be substantial."
+                    summary = f"The best gain ({format_number(abs(max_val))}) is {ratio:.1f}x the worst loss ({format_number(abs(min_val))})"
+                    narrative = f"Looking at {col_display}, the pattern is encouraging: gains outpace losses. The best gain we see in the data ({format_number(abs(max_val))}) is {ratio:.1f} times larger than the worst loss ({format_number(abs(min_val))}). This means when opportunities emerge, they can be substantial."
                     interpretation = "This creates positive asymmetry. The upside potential exceeds downside risk."
                     action = "Focus on capturing upside opportunities. When favorable conditions emerge, be positioned to benefit fully since the potential gains are significant."
 
