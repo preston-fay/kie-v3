@@ -742,7 +742,9 @@ class EDASynthesisSkill(Skill):
         synthesis: EDASynthesis,
         charts_dir: Path
     ) -> dict[str, Path]:
-        """Generate chart JSON configs."""
+        """Generate chart JSON configs using ChartFactory for proper RechartsConfig structure."""
+        from kie.charts import ChartFactory
+
         chart_paths = {}
 
         # Get first numeric and categorical columns for charts
@@ -764,20 +766,14 @@ class EDASynthesisSkill(Skill):
                 label = f"{interval.left:.1f}-{interval.right:.1f}"
                 chart_data.append({"category": label, "value": int(count)})
 
-            # Convert to RechartsConfig for SVG rendering (KDS-compliant)
+            # Use ChartFactory for proper RechartsConfig structure with formatter detection
             col_display = FieldRegistry.beautify(col)
-            config = RechartsConfig(
-                chart_type="bar",
-                data=chart_data,
-                config={
-                    "xAxis": {"angle": -45, "height": 80},  # Rotate labels for readability
-                    "dataLabels": {
-                        "enabled": True,
-                        "position": "top",
-                        "style": {"fontSize": 12}
-                    },
-                    "yAxis": {"tick": False}  # KDS: Hide Y-axis values when data labels present
-                },
+            chart_df = pd.DataFrame(chart_data)
+
+            config = ChartFactory.bar(
+                data=chart_df,
+                x='category',
+                y=['value'],
                 title=f"Distribution of {col_display}"
             )
 
@@ -797,21 +793,19 @@ class EDASynthesisSkill(Skill):
                     .head(10)
                 )
 
-                # Convert to RechartsConfig for SVG rendering (KDS-compliant)
+                # Use ChartFactory for proper RechartsConfig structure with formatter detection
                 metric_display = FieldRegistry.beautify(metric)
                 category_display = FieldRegistry.beautify(category)
-                config = RechartsConfig(
-                    chart_type="bar",
-                    data=[{"category": str(k), "value": float(v)}
-                          for k, v in contrib_data.items()],
-                    config={
-                        "dataLabels": {
-                            "enabled": True,
-                            "position": "top",
-                            "style": {"fontSize": 12}
-                        },
-                        "yAxis": {"tick": False}  # KDS: Hide Y-axis values when data labels present
-                    },
+
+                chart_df = pd.DataFrame([
+                    {"category": str(k), metric: float(v)}
+                    for k, v in contrib_data.items()
+                ])
+
+                config = ChartFactory.bar(
+                    data=chart_df,
+                    x='category',
+                    y=[metric],
                     title=f"{metric_display} by {category_display}"
                 )
 
@@ -829,19 +823,16 @@ class EDASynthesisSkill(Skill):
                 "null_percent": float(null_percent)
             })
 
-        # Convert to RechartsConfig for SVG rendering (KDS-compliant)
-        config = RechartsConfig(
-            chart_type="bar",
-            data=[{"category": d["column"], "value": d["null_percent"]}
-                  for d in miss_data],
-            config={
-                "dataLabels": {
-                    "enabled": True,
-                    "position": "top",
-                    "style": {"fontSize": 12}
-                },
-                "yAxis": {"tick": False}  # KDS: Hide Y-axis values when data labels present
-            },
+        # Use ChartFactory for proper RechartsConfig structure with formatter detection
+        chart_df = pd.DataFrame([
+            {"column": d["column"], "null_percent": d["null_percent"]}
+            for d in miss_data
+        ])
+
+        config = ChartFactory.bar(
+            data=chart_df,
+            x='column',
+            y=['null_percent'],
             title="Missingness by Column"
         )
 
@@ -891,13 +882,13 @@ class EDASynthesisSkill(Skill):
                             col1_display = FieldRegistry.beautify(col1)
                             col2_display = FieldRegistry.beautify(col2)
 
-                            config = RechartsConfig(
-                                chart_type="scatter",
-                                data=scatter_data[:200],  # Limit to 200 points for performance
-                                config={
-                                    "xAxis": {"label": col1_display},
-                                    "yAxis": {"label": col2_display}
-                                },
+                            # Use ChartFactory for proper RechartsConfig structure
+                            chart_df = pd.DataFrame(scatter_data[:200])  # Limit to 200 points for performance
+
+                            config = ChartFactory.scatter(
+                                data=chart_df,
+                                x='x',
+                                y='y',
                                 title=f"{col1_display} vs {col2_display} (r={corr:.2f})"
                             )
 
@@ -929,14 +920,14 @@ class EDASynthesisSkill(Skill):
 
                         if line_data:
                             metric_display = FieldRegistry.beautify(metric)
-                            config = RechartsConfig(
-                                chart_type="line",
-                                data=line_data[:100],  # Limit to 100 points
-                                config={
-                                    "xAxis": {"angle": -45, "height": 80},
-                                    "dataLabels": {"enabled": False},  # Too cluttered for time-series
-                                    "yAxis": {"tick": True}  # Show axis for trend context
-                                },
+
+                            # Use ChartFactory for proper RechartsConfig structure
+                            chart_df = pd.DataFrame(line_data[:100])  # Limit to 100 points
+
+                            config = ChartFactory.line(
+                                data=chart_df,
+                                x='category',
+                                y=['value'],
                                 title=f"{metric_display} Over Time"
                             )
 
