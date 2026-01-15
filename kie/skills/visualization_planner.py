@@ -14,6 +14,7 @@ from typing import Any
 
 from kie.insights.schema import InsightType
 from kie.skills.base import Skill, SkillContext, SkillResult
+from kie.charts.formatting import format_number
 
 
 # Chart Excellence Plan: InsightType → ChartType Multi-Version Mapping
@@ -114,7 +115,7 @@ class VisualizationPlannerSkill(Skill):
         project_state_dir = context.project_root / "project_state"
 
         # Load triage data
-        triage_json_path = outputs_dir / "insight_triage.json"
+        triage_json_path = outputs_dir / "internal" / "insight_triage.json"
 
         if not triage_json_path.exists():
             # No triage available yet - fail cleanly
@@ -148,8 +149,8 @@ class VisualizationPlannerSkill(Skill):
         )
 
         # Save outputs
-        viz_plan_json_path = outputs_dir / "visualization_plan.json"
-        viz_plan_md_path = outputs_dir / "visualization_plan.md"
+        viz_plan_json_path = outputs_dir / "internal" / "visualization_plan.json"
+        viz_plan_md_path = outputs_dir / "internal" / "visualization_plan.md"
 
         viz_plan_json_path.write_text(json.dumps(viz_plan_json, indent=2))
         viz_plan_md_path.write_text(viz_plan_md)
@@ -184,8 +185,8 @@ class VisualizationPlannerSkill(Skill):
             "specifications": [],
         }
 
-        viz_plan_md_path = outputs_dir / "visualization_plan.md"
-        viz_plan_json_path = outputs_dir / "visualization_plan.json"
+        viz_plan_md_path = outputs_dir / "internal" / "visualization_plan.md"
+        viz_plan_json_path = outputs_dir / "internal" / "visualization_plan.json"
 
         viz_plan_md_path.write_text(viz_plan_md)
         viz_plan_json_path.write_text(json.dumps(viz_plan_json, indent=2))
@@ -363,7 +364,7 @@ class VisualizationPlannerSkill(Skill):
     ) -> str:
         """Explain why visualization is not required."""
         if confidence < 0.60:
-            return f"Confidence too low ({confidence:.2f}) for visualization"
+            return f"Confidence too low ({format_number(confidence, precision=2, abbreviate=False)}) for visualization"
 
         if not evidence:
             return "No numeric evidence to visualize"
@@ -713,6 +714,23 @@ class VisualizationPlannerSkill(Skill):
         # Detect grouping (e.g., "Region: North | Product: Widget")
         has_grouping = any("|" in str(e.get("label", "")) for e in evidence)
 
+        # ISSUE #6 FIX: Parse num_groups from evidence labels
+        # Count unique grouping dimensions from labels with "|" separator
+        num_groups = 0
+        if has_grouping:
+            # Extract grouping dimensions (before ":" in each segment)
+            grouping_dims = set()
+            for e in evidence:
+                label = str(e.get("label", ""))
+                if "|" in label:
+                    # Parse "Region: North | Product: Widget" → ["Region", "Product"]
+                    segments = label.split("|")
+                    for segment in segments:
+                        if ":" in segment:
+                            dim = segment.split(":")[0].strip()
+                            grouping_dims.add(dim)
+            num_groups = len(grouping_dims)
+
         # Detect dual metrics (two different scales)
         metric_values = [e.get("value") for e in evidence if e.get("evidence_type") == "metric" and isinstance(e.get("value"), (int, float))]
         has_dual_metrics = False
@@ -941,7 +959,7 @@ class VisualizationPlannerSkill(Skill):
                 lines.append(f"**Visualization:** Not required")
                 lines.append(f"**Reason:** {spec['reason']}")
                 lines.append(
-                    f"**Confidence:** {spec['confidence']['label']} ({spec['confidence']['numeric']:.2f})"
+                    f"**Confidence:** {spec['confidence']['label']} ({format_number(spec['confidence']['numeric'], precision=2, abbreviate=False)})"
                 )
             elif "visuals" in spec:
                 # Multi-visual pattern
@@ -968,7 +986,7 @@ class VisualizationPlannerSkill(Skill):
                     lines.append("")
 
                 lines.append(
-                    f"**Confidence:** {spec['confidence']['label']} ({spec['confidence']['numeric']:.2f})"
+                    f"**Confidence:** {spec['confidence']['label']} ({format_number(spec['confidence']['numeric'], precision=2, abbreviate=False)})"
                 )
             else:
                 # Single visualization (original behavior)
@@ -1005,7 +1023,7 @@ class VisualizationPlannerSkill(Skill):
                         lines.append(f"  - {caveat}")
 
                 lines.append(
-                    f"**Confidence:** {spec['confidence']['label']} ({spec['confidence']['numeric']:.2f})"
+                    f"**Confidence:** {spec['confidence']['label']} ({format_number(spec['confidence']['numeric'], precision=2, abbreviate=False)})"
                 )
 
             lines.append("")

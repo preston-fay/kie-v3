@@ -10,6 +10,7 @@ from typing import Any, Literal
 import pandas as pd
 
 from kie.brand.theme import get_theme
+from kie.formatting.field_registry import FieldRegistry
 from kie.tables.schema import (
     Alignment,
     ColumnConfig,
@@ -215,16 +216,16 @@ class TableBuilder:
 
     def _format_header(self, col_name: str) -> str:
         """
-        Format column name for display.
+        Format column name for display using semantic field registry.
 
         Args:
             col_name: Column name
 
         Returns:
-            Formatted header
+            Formatted header (client-friendly)
         """
-        # Replace underscores and capitalize words
-        return col_name.replace("_", " ").title()
+        # Use FieldRegistry for consultant-friendly names
+        return FieldRegistry.beautify(col_name)
 
     def _build_column_configs(
         self, columns: list[dict[str, Any]], df: pd.DataFrame

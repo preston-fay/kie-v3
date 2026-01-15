@@ -19,6 +19,7 @@ from kie.charts.schema import (
     LineConfig,
     TooltipConfig,
 )
+from kie.formatting.field_registry import FieldRegistry
 
 
 class LineChartBuilder(ChartBuilder):
@@ -92,17 +93,34 @@ class LineChartBuilder(ChartBuilder):
         if isinstance(y_keys, str):
             y_keys = [y_keys]
 
+        # Beautify field names for display
+        x_label = FieldRegistry.beautify(x_key)
+        y_labels = {y_key: FieldRegistry.beautify(y_key) for y_key in y_keys}
+
+        # Rename columns in data for client-friendly display
+        beautified_data = []
+        for row in data_list:
+            new_row = {}
+            for key, value in row.items():
+                if key == x_key:
+                    new_row[x_label] = value
+                elif key in y_labels:
+                    new_row[y_labels[key]] = value
+                else:
+                    new_row[key] = value
+            beautified_data.append(new_row)
+
         # Get colors
         if colors is None:
             colors = KDSColors.get_chart_colors(len(y_keys))
         elif len(colors) < len(y_keys):
             colors.extend(KDSColors.get_chart_colors(len(y_keys) - len(colors)))
 
-        # Build line configs
+        # Build line configs (using beautified keys)
         lines = []
         for i, y_key in enumerate(y_keys):
             line_config = LineConfig(
-                dataKey=y_key,
+                dataKey=y_labels[y_key],  # Use beautified name
                 stroke=colors[i],
                 strokeWidth=self.stroke_width,
                 dot={"r": 4, "fill": colors[i]} if self.show_dots else False,
@@ -116,8 +134,8 @@ class LineChartBuilder(ChartBuilder):
             )
             lines.append(line_config)
 
-        # Build axis configs
-        x_axis = AxisConfig(dataKey=x_key)
+        # Build axis configs (using beautified keys)
+        x_axis = AxisConfig(dataKey=x_label)
         y_axis = AxisConfig(dataKey="value")
 
         # Build chart config
@@ -134,10 +152,10 @@ class LineChartBuilder(ChartBuilder):
             interactive=True,
         )
 
-        # Create Recharts config
+        # Create Recharts config (using beautified data)
         recharts_config = RechartsConfig(
             chart_type="line",
-            data=data_list,
+            data=beautified_data,
             config=chart_config.model_dump(exclude_none=True),
             title=title,
             subtitle=subtitle,

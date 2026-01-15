@@ -19,6 +19,7 @@ from kie.charts.schema import (
     LegendConfig,
     TooltipConfig,
 )
+from kie.formatting.field_registry import FieldRegistry
 
 
 class BarChartBuilder(ChartBuilder):
@@ -90,6 +91,23 @@ class BarChartBuilder(ChartBuilder):
         if isinstance(y_keys, str):
             y_keys = [y_keys]
 
+        # Beautify field names for display
+        x_label = FieldRegistry.beautify(x_key)
+        y_labels = {y_key: FieldRegistry.beautify(y_key) for y_key in y_keys}
+
+        # Rename columns in data for client-friendly display
+        beautified_data = []
+        for row in data_list:
+            new_row = {}
+            for key, value in row.items():
+                if key == x_key:
+                    new_row[x_label] = value
+                elif key in y_labels:
+                    new_row[y_labels[key]] = value
+                else:
+                    new_row[key] = value
+            beautified_data.append(new_row)
+
         # Get colors
         if colors is None:
             colors = KDSColors.get_chart_colors(len(y_keys))
@@ -97,12 +115,12 @@ class BarChartBuilder(ChartBuilder):
             # Extend with KDS colors if not enough provided
             colors.extend(KDSColors.get_chart_colors(len(y_keys) - len(colors)))
 
-        # Build bar configs
+        # Build bar configs (using beautified keys)
         bars = []
 
         for i, y_key in enumerate(y_keys):
             bar_config = BarConfig(
-                dataKey=y_key,
+                dataKey=y_labels[y_key],  # Use beautified name
                 fill=colors[i],
                 radius=[4, 4, 0, 0] if self.layout == "horizontal" else [0, 4, 4, 0],
                 label=DataLabelConfig(
@@ -114,13 +132,13 @@ class BarChartBuilder(ChartBuilder):
             )
             bars.append(bar_config)
 
-        # Build axis configs
+        # Build axis configs (using beautified keys)
         if self.layout == "horizontal":
-            x_axis = AxisConfig(dataKey=x_key)
+            x_axis = AxisConfig(dataKey=x_label)
             y_axis = AxisConfig(dataKey="value")
         else:
             x_axis = AxisConfig(dataKey="value")
-            y_axis = AxisConfig(dataKey=x_key)
+            y_axis = AxisConfig(dataKey=x_label)
 
         # Build chart config
         chart_config = BarChartConfig(
@@ -137,10 +155,10 @@ class BarChartBuilder(ChartBuilder):
             interactive=True,
         )
 
-        # Create Recharts config
+        # Create Recharts config (using beautified data)
         recharts_config = RechartsConfig(
             chart_type="bar",
-            data=data_list,
+            data=beautified_data,
             config=chart_config.model_dump(exclude_none=True),
             title=title,
             subtitle=subtitle,

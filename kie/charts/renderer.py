@@ -14,6 +14,8 @@ from typing import Any
 
 import pandas as pd
 
+from kie.charts.formatting import format_number
+
 
 class ChartRenderer:
     """
@@ -58,7 +60,7 @@ class ChartRenderer:
             BrandComplianceError: If charts violate KDS guidelines (when validate=True)
         """
         # REQUIREMENT: visualization_plan.json MUST exist
-        viz_plan_path = self.outputs_dir / "visualization_plan.json"
+        viz_plan_path = self.outputs_dir / "internal" / "visualization_plan.json"
         if not viz_plan_path.exists():
             raise FileNotFoundError(
                 "Chart rendering requires visualization_plan.json. "
@@ -620,7 +622,7 @@ class ChartRenderer:
         chart_data = []
         for interval, count in counts.items():
             chart_data.append({
-                "bin": f"{interval.left:.1f}-{interval.right:.1f}",
+                "bin": f"{format_number(interval.left, precision=1)}-{format_number(interval.right, precision=1)}",
                 "count": int(count),
             })
 

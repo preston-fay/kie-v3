@@ -49,11 +49,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import yaml
 
 from kie.base import RechartsConfig
+from kie.charts.formatting import (
+    format_currency,
+    format_number,
+    format_percentage,
+    smart_round,
+)
 from kie.skills.base import Skill, SkillContext, SkillResult
+from kie.formatting.field_registry import FieldRegistry
 
 
 @dataclass
@@ -66,6 +74,7 @@ class EDASynthesis:
     outlier_analysis: dict[str, Any]
     quality_analysis: dict[str, Any]
     column_reduction: dict[str, Any]
+    correlation_analysis: dict[str, Any]
     actionable_insights: list[str]
     warnings: list[str]
 
@@ -170,11 +179,12 @@ class EDASynthesisSkill(Skill):
         chart_paths = self._generate_charts(df, eda_profile, synthesis, charts_dir)
 
         # Generate markdown
-        md_path = outputs_dir / "eda_synthesis.md"
+        (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+        md_path = outputs_dir / "internal" / "eda_synthesis.md"
         self._generate_markdown(synthesis, md_path)
 
         # Generate JSON
-        json_path = outputs_dir / "eda_synthesis.json"
+        json_path = outputs_dir / "internal" / "eda_synthesis.json"
         self._generate_json(synthesis, json_path)
 
         return SkillResult(
@@ -259,6 +269,9 @@ class EDASynthesisSkill(Skill):
         # Column reduction - what to keep/ignore
         column_reduction = self._reduce_columns(df, eda_profile, intent_text)
 
+        # Correlation analysis
+        correlation_analysis = self._analyze_correlations(df, eda_profile)
+
         # Actionable insights
         actionable_insights = self._generate_actionable_insights(
             dominance_analysis,
@@ -275,9 +288,34 @@ class EDASynthesisSkill(Skill):
             outlier_analysis=outlier_analysis,
             quality_analysis=quality_analysis,
             column_reduction=column_reduction,
+            correlation_analysis=correlation_analysis,
             actionable_insights=actionable_insights,
             warnings=warnings
         )
+
+    def _aggregate_metric(self, df: pd.DataFrame, category: str, metric: str) -> pd.Series:
+        """Choose appropriate aggregation based on metric type.
+
+        This prevents nonsensical aggregations like summing percentage returns.
+        """
+        metric_lower = metric.lower()
+
+        # For percentage/ratio metrics (returns, rates, margins) - use MEAN
+        # Summing percentages makes no sense!
+        if any(kw in metric_lower for kw in ['return', 'rate', 'margin', 'ratio', 'pct', 'volatility', 'rsi']):
+            return df.groupby(category)[metric].mean()
+
+        # For count metrics - use SUM
+        elif any(kw in metric_lower for kw in ['count', 'number', 'quantity']):
+            return df.groupby(category)[metric].sum()
+
+        # For currency/volume metrics - use SUM
+        elif any(kw in metric_lower for kw in ['revenue', 'cost', 'value', 'volume', 'price', 'sales']):
+            return df.groupby(category)[metric].sum()
+
+        # Default: use MEDIAN (robust to outliers)
+        else:
+            return df.groupby(category)[metric].median()
 
     def _analyze_dominance(self, df: pd.DataFrame, eda_profile: dict) -> dict[str, Any]:
         """Analyze what dominates the data."""
@@ -315,8 +353,7 @@ class EDASynthesisSkill(Skill):
             category = categorical_cols[0]
             if metric in df.columns and category in df.columns:
                 top_contributors = (
-                    df.groupby(category)[metric]
-                    .sum()
+                    self._aggregate_metric(df, category, metric)
                     .sort_values(ascending=False)
                     .head(5)
                     .to_dict()
@@ -460,10 +497,10 @@ class EDASynthesisSkill(Skill):
 
             if cv > 0.1:  # Good variation
                 reduction["keep"].append(col)
-                reduction["reasons"][col] = f"Good variation (CV={cv:.2f})"
+                reduction["reasons"][col] = f"Good variation (CV={format_number(cv, precision=2, abbreviate=False)})"
             else:
                 reduction["investigate"].append(col)
-                reduction["reasons"][col] = f"Low variation (CV={cv:.2f})"
+                reduction["reasons"][col] = f"Low variation (CV={format_number(cv, precision=2, abbreviate=False)})"
 
         # Keep categorical columns with reasonable cardinality
         categorical_cols = eda_profile["column_types"].get("categorical", [])
@@ -507,7 +544,7 @@ class EDASynthesisSkill(Skill):
         if "dominant_metric" in dominance:
             insights.append(
                 f"Focus analysis on {dominance['dominant_metric']} - "
-                f"it dominates the dataset with total value {dominance['dominant_value']:.2f}"
+                f"it dominates the dataset with total value {format_number(dominance['dominant_value'])}"
             )
 
         if "top_contributors" in dominance:
@@ -522,7 +559,7 @@ class EDASynthesisSkill(Skill):
             if abs(dist["skewness"]) > 1:
                 skew_direction = "right" if dist["skewness"] > 0 else "left"
                 insights.append(
-                    f"{col} is heavily {skew_direction}-skewed (skewness={dist['skewness']:.2f}) - "
+                    f"{col} is heavily {skew_direction}-skewed (skewness={format_number(dist['skewness'], precision=2, abbreviate=False)}) - "
                     "consider log transformation or median-based analysis"
                 )
 
@@ -530,14 +567,14 @@ class EDASynthesisSkill(Skill):
         for col, outlier_data in outliers.items():
             if outlier_data["percent"] > 5:
                 insights.append(
-                    f"{col} has {outlier_data['percent']:.1f}% outliers - "
+                    f"{col} has {format_percentage(outlier_data['percent'] / 100, precision=1)} outliers - "
                     "investigate whether these are errors or genuine extreme values"
                 )
 
         # Quality insights
         if quality.get("duplicate_percent", 0) > 0:
             insights.append(
-                f"Dataset contains {quality['duplicate_percent']:.1f}% duplicate rows - "
+                f"Dataset contains {format_percentage(quality['duplicate_percent'] / 100, precision=1)} duplicate rows - "
                 "consider deduplication before analysis"
             )
 
@@ -556,6 +593,65 @@ class EDASynthesisSkill(Skill):
             )
 
         return insights
+
+    def _analyze_correlations(self, df: pd.DataFrame, eda_profile: dict) -> dict[str, Any]:
+        """
+        Analyze correlations between numeric columns.
+
+        Returns top correlations with their strength and direction.
+        """
+        correlation_data = {
+            "top_correlations": [],
+            "correlation_matrix": {},
+            "total_pairs_analyzed": 0
+        }
+
+        numeric_cols = eda_profile["column_types"].get("numeric", [])
+        if len(numeric_cols) < 2:
+            return correlation_data
+
+        # Calculate correlation matrix for all numeric columns
+        numeric_df = df[numeric_cols].select_dtypes(include=[np.number])
+        if len(numeric_df.columns) < 2:
+            return correlation_data
+
+        try:
+            corr_matrix = numeric_df.corr()
+
+            # Store full matrix for reference
+            correlation_data["correlation_matrix"] = {
+                col: corr_matrix[col].to_dict()
+                for col in corr_matrix.columns
+            }
+
+            # Find top correlations (excluding diagonal)
+            corr_pairs = []
+            for i in range(len(corr_matrix.columns)):
+                for j in range(i+1, len(corr_matrix.columns)):
+                    corr_val = corr_matrix.iloc[i, j]
+                    if not np.isnan(corr_val):
+                        corr_pairs.append({
+                            'col1': corr_matrix.columns[i],
+                            'col2': corr_matrix.columns[j],
+                            'correlation': float(corr_val),
+                            'strength': 'strong' if abs(corr_val) > 0.7 else 'moderate' if abs(corr_val) > 0.3 else 'weak',
+                            'direction': 'positive' if corr_val > 0 else 'negative'
+                        })
+
+            # Sort by absolute correlation strength
+            corr_pairs.sort(key=lambda x: abs(x['correlation']), reverse=True)
+
+            # Keep top 10 correlations with |r| > 0.3
+            correlation_data["top_correlations"] = [
+                pair for pair in corr_pairs[:10] if abs(pair['correlation']) > 0.3
+            ]
+            correlation_data["total_pairs_analyzed"] = len(corr_pairs)
+
+        except Exception as e:
+            # Silently fail - correlation is nice-to-have, not critical
+            pass
+
+        return correlation_data
 
     def _generate_tables(
         self,
@@ -659,15 +755,30 @@ class EDASynthesisSkill(Skill):
                 continue
 
             # Create histogram data using pandas binning
-            hist_data = pd.cut(df[col].dropna(), bins=20).value_counts().sort_index()
+            hist_series = pd.cut(df[col].dropna(), bins=20).value_counts().sort_index()
 
-            # Convert to RechartsConfig for SVG rendering
+            # Convert interval index to readable labels
+            chart_data = []
+            for interval, count in hist_series.items():
+                # Format: "10.5-21.3" instead of "Bin 1"
+                label = f"{interval.left:.1f}-{interval.right:.1f}"
+                chart_data.append({"category": label, "value": int(count)})
+
+            # Convert to RechartsConfig for SVG rendering (KDS-compliant)
+            col_display = FieldRegistry.beautify(col)
             config = RechartsConfig(
-                chart_type="bar",  # Pygal doesn't support histogram, use bar
-                data=[{"category": f"Bin {i+1}", "value": int(v)}
-                      for i, v in enumerate(hist_data)],
-                config={},
-                title=f"Distribution of {col}"
+                chart_type="bar",
+                data=chart_data,
+                config={
+                    "xAxis": {"angle": -45, "height": 80},  # Rotate labels for readability
+                    "dataLabels": {
+                        "enabled": True,
+                        "position": "top",
+                        "style": {"fontSize": 12}
+                    },
+                    "yAxis": {"tick": False}  # KDS: Hide Y-axis values when data labels present
+                },
+                title=f"Distribution of {col_display}"
             )
 
             dist_path = charts_dir / f"distribution_{col}.json"
@@ -681,19 +792,27 @@ class EDASynthesisSkill(Skill):
             category = categorical_cols[0]
             if metric in df.columns and category in df.columns:
                 contrib_data = (
-                    df.groupby(category)[metric]
-                    .sum()
+                    self._aggregate_metric(df, category, metric)
                     .sort_values(ascending=False)
                     .head(10)
                 )
 
-                # Convert to RechartsConfig for SVG rendering
+                # Convert to RechartsConfig for SVG rendering (KDS-compliant)
+                metric_display = FieldRegistry.beautify(metric)
+                category_display = FieldRegistry.beautify(category)
                 config = RechartsConfig(
                     chart_type="bar",
                     data=[{"category": str(k), "value": float(v)}
                           for k, v in contrib_data.items()],
-                    config={},
-                    title=f"{metric} by {category}"
+                    config={
+                        "dataLabels": {
+                            "enabled": True,
+                            "position": "top",
+                            "style": {"fontSize": 12}
+                        },
+                        "yAxis": {"tick": False}  # KDS: Hide Y-axis values when data labels present
+                    },
+                    title=f"{metric_display} by {category_display}"
                 )
 
                 contrib_path = charts_dir / f"contribution_{metric}.json"
@@ -710,12 +829,19 @@ class EDASynthesisSkill(Skill):
                 "null_percent": float(null_percent)
             })
 
-        # Convert to RechartsConfig for SVG rendering
+        # Convert to RechartsConfig for SVG rendering (KDS-compliant)
         config = RechartsConfig(
             chart_type="bar",
             data=[{"category": d["column"], "value": d["null_percent"]}
                   for d in miss_data],
-            config={},
+            config={
+                "dataLabels": {
+                    "enabled": True,
+                    "position": "top",
+                    "style": {"fontSize": 12}
+                },
+                "yAxis": {"tick": False}  # KDS: Hide Y-axis values when data labels present
+            },
             title="Missingness by Column"
         )
 
@@ -723,6 +849,104 @@ class EDASynthesisSkill(Skill):
         config.to_json(miss_path)
         config.to_svg(miss_path.with_suffix('.svg'))
         chart_paths["missingness_heatmap"] = miss_path
+
+        # 4. Correlation analysis + scatter plots for top correlations
+        if len(numeric_cols) >= 2:
+            # Calculate correlation matrix for all numeric columns
+            numeric_df = df[numeric_cols].select_dtypes(include=[np.number])
+            if len(numeric_df.columns) >= 2:
+                corr_matrix = numeric_df.corr()
+
+                # Find top 5 strongest correlations (excluding diagonal)
+                corr_pairs = []
+                for i in range(len(corr_matrix.columns)):
+                    for j in range(i+1, len(corr_matrix.columns)):
+                        corr_val = corr_matrix.iloc[i, j]
+                        if not np.isnan(corr_val) and abs(corr_val) > 0.3:  # Only meaningful correlations
+                            corr_pairs.append({
+                                'col1': corr_matrix.columns[i],
+                                'col2': corr_matrix.columns[j],
+                                'corr': corr_val
+                            })
+
+                # Sort by absolute correlation strength
+                corr_pairs.sort(key=lambda x: abs(x['corr']), reverse=True)
+
+                # Generate scatter plots for top 3 correlations
+                for pair in corr_pairs[:3]:
+                    col1, col2, corr = pair['col1'], pair['col2'], pair['corr']
+                    if col1 in df.columns and col2 in df.columns:
+                        scatter_data = []
+                        for idx in df.index:
+                            val1 = df.loc[idx, col1]
+                            val2 = df.loc[idx, col2]
+                            if pd.notna(val1) and pd.notna(val2):
+                                scatter_data.append({
+                                    "x": float(val1),
+                                    "y": float(val2)
+                                })
+
+                        if scatter_data:
+                            # Use beautified field names for chart labels
+                            col1_display = FieldRegistry.beautify(col1)
+                            col2_display = FieldRegistry.beautify(col2)
+
+                            config = RechartsConfig(
+                                chart_type="scatter",
+                                data=scatter_data[:200],  # Limit to 200 points for performance
+                                config={
+                                    "xAxis": {"label": col1_display},
+                                    "yAxis": {"label": col2_display}
+                                },
+                                title=f"{col1_display} vs {col2_display} (r={corr:.2f})"
+                            )
+
+                            scatter_path = charts_dir / f"correlation_{col1}_{col2}.json"
+                            config.to_json(scatter_path)
+                            config.to_svg(scatter_path.with_suffix('.svg'))
+                            chart_paths[f"correlation_{col1}_{col2}"] = scatter_path
+
+        # 5. Time-series trend (if date column exists)
+        datetime_cols = eda_profile["column_types"].get("datetime", [])
+        if datetime_cols or 'date' in categorical_cols:
+            date_col = datetime_cols[0] if datetime_cols else 'date'
+            if date_col in df.columns and numeric_cols:
+                # Use first numeric column for time-series
+                metric = numeric_cols[0]
+                if metric in df.columns:
+                    # Sort by date and create line chart
+                    try:
+                        time_df = df[[date_col, metric]].copy()
+                        time_df = time_df.sort_values(date_col)
+                        time_df = time_df.dropna(subset=[metric])
+
+                        line_data = []
+                        for idx, row in time_df.iterrows():
+                            line_data.append({
+                                "category": str(row[date_col]),
+                                "value": float(row[metric])
+                            })
+
+                        if line_data:
+                            metric_display = FieldRegistry.beautify(metric)
+                            config = RechartsConfig(
+                                chart_type="line",
+                                data=line_data[:100],  # Limit to 100 points
+                                config={
+                                    "xAxis": {"angle": -45, "height": 80},
+                                    "dataLabels": {"enabled": False},  # Too cluttered for time-series
+                                    "yAxis": {"tick": True}  # Show axis for trend context
+                                },
+                                title=f"{metric_display} Over Time"
+                            )
+
+                            trend_path = charts_dir / f"timeseries_{metric}.json"
+                            config.to_json(trend_path)
+                            config.to_svg(trend_path.with_suffix('.svg'))
+                            chart_paths[f"timeseries_{metric}"] = trend_path
+                    except Exception as e:
+                        # Skip if date parsing fails
+                        pass
 
         return chart_paths
 
@@ -738,9 +962,9 @@ class EDASynthesisSkill(Skill):
         # 1. Dataset Overview
         lines.append("## 1. Dataset Overview\n")
         overview = synthesis.dataset_overview
-        lines.append(f"- **Rows**: {overview['rows']:,}")
+        lines.append(f"- **Rows**: {format_number(overview['rows'])}")
         lines.append(f"- **Columns**: {overview['columns']}")
-        lines.append(f"- **Memory**: {overview['memory_mb']:.2f} MB")
+        lines.append(f"- **Memory**: {format_number(overview['memory_mb'], precision=1, abbreviate=False)} MB")
         lines.append(f"- **Numeric Columns**: {len(overview['column_types'].get('numeric', []))}")
         lines.append(f"- **Categorical Columns**: {len(overview['column_types'].get('categorical', []))}")
         if overview.get("intent"):
@@ -751,21 +975,21 @@ class EDASynthesisSkill(Skill):
         lines.append("## 2. What Dominates\n")
         dom = synthesis.dominance_analysis
         if "dominant_metric" in dom:
-            lines.append(f"**{dom['dominant_metric']}** dominates the dataset with total value **{dom['dominant_value']:,.2f}**.\n")
+            lines.append(f"**{dom['dominant_metric']}** dominates the dataset with total value **{format_number(dom['dominant_value'])}**.\n")
         if "top_contributors" in dom:
             lines.append(f"Top contributors to {dom['top_contributors']['metric']}:")
             for cat, val in list(dom["top_contributors"]["values"].items())[:5]:
-                lines.append(f"- {cat}: {val:,.2f}")
+                lines.append(f"- {cat}: {format_number(val)}")
         lines.append("")
 
         # 3. Distributions & Shape
         lines.append("## 3. Distributions & Shape\n")
         for col, dist in synthesis.distribution_analysis.items():
             lines.append(f"### {col}")
-            lines.append(f"- Mean: {dist['mean']:.2f}, Median: {dist['median']:.2f}")
-            lines.append(f"- Std Dev: {dist['std']:.2f}")
-            lines.append(f"- Range: [{dist['min']:.2f}, {dist['max']:.2f}]")
-            lines.append(f"- Skewness: {dist['skewness']:.2f}, Kurtosis: {dist['kurtosis']:.2f}")
+            lines.append(f"- Mean: {format_number(dist['mean'])}, Median: {format_number(dist['median'])}")
+            lines.append(f"- Std Dev: {format_number(dist['std'])}")
+            lines.append(f"- Range: [{format_number(dist['min'])}, {format_number(dist['max'])}]")
+            lines.append(f"- Skewness: {format_number(dist['skewness'], precision=2, abbreviate=False)}, Kurtosis: {format_number(dist['kurtosis'], precision=2, abbreviate=False)}")
 
             if abs(dist['skewness']) > 1:
                 skew_dir = "right" if dist['skewness'] > 0 else "left"
@@ -779,20 +1003,35 @@ class EDASynthesisSkill(Skill):
             if outlier_data["percent"] > 0:
                 has_outliers = True
                 lines.append(f"### {col}")
-                lines.append(f"- **{outlier_data['count']} outliers** ({outlier_data['percent']:.1f}% of data)")
-                lines.append(f"- Bounds: [{outlier_data['lower_bound']:.2f}, {outlier_data['upper_bound']:.2f}]")
+                lines.append(f"- **{format_number(outlier_data['count'], abbreviate=False)} outliers** ({format_percentage(outlier_data['percent'] / 100, precision=1)} of data)")
+                lines.append(f"- Bounds: [{format_number(outlier_data['lower_bound'])}, {format_number(outlier_data['upper_bound'])}]")
                 if outlier_data["percent"] > 5:
                     lines.append("- ⚠️ **High outlier rate** - investigate before analysis")
                 lines.append("")
         if not has_outliers:
             lines.append("No significant outliers detected using IQR method.\n")
 
-        # 5. Missingness & Data Quality
-        lines.append("## 5. Missingness & Data Quality\n")
+        # 5. Correlation Analysis
+        lines.append("## 5. Correlation Analysis\n")
+        corr_data = synthesis.correlation_analysis
+        if corr_data.get("top_correlations"):
+            lines.append(f"**Found {len(corr_data['top_correlations'])} significant correlations** (|r| > 0.3):\n")
+            for pair in corr_data["top_correlations"][:5]:
+                corr_val = pair["correlation"]
+                strength = pair["strength"]
+                direction = pair["direction"]
+                lines.append(f"- **{pair['col1']} ↔ {pair['col2']}**: r = {format_number(corr_val, precision=2, abbreviate=False)} ({strength} {direction})")
+            lines.append("")
+            lines.append(f"💡 **Analysis**: Correlations reveal variable relationships. Strong correlations (|r| > 0.7) suggest potential multicollinearity in modeling.\n")
+        else:
+            lines.append("No significant correlations detected (all |r| < 0.3).\n")
+
+        # 6. Missingness & Data Quality
+        lines.append("## 6. Missingness & Data Quality\n")
         quality = synthesis.quality_analysis
 
         if quality.get("duplicate_rows", 0) > 0:
-            lines.append(f"- ⚠️ **{quality['duplicate_rows']} duplicate rows** ({quality['duplicate_percent']:.1f}%)")
+            lines.append(f"- ⚠️ **{format_number(quality['duplicate_rows'], abbreviate=False)} duplicate rows** ({format_percentage(quality['duplicate_percent'] / 100, precision=1)})")
             lines.append("")
 
         high_miss_cols = [
@@ -803,7 +1042,7 @@ class EDASynthesisSkill(Skill):
             lines.append("**Columns with >10% missing data:**")
             for col in high_miss_cols:
                 miss = quality["missingness"][col]
-                lines.append(f"- {col}: {miss['null_percent']:.1f}% missing")
+                lines.append(f"- {col}: {format_percentage(miss['null_percent'] / 100, precision=1)} missing")
             lines.append("")
         else:
             lines.append("No significant missingness issues detected.\n")
@@ -811,8 +1050,8 @@ class EDASynthesisSkill(Skill):
         if quality.get("constant_columns"):
             lines.append(f"⚠️ **Constant columns (drop immediately)**: {', '.join(quality['constant_columns'])}\n")
 
-        # 6. Column Reduction (Critical)
-        lines.append("## 6. Column Reduction (Critical)\n")
+        # 7. Column Reduction (Critical)
+        lines.append("## 7. Column Reduction (Critical)\n")
         reduction = synthesis.column_reduction
 
         if reduction["keep"]:
@@ -836,8 +1075,8 @@ class EDASynthesisSkill(Skill):
                 lines.append(f"- **{col}**: {reason}")
             lines.append("")
 
-        # 7. What This Means for Analysis
-        lines.append("## 7. What This Means for Analysis\n")
+        # 8. What This Means for Analysis
+        lines.append("## 8. What This Means for Analysis\n")
         for insight in synthesis.actionable_insights:
             lines.append(f"- {insight}")
         lines.append("")
@@ -855,6 +1094,7 @@ class EDASynthesisSkill(Skill):
             "dominance_analysis": synthesis.dominance_analysis,
             "distribution_analysis": synthesis.distribution_analysis,
             "outlier_analysis": synthesis.outlier_analysis,
+            "correlation_analysis": synthesis.correlation_analysis,
             "quality_analysis": synthesis.quality_analysis,
             "column_reduction": synthesis.column_reduction,
             "actionable_insights": synthesis.actionable_insights,

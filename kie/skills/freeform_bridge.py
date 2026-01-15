@@ -24,6 +24,19 @@ from typing import Any
 from kie.insights import Insight, InsightCatalog, InsightType, InsightSeverity, InsightCategory, Evidence
 from kie.skills.base import Skill, SkillContext, SkillResult
 from kie.state import ExecutionPolicy, ExecutionMode
+from kie.charts.formatting import format_number
+
+
+class ForbiddenVisualizationError(Exception):
+    """
+    Raised when non-KDS-compliant visualizations are detected.
+
+    KIE v3 enforces strict KDS compliance - all visualizations must
+    use the Recharts pipeline via VisualizationPlanner.
+
+    PNG exports from matplotlib/seaborn are FORBIDDEN.
+    """
+    pass
 
 
 class FreeformBridgeSkill(Skill):
@@ -59,9 +72,7 @@ class FreeformBridgeSkill(Skill):
         if policy.get_mode() != ExecutionMode.FREEFORM:
             return SkillResult(
                 success=False,
-                message="Freeform bridge requires execution_mode == freeform. Run /freeform enable first.",
-                errors=["Execution mode is not freeform"],
-                artifacts_produced=[]
+                errors=["Freeform bridge requires execution_mode == freeform. Run /freeform enable first."]
             )
 
         freeform_dir = context.project_root / "outputs" / "freeform"
@@ -73,6 +84,15 @@ class FreeformBridgeSkill(Skill):
 
         # Create NOTICE.md for freeform visual policy
         self._create_visual_notice(freeform_dir)
+
+        # PR #2: STRICT PNG blocking - check for forbidden visuals BEFORE processing artifacts
+        try:
+            self._check_visualization_compliance(freeform_dir)
+        except ForbiddenVisualizationError as e:
+            return SkillResult(
+                success=False,
+                errors=[f"Non-KDS visuals detected: {str(e)}"]
+            )
 
         # Scan for freeform artifacts
         tables_dir = freeform_dir / "tables"
@@ -211,8 +231,8 @@ class FreeformBridgeSkill(Skill):
                 top_metric = max(metric_values, key=lambda x: abs(x[1]))
                 insight = Insight(
                     id=f"freeform-table-{table_name}",
-                    headline=f"{table_name.replace('_', ' ').title()}: {top_metric[0]} Shows {top_metric[1]:.1f}",
-                    supporting_text=f"Analysis of {table_name} shows {row_count} data points. Key metric {top_metric[0]} has value {top_metric[1]:.2f}.",
+                    headline=f"{table_name.replace('_', ' ').title()}: {top_metric[0]} Shows {format_number(top_metric[1], precision=1)}",
+                    supporting_text=f"Analysis of {table_name} shows {row_count} data points. Key metric {top_metric[0]} has value {format_number(top_metric[1], precision=2)}.",
                     insight_type=InsightType.COMPARISON,
                     severity=InsightSeverity.SUPPORTING,
                     category=InsightCategory.FINDING,
@@ -375,6 +395,37 @@ class FreeformBridgeSkill(Skill):
 
         return insights
 
+    def _check_visualization_compliance(self, freeform_dir: Path) -> None:
+        """
+        Verify all visualizations are KDS-compliant.
+
+        PR #2: STRICT enforcement - blocks non-Recharts visuals.
+
+        Args:
+            freeform_dir: Freeform directory to check
+
+        Raises:
+            ForbiddenVisualizationError: If non-Recharts visuals detected (PNG files)
+        """
+        # Scan for forbidden PNG files
+        png_files = list(freeform_dir.glob("**/*.png"))
+
+        if png_files:
+            png_list = "\n".join([f"  - {f.relative_to(freeform_dir)}" for f in png_files[:10]])
+            if len(png_files) > 10:
+                png_list += f"\n  ... and {len(png_files) - 10} more"
+
+            raise ForbiddenVisualizationError(
+                f"\n❌ NON-KDS VISUALS DETECTED\n\n"
+                f"Found {len(png_files)} PNG file(s) in outputs/freeform/:\n\n{png_list}\n\n"
+                f"PNG exports are FORBIDDEN in KIE v3.\n\n"
+                f"All visualizations must use the Recharts pipeline:\n"
+                f"  1. Use /freeform export to convert freeform analysis\n"
+                f"  2. Charts will be rendered via VisualizationPlanner → ChartRenderer\n"
+                f"  3. All charts enforce KDS rules (purple palette, no gridlines)\n\n"
+                f"Migration: Remove PNG files and use KIE chart engine only."
+            )
+
     def _create_visual_notice(self, freeform_dir: Path):
         """
         Create NOTICE.md for freeform visual policy.
@@ -384,43 +435,37 @@ class FreeformBridgeSkill(Skill):
         """
         notice_path = freeform_dir / "NOTICE.md"
 
-        # Scan for PNG files
-        png_files = list(freeform_dir.glob("**/*.png"))
+        # PR #2: Strict PNG blocking - this method now only creates policy documentation
+        # PNG detection happens in _check_visualization_compliance() which raises error
 
-        notice_content = """# Freeform Visual Policy
+        notice_content = """# Freeform Visual Policy (PR #2: STRICT MODE)
 
-## NON-KIE Visuals
+## FORBIDDEN: Non-KDS Visuals
 
-This directory may contain visuals (PNGs, charts) created outside the KIE chart engine.
+As of PR #2, PNG exports are STRICTLY FORBIDDEN in KIE v3.
 
-**CRITICAL:**
-- These visuals are NOT KDS-compliant
-- They are EXCLUDED from client deliverables (PPT, Dashboard)
-- They are marked as exploratory/internal only
+**POLICY CHANGE:**
+- PNG files are NO LONGER TOLERATED (even with warnings)
+- All visualizations MUST use Recharts pipeline
+- Non-KDS visuals will BLOCK freeform export
 
-## KDS Compliance
+## KDS-Only Visualization
 
-For KDS-compliant visuals that CAN be included in client deliverables:
-1. Use the KIE chart engine via /freeform export
-2. Charts will be rendered through visualization_planner → chart_renderer
-3. All charts will enforce KDS design rules (purple palette, no gridlines, etc.)
+For KDS-compliant visuals that can be included in client deliverables:
+1. Use `/freeform export` to convert freeform analysis
+2. Charts rendered through visualization_planner → chart_renderer
+3. All charts enforce KDS rules (purple palette, no gridlines, etc.)
 
-## Guidance
+## Migration from Matplotlib/Seaborn
 
-Deep freeform analysis is allowed. However:
-- **Visuals MUST be rendered via KIE chart engine for KDS compliance**
-- Ad-hoc matplotlib/seaborn PNGs are exploratory only
-- Not promoted to client artifacts automatically
+If you have matplotlib/seaborn code generating PNGs:
+1. Remove PNG generation code
+2. Extract data/insights programmatically
+3. Use KIE chart engine via VisualizationPlanner
+4. Charts will be KDS-compliant automatically
 
+**No exceptions. KDS is law.**
 """
-
-        if png_files:
-            notice_content += f"\n## Detected Non-KIE Visuals\n\n"
-            notice_content += f"Found {len(png_files)} PNG files in freeform/:\n\n"
-            for png_file in png_files:
-                rel_path = png_file.relative_to(freeform_dir)
-                notice_content += f"- {rel_path} (NON-KIE, exploratory only)\n"
-            notice_content += "\nThese files are excluded from story_manifest and client deliverables.\n"
 
         with open(notice_path, "w") as f:
             f.write(notice_content)
