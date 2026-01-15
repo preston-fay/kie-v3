@@ -364,14 +364,16 @@ class EDASynthesisSkill(Skill):
                 dominance["highest_cardinality_column"] = max_col
                 dominance["unique_values"] = cardinalities[max_col]
 
-        # Find top contributors for first NON-ID numeric column
+        # Find top contributors using the DOMINANT metric (not just first column)
         if numeric_cols and categorical_cols:
-            # Find first non-ID numeric column
-            metric = None
-            for col in numeric_cols:
-                if not self._is_id_column(df, col):
-                    metric = col
-                    break
+            # Use the dominant metric if it was identified and is not an ID
+            metric = dominance.get("dominant_metric")
+            if not metric or self._is_id_column(df, metric):
+                # Fallback to first non-ID numeric column if dominant metric is invalid
+                for col in numeric_cols:
+                    if not self._is_id_column(df, col):
+                        metric = col
+                        break
 
             category = categorical_cols[0]
             if metric and metric in df.columns and category in df.columns:
