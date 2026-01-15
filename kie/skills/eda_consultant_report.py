@@ -165,9 +165,9 @@ class EDAConsultantReport(Skill):
 
                 insights.append({
                     "headline": "Revenue is heavily concentrated",
-                    "summary": f"The top 5 contributors account for {format_percentage(top_pct / 100, precision=0)} of {dom['dominant_metric']}",
+                    "summary": f"The top 5 contributors account for {format_percentage(top_pct, precision=0)} of {dom['dominant_metric']}",
                     "title": "Revenue Concentration Risk",
-                    "narrative": f"The dataset reveals heavy concentration in {dom['dominant_metric']}, with the top 5 contributors accounting for {format_percentage(top_pct / 100, precision=0)} of all value ({format_currency(total_value)} total). This concentration creates vulnerability - if these peak performers were to decline, the portfolio would face significant downside exposure.",
+                    "narrative": f"The dataset reveals heavy concentration in {dom['dominant_metric']}, with the top 5 contributors accounting for {format_percentage(top_pct, precision=0)} of all value ({format_currency(total_value)} total). This concentration creates vulnerability - if these peak performers were to decline, the portfolio would face significant downside exposure.",
                     "chart_path": "eda_charts/contribution_" + top_contrib_data.get("metric", "unknown") + ".svg",
                     "interpretation": "Your business has dependency risk. A handful of high-performing periods drive most value.",
                     "action": "Investigate what makes top performers successful and replicate across other periods. Consider hedging strategies to protect against concentration risk."

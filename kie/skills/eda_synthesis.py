@@ -813,7 +813,7 @@ class EDASynthesisSkill(Skill):
         # 2. Contribution chart (dominant metric by first categorical)
         if numeric_cols and categorical_cols:
             # Use dominant metric if available, otherwise fallback to first non-ID column
-            metric = dominance_analysis.get("dominant_metric")
+            metric = synthesis.dominance_analysis.get("dominant_metric")
             if not metric or metric not in df.columns or self._is_id_column(df, metric):
                 # Fallback to first non-ID column
                 metric = numeric_cols[0]
