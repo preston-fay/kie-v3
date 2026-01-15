@@ -220,10 +220,18 @@ class ChartRenderer:
             "config": {
                 # KDS compliance settings
                 "gridLines": False,  # KDS: no gridlines
-                "axisLine": False,   # KDS: no axis lines
-                "tickLine": False,   # KDS: no tick lines
-                "dataLabels": True,  # KDS: show data labels
                 "fontFamily": "Inter, Arial, sans-serif",  # KDS typography
+                # Proper RechartsConfig structure with nested axis configs
+                "xAxis": {
+                    "axisLine": False,  # KDS: no axis lines
+                    "tickLine": False,  # KDS: no tick lines
+                },
+                "yAxis": {
+                    "axisLine": False,  # KDS: no axis lines
+                    "tickLine": False,  # KDS: no tick lines
+                },
+                # Data labels config (used by chart renderers)
+                "dataLabels": True,
             },
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
@@ -304,10 +312,18 @@ class ChartRenderer:
             "config": {
                 # KDS compliance settings
                 "gridLines": False,  # KDS: no gridlines
-                "axisLine": False,   # KDS: no axis lines
-                "tickLine": False,   # KDS: no tick lines
-                "dataLabels": True,  # KDS: show data labels
                 "fontFamily": "Inter, Arial, sans-serif",  # KDS typography
+                # Proper RechartsConfig structure with nested axis configs
+                "xAxis": {
+                    "axisLine": False,  # KDS: no axis lines
+                    "tickLine": False,  # KDS: no tick lines
+                },
+                "yAxis": {
+                    "axisLine": False,  # KDS: no axis lines
+                    "tickLine": False,  # KDS: no tick lines
+                },
+                # Data labels config (used by chart renderers)
+                "dataLabels": True,
             },
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
