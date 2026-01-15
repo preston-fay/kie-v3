@@ -310,7 +310,7 @@ class EDASynthesisSkill(Skill):
             return df.groupby(category)[metric].sum()
 
         # For currency/volume metrics - use SUM
-        elif any(kw in metric_lower for kw in ['revenue', 'cost', 'value', 'volume', 'price', 'sales']):
+        elif any(kw in metric_lower for kw in ['revenue', 'cost', 'value', 'volume', 'price', 'sales', 'income', 'inca']):
             return df.groupby(category)[metric].sum()
 
         # Default: use MEDIAN (robust to outliers)
