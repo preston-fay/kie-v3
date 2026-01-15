@@ -45,15 +45,50 @@ class BrandValidator:
         if config.get("config", {}).get("gridLines", False):
             violations.append("Gridlines detected (must be False for KDS compliance)")
 
-        # Check 2: Axis lines disabled
-        if config.get("config", {}).get("axisLine", True):
-            violations.append("Axis lines enabled (should be False for clean KDS look)")
+        # Check 2: Axis lines disabled (check xAxis/yAxis for new structure)
+        chart_config = config.get("config", {})
 
-        if config.get("config", {}).get("tickLine", True):
-            violations.append("Tick lines enabled (should be False for clean KDS look)")
+        # Check xAxis
+        x_axis = chart_config.get("xAxis", {})
+        if x_axis.get("axisLine", True):
+            violations.append("X-axis lines enabled (should be False for clean KDS look)")
+        if x_axis.get("tickLine", True):
+            violations.append("X-axis tick lines enabled (should be False for clean KDS look)")
 
-        # Check 3: Colors from KDS palette
-        colors = config.get("config", {}).get("colors", [])
+        # Check yAxis
+        y_axis = chart_config.get("yAxis", {})
+        if y_axis.get("axisLine", True):
+            violations.append("Y-axis lines enabled (should be False for clean KDS look)")
+        if y_axis.get("tickLine", True):
+            violations.append("Y-axis tick lines enabled (should be False for clean KDS look)")
+
+        # Check 3: Colors from KDS palette (check bars/lines/areas arrays)
+        colors = []
+
+        # Extract colors from bar configs
+        for bar in chart_config.get("bars", []):
+            if "fill" in bar:
+                colors.append(bar["fill"])
+
+        # Extract colors from line configs
+        for line in chart_config.get("lines", []):
+            if "stroke" in line:
+                colors.append(line["stroke"])
+
+        # Extract colors from area configs
+        for area in chart_config.get("areas", []):
+            if "fill" in area:
+                colors.append(area["fill"])
+
+        # Extract colors from pie configs
+        pie_config = chart_config.get("pie", {})
+        if "colors" in chart_config:
+            colors.extend(chart_config["colors"])
+
+        # Also check legacy colors field for backwards compatibility
+        colors.extend(chart_config.get("colors", []))
+
+        # Validate colors
         for color in colors:
             if KDSColors.is_forbidden(color):
                 violations.append(f"Forbidden color detected: {color}")
@@ -66,8 +101,24 @@ class BrandValidator:
             if color.upper() not in [c.upper() for c in KDSColors.CHART_PALETTE]:
                 warnings.append(f"Non-KDS color: {color} (not in official palette)")
 
-        # Check 4: Data labels present
-        if not config.get("config", {}).get("dataLabels"):
+        # Check 4: Data labels present (check bars/lines for label config)
+        has_data_labels = False
+
+        # Check bars for labels
+        for bar in chart_config.get("bars", []):
+            if bar.get("label") is not None:
+                has_data_labels = True
+                break
+
+        # Check lines for labels
+        if not has_data_labels:
+            for line in chart_config.get("lines", []):
+                if line.get("label") is not None:
+                    has_data_labels = True
+                    break
+
+        # Legacy check
+        if not has_data_labels and not chart_config.get("dataLabels"):
             warnings.append("Data labels not configured (recommended for KDS charts)")
 
         # Check 5: Typography
