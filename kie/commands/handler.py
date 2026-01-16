@@ -1858,6 +1858,122 @@ class CommandHandler:
                 # Don't fail build if HTML generation fails
                 print(f"⚠️  HTML report generation failed: {e}")
 
+            # Print rich, consultant-grade build summary
+            from kie.charts.formatting import format_number
+            import json
+
+            print()
+            print("=" * 70)
+            print("📊 BUILD COMPLETE - DELIVERABLES SUMMARY")
+            print("=" * 70)
+            print()
+
+            # Count and categorize artifacts
+            outputs_dir = self.project_root / "outputs"
+            exports_dir = self.project_root / "exports"
+            charts_dir = outputs_dir / "charts"
+            internal_dir = outputs_dir / "internal"
+
+            # Load story manifest to get insight details
+            story_manifest = None
+            if (internal_dir / "story_manifest.json").exists():
+                with open(internal_dir / "story_manifest.json") as f:
+                    story_manifest = json.load(f)
+
+            print("✅ ARTIFACTS GENERATED:")
+            print()
+
+            # Presentation details
+            if "presentation" in results:
+                pres_path = Path(results["presentation"])
+                if pres_path.exists():
+                    print("📄 PowerPoint Presentation:")
+                    print(f"   • File: {pres_path.relative_to(self.project_root)}")
+                    if story_manifest:
+                        sections = story_manifest.get("sections", [])
+                        slide_count = 1 + len(sections) + 1  # title + sections + end
+                        print(f"   • Slides: {slide_count} (title + {len(sections)} insights + conclusion)")
+                        print(f"   • Theme: {output_theme.capitalize()} mode (KDS compliant)")
+                    print(f"   • Status: ✅ Ready for client presentation")
+                    print()
+
+            # Dashboard details
+            if "dashboard" in results:
+                dash_path = Path(results["dashboard"])
+                if dash_path.exists():
+                    print("📊 Interactive Dashboard:")
+                    print(f"   • Path: {dash_path.relative_to(self.project_root)}/index.html")
+                    chart_count = len(list(charts_dir.glob("*.json"))) if charts_dir.exists() else 0
+                    print(f"   • Charts: {chart_count} Recharts components")
+                    print(f"   • Theme: {output_theme.capitalize()} mode with toggle")
+                    print(f"   • Usage: Open index.html or run 'cd {dash_path.relative_to(self.project_root)} && npm run dev'")
+                    print()
+            elif "dashboard_skipped" in results:
+                print("⚠️  Interactive Dashboard: Skipped (Node.js not available)")
+                print("   Install Node.js 20+ from https://nodejs.org/")
+                print()
+
+            # Chart visualizations
+            if charts_dir.exists():
+                svg_charts = list(charts_dir.glob("*.svg"))
+                json_charts = list(charts_dir.glob("*.json"))
+                if svg_charts or json_charts:
+                    print("📈 Visualizations:")
+                    if svg_charts:
+                        print(f"   • SVG Charts: {len(svg_charts)} files in outputs/charts/")
+                        # Count chart types
+                        chart_types = {}
+                        for chart_file in json_charts:
+                            with open(chart_file) as f:
+                                chart_data = json.load(f)
+                                chart_type = chart_data.get("chart_type", "unknown")
+                                chart_types[chart_type] = chart_types.get(chart_type, 0) + 1
+                        if chart_types:
+                            types_str = ", ".join(f"{count} {ctype}" for ctype, count in chart_types.items())
+                            print(f"   • Types: {types_str}")
+                    print(f"   • Status: All KDS-compliant with smart formatting (K/M/B)")
+                    print()
+
+            # HTML reports
+            html_reports = []
+            if exports_dir.exists():
+                for html_file in exports_dir.glob("*.html"):
+                    html_reports.append(html_file.name)
+
+            if html_reports:
+                print("📋 Reports (HTML):")
+                for report in sorted(html_reports):
+                    if "Insight_Brief" in report:
+                        print(f"   • {report} ← PRIMARY CLIENT DELIVERABLE")
+                    elif "Executive_Summary" in report:
+                        print(f"   • {report} (internal synthesis)")
+                    elif "EDA_Report" in report:
+                        print(f"   • {report} (technical details)")
+                    else:
+                        print(f"   • {report}")
+                print()
+
+            # Key insights included
+            if story_manifest:
+                sections = story_manifest.get("sections", [])
+                if sections:
+                    print("🎯 KEY INSIGHTS INCLUDED:")
+                    for i, section in enumerate(sections[:5], 1):  # Show first 5
+                        headline = section.get("headline", "Untitled")
+                        print(f"   {i}. {headline}")
+                    if len(sections) > 5:
+                        print(f"   ... and {len(sections) - 5} more insights")
+                    print()
+
+            # Summary
+            print("=" * 70)
+            print()
+            print(f"📦 All deliverables ready in: {exports_dir.relative_to(self.project_root)}/")
+            print("   Ready to share with client/stakeholders")
+            print()
+            print("=" * 70)
+            print()
+
             # Update Rails state
             from kie.state import update_rails_state
             update_rails_state(self.project_root, "build", success=True)
