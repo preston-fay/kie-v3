@@ -2540,12 +2540,19 @@ class CommandHandler:
             prefs = OutputPreferences(self.project_root)
             current_theme = prefs.get_theme()
             if not current_theme:
-                print("\n📊 Chart Theme Selection")
-                print("─" * 50)
-                print("Choose theme for EDA chart rendering:")
-                print("  1. Light mode (white background)")
-                print("  2. Dark mode (dark background)")
-                theme_choice = input("\nEnter 1 or 2 [default: 1]: ").strip() or "1"
+                import sys
+                # Check if running in interactive terminal
+                if sys.stdin.isatty():
+                    print("\n📊 Chart Theme Selection")
+                    print("─" * 50)
+                    print("Choose theme for EDA chart rendering:")
+                    print("  1. Light mode (white background)")
+                    print("  2. Dark mode (dark background)")
+                    theme_choice = input("\nEnter 1 or 2 [default: 1]: ").strip() or "1"
+                else:
+                    # Non-interactive mode: auto-default to light theme
+                    theme_choice = "1"
+                    print("✓ Auto-defaulting to light theme (non-interactive mode)\n")
 
                 selected_theme = "light" if theme_choice == "1" else "dark"
                 prefs.set_theme(selected_theme)
