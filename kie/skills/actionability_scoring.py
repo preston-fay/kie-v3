@@ -36,6 +36,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from kie.charts.formatting import format_number
 from kie.skills.base import Skill, SkillContext, SkillResult
 
 
@@ -227,7 +228,7 @@ class ActionabilityScoringSkill(Skill):
 
         # Decision-enabling criteria
         if confidence >= self.HIGH_CONFIDENCE_THRESHOLD:
-            rationale.append(f"High confidence ({confidence:.2f})")
+            rationale.append(f"High confidence ({format_number(confidence, precision=2, abbreviate=False)})")
 
             if action_keyword_count >= 2:
                 rationale.append(f"Strong action language ({action_keyword_count} keywords)")
@@ -250,7 +251,7 @@ class ActionabilityScoringSkill(Skill):
 
         # Medium confidence
         elif confidence >= self.MEDIUM_CONFIDENCE_THRESHOLD:
-            rationale.append(f"Medium confidence ({confidence:.2f})")
+            rationale.append(f"Medium confidence ({format_number(confidence, precision=2, abbreviate=False)})")
 
             if action_keyword_count >= 2 and severity == "Key":
                 rationale.append("Strong action language with key severity")
@@ -264,7 +265,7 @@ class ActionabilityScoringSkill(Skill):
 
         # Low confidence
         else:
-            rationale.append(f"Low confidence ({confidence:.2f})")
+            rationale.append(f"Low confidence ({format_number(confidence, precision=2, abbreviate=False)})")
             rationale.append("Descriptive or exploratory")
             actionability = "informational"
 

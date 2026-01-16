@@ -162,13 +162,7 @@ class VisualStoryboardSkill(Skill):
                 errors=[f"Storyboard generation failed: {e}"]
             )
 
-        # Enforce visual limit (context-aware)
-        max_visuals = self._get_max_visuals(build_context)
-        if len(storyboard_elements) > max_visuals:
-            warnings.append(
-                f"Storyboard has {len(storyboard_elements)} visuals, "
-                f"exceeding recommended maximum of {max_visuals}"
-            )
+        # NOTE: max_visuals warnings REMOVED per user request - ALL insights should be included
 
         # Generate outputs to organized directories
         internal_dir = outputs_dir / "internal"
@@ -243,10 +237,7 @@ class VisualStoryboardSkill(Skill):
             if spec.get("insight_id") not in suppressed_insights
         ]
 
-        # Enforce visual limit (context-aware)
-        max_visuals = self._get_max_visuals(build_context)
-        if len(viz_specs) > max_visuals:
-            viz_specs = viz_specs[:max_visuals]
+        # NOTE: max_visuals limit REMOVED per user request - ALL insights should be included
 
         # Categorize specs by their purpose
         context_specs = []
@@ -256,7 +247,17 @@ class VisualStoryboardSkill(Skill):
         implications_specs = []
 
         for spec in viz_specs:
-            purpose = spec.get("purpose", "").lower()
+            # Extract purpose and viz_type from first visual in visuals array
+            visuals = spec.get("visuals", [])
+            if visuals and isinstance(visuals, list):
+                first_visual = visuals[0]
+                purpose = first_visual.get("purpose", "").lower()
+                viz_type = first_visual.get("visualization_type", "").lower()
+            else:
+                # Fallback to top-level fields (legacy support)
+                purpose = spec.get("purpose", "").lower()
+                viz_type = spec.get("visualization_type", "").lower()
+
             insight_title = spec.get("insight_title", "").lower()
 
             if "baseline" in purpose or "distribution" in purpose or "aggregate" in purpose:
@@ -271,7 +272,6 @@ class VisualStoryboardSkill(Skill):
                 implications_specs.append(spec)
             else:
                 # Default categorization based on visualization type
-                viz_type = spec.get("visualization_type", "").lower()
                 if viz_type in ["bar", "column"]:
                     dominance_specs.append(spec)
                 elif viz_type in ["line", "area"]:
@@ -284,8 +284,8 @@ class VisualStoryboardSkill(Skill):
         # Build storyboard sections
         order = 0
 
-        # Section 1: Context & Baseline (1-2 visuals max)
-        for spec in context_specs[:2]:
+        # Section 1: Context & Baseline (ALL context visuals)
+        for spec in context_specs:
             order += 1
             elements.append(self._create_element(
                 section="Context & Baseline",
@@ -295,7 +295,7 @@ class VisualStoryboardSkill(Skill):
                 is_first=(order == 1)
             ))
 
-        # Section 2: Dominance & Comparison (most important)
+        # Section 2: Dominance & Comparison (ALL comparison visuals)
         for spec in dominance_specs:
             order += 1
             elements.append(self._create_element(
@@ -306,8 +306,8 @@ class VisualStoryboardSkill(Skill):
                 is_first=(order == 1)
             ))
 
-        # Section 3: Drivers & Structure (1-2 visuals)
-        for spec in drivers_specs[:2]:
+        # Section 3: Drivers & Structure (ALL driver visuals)
+        for spec in drivers_specs:
             order += 1
             elements.append(self._create_element(
                 section="Drivers & Structure",
@@ -317,7 +317,7 @@ class VisualStoryboardSkill(Skill):
                 is_first=(order == 1)
             ))
 
-        # Section 4: Risk, Outliers & Caveats
+        # Section 4: Risk, Outliers & Caveats (ALL risk visuals)
         for spec in risk_specs:
             order += 1
             elements.append(self._create_element(
@@ -328,8 +328,8 @@ class VisualStoryboardSkill(Skill):
                 is_first=(order == 1)
             ))
 
-        # Section 5: Implications & Actions (optional, max 1)
-        for spec in implications_specs[:1]:
+        # Section 5: Implications & Actions (ALL implication visuals)
+        for spec in implications_specs:
             order += 1
             elements.append(self._create_element(
                 section="Implications & Actions",

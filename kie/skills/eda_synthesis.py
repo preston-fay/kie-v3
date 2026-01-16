@@ -414,6 +414,8 @@ class EDASynthesisSkill(Skill):
                 "q75": float(data.quantile(0.75)),
                 "skewness": float(data.skew()),
                 "kurtosis": float(data.kurtosis()),
+                "unique_count": int(data.nunique()),
+                "total_count": int(len(data)),
             }
 
         return distributions
@@ -922,7 +924,7 @@ class EDASynthesisSkill(Skill):
                                 data=chart_df,
                                 x='x',
                                 y='y',
-                                title=f"{col1_display} vs {col2_display} (r={corr:.2f})"
+                                title=f"{col1_display} vs {col2_display} (r={format_number(corr, precision=2, abbreviate=False)})"
                             )
 
                             scatter_path = charts_dir / f"correlation_{col1}_{col2}.json"

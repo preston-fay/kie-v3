@@ -1,0 +1,460 @@
+"""
+PowerPoint Story Renderer - KDS Compliant
+
+Generates consultant-grade PowerPoint decks for story-first architecture.
+Works with ANY domain - healthcare, IoT, manufacturing, finance, etc.
+
+KDS Requirements:
+- Primary Color: Kearney Purple #7823DC (RGB: 120, 35, 220)
+- Typography: Arial (PowerPoint standard)
+- Title Slide: Large thesis hook
+- Executive Summary: Callout format
+- KPI Slides: Maximum 6 KPIs per slide
+- Section Slides: Narrative + chart
+- Key Findings: Bullet format
+- Proper spacing and alignment
+"""
+
+import json
+from pathlib import Path
+from typing import Any
+
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.dml.color import RGBColor
+
+from kie.story.models import StoryManifest, NarrativeMode
+
+
+class PPTXStoryRenderer:
+    """
+    Generates KDS-compliant PowerPoint decks for story-first narratives.
+
+    Slide Structure:
+    1. Title Slide (Thesis + Hook)
+    2. Executive Summary
+    3. Top KPIs (up to 6)
+    4. Section Slides (Narrative + Chart)
+    5. Key Findings
+    """
+
+    # KDS Colors (RGB)
+    KEARNEY_PURPLE = RGBColor(120, 35, 220)  # #7823DC
+    KEARNEY_BLACK = RGBColor(30, 30, 30)     # #1E1E1E
+    LIGHT_GRAY = RGBColor(210, 210, 210)     # #D2D2D2
+    MEDIUM_GRAY = RGBColor(165, 166, 165)    # #A5A6A5
+    DARK_GRAY = RGBColor(120, 120, 120)      # #787878
+    WHITE = RGBColor(255, 255, 255)          # #FFFFFF
+
+    def __init__(self):
+        """Initialize PowerPoint story renderer."""
+        self.prs = None
+
+    def render_story(
+        self,
+        story: StoryManifest,
+        charts_dir: Path,
+        output_path: Path
+    ) -> Path:
+        """
+        Generate PowerPoint deck from story manifest.
+
+        Args:
+            story: StoryManifest with thesis, KPIs, sections, narratives
+            charts_dir: Directory containing chart images/SVGs
+            output_path: Output path for .pptx file
+
+        Returns:
+            Path to generated PowerPoint file
+        """
+        # Create presentation
+        self.prs = Presentation()
+        self.prs.slide_width = Inches(10)
+        self.prs.slide_height = Inches(7.5)
+
+        # 1. Title Slide
+        self._add_title_slide(story)
+
+        # 2. Executive Summary
+        self._add_executive_summary_slide(story)
+
+        # 3. Top KPIs (max 6 per slide)
+        self._add_kpi_slides(story)
+
+        # 4. Section Slides
+        for i, section in enumerate(story.sections):
+            self._add_section_slide(section, i + 1, charts_dir)
+
+        # 5. Key Findings
+        self._add_key_findings_slide(story)
+
+        # Save presentation
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        self.prs.save(str(output_path))
+
+        return output_path
+
+    def _add_title_slide(self, story: StoryManifest):
+        """Add title slide with thesis and hook."""
+        slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])  # Blank layout
+
+        # Kearney Purple bar at top
+        left = Inches(0)
+        top = Inches(0)
+        width = Inches(10)
+        height = Inches(0.5)
+        shape = slide.shapes.add_shape(
+            1,  # Rectangle
+            left, top, width, height
+        )
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = self.KEARNEY_PURPLE
+        shape.line.color.rgb = self.KEARNEY_PURPLE
+
+        # Project Name
+        left = Inches(1)
+        top = Inches(1.5)
+        width = Inches(8)
+        height = Inches(1)
+        title_box = slide.shapes.add_textbox(left, top, width, height)
+        text_frame = title_box.text_frame
+        text_frame.word_wrap = True
+
+        p = text_frame.paragraphs[0]
+        p.text = story.project_name
+        p.font.size = Pt(44)
+        p.font.bold = True
+        p.font.color.rgb = self.KEARNEY_BLACK
+        p.alignment = PP_ALIGN.LEFT
+
+        # Thesis Hook (Large, Purple)
+        left = Inches(1)
+        top = Inches(3)
+        width = Inches(8)
+        height = Inches(1.5)
+        hook_box = slide.shapes.add_textbox(left, top, width, height)
+        text_frame = hook_box.text_frame
+        text_frame.word_wrap = True
+
+        p = text_frame.paragraphs[0]
+        p.text = story.thesis.hook
+        p.font.size = Pt(28)
+        p.font.bold = True
+        p.font.color.rgb = self.KEARNEY_PURPLE
+        p.alignment = PP_ALIGN.LEFT
+
+        # Thesis Title
+        left = Inches(1)
+        top = Inches(5)
+        width = Inches(8)
+        height = Inches(1.5)
+        summary_box = slide.shapes.add_textbox(left, top, width, height)
+        text_frame = summary_box.text_frame
+        text_frame.word_wrap = True
+
+        p = text_frame.paragraphs[0]
+        p.text = story.thesis.title
+        p.font.size = Pt(20)
+        p.font.color.rgb = self.KEARNEY_BLACK
+        p.alignment = PP_ALIGN.LEFT
+
+        # Footer
+        self._add_footer(slide, f"Generated by KIE v3 | {story.narrative_mode.value.title()} Mode")
+
+    def _add_executive_summary_slide(self, story: StoryManifest):
+        """Add executive summary slide."""
+        slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+
+        # Title
+        self._add_slide_title(slide, "Executive Summary")
+
+        # Summary Text (Callout Box)
+        left = Inches(1)
+        top = Inches(2)
+        width = Inches(8)
+        height = Inches(4)
+        shape = slide.shapes.add_shape(
+            1,  # Rectangle
+            left, top, width, height
+        )
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = RGBColor(245, 245, 245)  # Light gray background
+        shape.line.color.rgb = self.KEARNEY_PURPLE
+        shape.line.width = Pt(3)
+
+        text_frame = shape.text_frame
+        text_frame.word_wrap = True
+        text_frame.margin_left = Inches(0.3)
+        text_frame.margin_right = Inches(0.3)
+        text_frame.margin_top = Inches(0.3)
+        text_frame.margin_bottom = Inches(0.3)
+
+        p = text_frame.paragraphs[0]
+        p.text = story.executive_summary
+        p.font.size = Pt(16)
+        p.font.color.rgb = self.KEARNEY_BLACK
+        p.alignment = PP_ALIGN.LEFT
+        p.line_spacing = 1.3
+
+        # Footer
+        self._add_footer(slide, story.project_name)
+
+    def _add_kpi_slides(self, story: StoryManifest):
+        """Add KPI slides (max 6 KPIs per slide)."""
+        kpis = story.top_kpis[:6]  # Max 6 KPIs
+
+        if not kpis:
+            return
+
+        slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+
+        # Title
+        self._add_slide_title(slide, "Key Metrics")
+
+        # Layout KPIs in 2x3 grid
+        cols = 3
+        rows = 2
+        kpi_width = Inches(2.5)
+        kpi_height = Inches(1.8)
+        h_spacing = Inches(0.2)
+        v_spacing = Inches(0.3)
+        start_left = Inches(1)
+        start_top = Inches(2.2)
+
+        for i, kpi in enumerate(kpis):
+            row = i // cols
+            col = i % cols
+
+            left = start_left + col * (kpi_width + h_spacing)
+            top = start_top + row * (kpi_height + v_spacing)
+
+            # KPI Card (Rectangle with purple border)
+            shape = slide.shapes.add_shape(
+                1,  # Rectangle
+                left, top, kpi_width, kpi_height
+            )
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = self.WHITE
+            shape.line.color.rgb = self.KEARNEY_PURPLE
+            shape.line.width = Pt(2)
+
+            text_frame = shape.text_frame
+            text_frame.word_wrap = True
+            text_frame.margin_left = Inches(0.2)
+            text_frame.margin_right = Inches(0.2)
+            text_frame.margin_top = Inches(0.2)
+            text_frame.margin_bottom = Inches(0.2)
+
+            # KPI Value (Large, Purple)
+            p = text_frame.paragraphs[0]
+            p.text = kpi.value
+            p.font.size = Pt(32)
+            p.font.bold = True
+            p.font.color.rgb = self.KEARNEY_PURPLE
+            p.alignment = PP_ALIGN.CENTER
+
+            # KPI Label
+            p = text_frame.add_paragraph()
+            p.text = kpi.label
+            p.font.size = Pt(12)
+            p.font.color.rgb = self.KEARNEY_BLACK
+            p.alignment = PP_ALIGN.CENTER
+            p.space_before = Pt(8)
+
+            # KPI Type (Small, Gray)
+            p = text_frame.add_paragraph()
+            p.text = kpi.kpi_type.value.upper()
+            p.font.size = Pt(9)
+            p.font.color.rgb = self.MEDIUM_GRAY
+            p.alignment = PP_ALIGN.CENTER
+            p.space_before = Pt(4)
+
+        # Footer
+        self._add_footer(slide, story.project_name)
+
+    def _add_section_slide(
+        self,
+        section: Any,
+        section_num: int,
+        charts_dir: Path
+    ):
+        """Add section slide with narrative and chart."""
+        slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+
+        # Title with section number
+        title_text = f"Section {section_num}: {section.title}"
+        self._add_slide_title(slide, title_text)
+
+        # Section Thesis (if available)
+        if section.thesis and section.thesis != section.title:
+            left = Inches(1)
+            top = Inches(1.8)
+            width = Inches(8)
+            height = Inches(0.5)
+            thesis_box = slide.shapes.add_textbox(left, top, width, height)
+            text_frame = thesis_box.text_frame
+            text_frame.word_wrap = True
+
+            p = text_frame.paragraphs[0]
+            p.text = section.thesis
+            p.font.size = Pt(14)
+            p.font.italic = True
+            p.font.color.rgb = self.DARK_GRAY
+            p.alignment = PP_ALIGN.LEFT
+
+            narrative_top = Inches(2.5)
+        else:
+            narrative_top = Inches(2)
+
+        # Narrative Text
+        left = Inches(1)
+        top = narrative_top
+        width = Inches(4)
+        height = Inches(3.5)
+        narrative_box = slide.shapes.add_textbox(left, top, width, height)
+        text_frame = narrative_box.text_frame
+        text_frame.word_wrap = True
+
+        p = text_frame.paragraphs[0]
+        p.text = section.narrative_text
+        p.font.size = Pt(14)
+        p.font.color.rgb = self.KEARNEY_BLACK
+        p.alignment = PP_ALIGN.LEFT
+        p.line_spacing = 1.3
+
+        # Chart Placeholder (if chart refs exist)
+        if section.chart_refs and len(section.chart_refs) > 0:
+            left = Inches(5.5)
+            top = Inches(2)
+            width = Inches(3.5)
+            height = Inches(4)
+
+            # Add chart placeholder (rectangle with dashed border)
+            shape = slide.shapes.add_shape(
+                1,  # Rectangle
+                left, top, width, height
+            )
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = RGBColor(250, 250, 250)
+            shape.line.color.rgb = self.MEDIUM_GRAY
+            shape.line.dash_style = 2  # Dashed
+
+            text_frame = shape.text_frame
+            text_frame.word_wrap = True
+            text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+
+            p = text_frame.paragraphs[0]
+            chart_name = section.chart_refs[0] if section.chart_refs else "chart"
+            p.text = f"[Chart: {chart_name}]"
+            p.font.size = Pt(12)
+            p.font.color.rgb = self.MEDIUM_GRAY
+            p.alignment = PP_ALIGN.CENTER
+
+            # Note: Actual chart embedding would require chart images
+            # This is a placeholder approach - real implementation would use
+            # slide.shapes.add_picture() with rendered chart images
+
+        # Section KPIs (if available)
+        if section.kpis and len(section.kpis) > 0:
+            kpi_left = Inches(1)
+            kpi_top = Inches(6)
+            kpi_width = Inches(8)
+            kpi_height = Inches(0.8)
+
+            kpi_box = slide.shapes.add_textbox(kpi_left, kpi_top, kpi_width, kpi_height)
+            text_frame = kpi_box.text_frame
+            text_frame.word_wrap = True
+
+            p = text_frame.paragraphs[0]
+            kpi_text = " | ".join([f"{kpi.value} {kpi.label}" for kpi in section.kpis[:3]])
+            p.text = f"Key Metrics: {kpi_text}"
+            p.font.size = Pt(11)
+            p.font.bold = True
+            p.font.color.rgb = self.KEARNEY_PURPLE
+            p.alignment = PP_ALIGN.LEFT
+
+        # Footer
+        self._add_footer(slide, section.title)
+
+    def _add_key_findings_slide(self, story: StoryManifest):
+        """Add key findings slide."""
+        slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+
+        # Title
+        self._add_slide_title(slide, "Key Findings")
+
+        # Findings (Bullet List)
+        left = Inches(1.5)
+        top = Inches(2)
+        width = Inches(7)
+        height = Inches(4.5)
+        findings_box = slide.shapes.add_textbox(left, top, width, height)
+        text_frame = findings_box.text_frame
+        text_frame.word_wrap = True
+
+        for finding in story.key_findings[:8]:  # Max 8 findings
+            p = text_frame.add_paragraph()
+            p.text = finding
+            p.font.size = Pt(14)
+            p.font.color.rgb = self.KEARNEY_BLACK
+            p.level = 0
+            p.space_before = Pt(12)
+
+            # Add purple bullet
+            p.line_spacing = 1.3
+
+        # Remove first empty paragraph
+        if len(text_frame.paragraphs) > 0:
+            text_frame.paragraphs[0]._element.getparent().remove(text_frame.paragraphs[0]._element)
+
+        # Footer
+        self._add_footer(slide, story.project_name)
+
+    def _add_slide_title(self, slide, title_text: str):
+        """Add KDS-compliant title to slide."""
+        left = Inches(1)
+        top = Inches(0.8)
+        width = Inches(8)
+        height = Inches(0.8)
+
+        title_box = slide.shapes.add_textbox(left, top, width, height)
+        text_frame = title_box.text_frame
+        text_frame.word_wrap = False
+
+        p = text_frame.paragraphs[0]
+        p.text = title_text
+        p.font.size = Pt(28)
+        p.font.bold = True
+        p.font.color.rgb = self.KEARNEY_PURPLE
+        p.alignment = PP_ALIGN.LEFT
+
+        # Underline (Purple line)
+        left = Inches(1)
+        top = Inches(1.5)
+        width = Inches(8)
+        height = Inches(0.05)
+        line = slide.shapes.add_shape(
+            1,  # Rectangle
+            left, top, width, height
+        )
+        line.fill.solid()
+        line.fill.fore_color.rgb = self.KEARNEY_PURPLE
+        line.line.color.rgb = self.KEARNEY_PURPLE
+
+    def _add_footer(self, slide, footer_text: str):
+        """Add footer to slide."""
+        left = Inches(1)
+        top = Inches(7)
+        width = Inches(8)
+        height = Inches(0.3)
+
+        footer_box = slide.shapes.add_textbox(left, top, width, height)
+        text_frame = footer_box.text_frame
+        text_frame.word_wrap = False
+
+        p = text_frame.paragraphs[0]
+        p.text = footer_text
+        p.font.size = Pt(9)
+        p.font.color.rgb = self.MEDIUM_GRAY
+        p.alignment = PP_ALIGN.CENTER

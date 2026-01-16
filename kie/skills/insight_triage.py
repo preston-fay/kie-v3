@@ -268,17 +268,10 @@ This may indicate:
             insight = item["insight"]
             score = item["score"]
 
-            # Get context-aware insight limit
-            insight_limits = {
-                "dashboard": 15,      # Rich, exploratory
-                "presentation": 5,    # Focused, high-impact
-                "executive": 3,       # Brevity, strategic
-            }
-            max_insights = insight_limits.get(build_context, 5)
+            # NOTE: Insight limits REMOVED per user request - ALL insights should be included
 
             # Only promote to "top" if evidence is at least Medium
-            if (len(top_insights) < max_insights and
-                score["evidence_strength"] in [TriageScore.HIGH, TriageScore.MEDIUM]):
+            if score["evidence_strength"] in [TriageScore.HIGH, TriageScore.MEDIUM]:
 
                 # Calculate confidence level
                 confidence = self._calculate_confidence(insight, score)

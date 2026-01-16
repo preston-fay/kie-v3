@@ -121,6 +121,19 @@ def svg_to_png(svg_path: Path, png_path: Path, dpi: int = 300) -> Path:
     if not svg_path.exists():
         raise FileNotFoundError(f"SVG file not found: {svg_path}")
 
+    # CRITICAL FIX: Set DYLD_LIBRARY_PATH for cairo on macOS
+    # cairocffi (used by cairosvg) needs to find libcairo.2.dylib
+    import os
+    import sys
+
+    if sys.platform == 'darwin':  # macOS
+        cairo_lib_path = '/opt/homebrew/opt/cairo/lib'
+        if os.path.exists(cairo_lib_path):
+            # Set library path for this process
+            current_path = os.environ.get('DYLD_LIBRARY_PATH', '')
+            if cairo_lib_path not in current_path:
+                os.environ['DYLD_LIBRARY_PATH'] = f"{cairo_lib_path}:{current_path}" if current_path else cairo_lib_path
+
     try:
         import cairosvg
     except ImportError:

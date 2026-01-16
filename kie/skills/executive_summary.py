@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from kie.charts.formatting import format_number
 from kie.reports.markdown_enhancer import (
     create_confidence_distribution_table,
     create_insight_distribution_table,
@@ -425,7 +426,7 @@ class ExecutiveSummarySkill(Skill):
             data_points = data_context.get("total_records", 0)
             if data_points > 0:
                 bullets.append(
-                    f"Analysis based on {data_points:,} records across "
+                    f"Analysis based on {format_number(data_points)} records across "
                     f"{data_context.get('columns_analyzed', 0)} dimensions"
                 )
 

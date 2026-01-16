@@ -18,7 +18,7 @@ from kie.charts.builders.scatter import ScatterPlotBuilder
 from kie.charts.builders.waterfall import WaterfallChartBuilder
 
 ChartType = Literal[
-    "bar", "horizontal_bar", "stacked_bar",
+    "bar", "horizontal_bar", "stacked_bar", "grouped_bar",
     "line", "area", "stacked_area",
     "pie", "donut",
     "scatter",
@@ -71,6 +71,8 @@ class ChartFactory:
             return ChartFactory.horizontal_bar(data, **kwargs)
         elif chart_type == "stacked_bar":
             return ChartFactory.stacked_bar(data, **kwargs)
+        elif chart_type == "grouped_bar":
+            return ChartFactory.grouped_bar(data, **kwargs)
         elif chart_type == "line":
             return ChartFactory.line(data, **kwargs)
         elif chart_type == "area":
@@ -124,6 +126,18 @@ class ChartFactory:
     ) -> RechartsConfig:
         """Create a stacked bar chart."""
         builder = BarChartBuilder(stacked=True)
+        return builder.build(data, x_key=x, y_keys=y, title=title, **kwargs)
+
+    @staticmethod
+    def grouped_bar(
+        data: pd.DataFrame | list[dict[str, Any]],
+        x: str,
+        y: list[str],
+        title: str | None = None,
+        **kwargs,
+    ) -> RechartsConfig:
+        """Create a grouped bar chart (multiple bars per category)."""
+        builder = BarChartBuilder(stacked=False)
         return builder.build(data, x_key=x, y_keys=y, title=title, **kwargs)
 
     @staticmethod

@@ -72,6 +72,48 @@ class InsightEngine:
         self._insight_counter += 1
         return f"insight_{self._insight_counter:03d}"
 
+    def _is_id_column(self, df: pd.DataFrame, col_name: str) -> bool:
+        """
+        Check if a column is likely an ID/identifier column.
+
+        Args:
+            df: DataFrame containing the column
+            col_name: Name of column to check
+
+        Returns:
+            True if column appears to be an ID
+        """
+        col_lower = col_name.lower()
+
+        # Check for ID keywords in name
+        id_keywords = ['id', 'key', 'index', 'uuid', 'guid', '_id', 'code', 'number']
+        if any(kw in col_lower for kw in id_keywords):
+            return True
+
+        # Check uniqueness - IDs are typically >95% unique
+        if col_name in df.columns:
+            total = len(df)
+            if total > 0:
+                unique_count = df[col_name].nunique()
+                uniqueness_pct = unique_count / total
+                if uniqueness_pct > 0.95:
+                    return True
+
+        # Check for sequential pattern (IDs often sequential)
+        if col_name in df.columns and pd.api.types.is_numeric_dtype(df[col_name]):
+            non_null = df[col_name].dropna()
+            if len(non_null) > 0:
+                min_val = non_null.min()
+                max_val = non_null.max()
+                mean_val = non_null.mean()
+                if min_val > 0 and max_val > 1000:
+                    expected_mean = (min_val + max_val) / 2
+                    # Within 15% of expected sequential mean
+                    if abs(mean_val - expected_mean) / expected_mean < 0.15:
+                        return True
+
+        return False
+
     def create_insight(
         self,
         headline: str,
@@ -714,6 +756,11 @@ class InsightEngine:
         """
         insights = []
 
+        # Skip ID columns - they don't produce meaningful business insights
+        if self._is_id_column(df, value_column):
+            logger.debug(f"Skipping ID column: {value_column}")
+            return insights
+
         # Basic statistics insight
         stats = self.stats.describe(df[value_column])
         if "error" not in stats:
@@ -820,8 +867,11 @@ class InsightEngine:
         # Get all numeric columns for additional analysis
         numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
 
-        # Analyze additional numeric columns (beyond primary value_column)
-        additional_cols = [col for col in numeric_cols if col != value_column][:4]
+        # Filter out ID columns and the primary value column
+        additional_cols = [
+            col for col in numeric_cols
+            if col != value_column and not self._is_id_column(df, col)
+        ][:4]
 
         for col in additional_cols:
             # Distribution insight for each additional column

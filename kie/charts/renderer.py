@@ -232,6 +232,19 @@ class ChartRenderer:
                 },
                 # Data labels config (used by chart renderers)
                 "dataLabels": True,
+                # Number formatters for K/M/B abbreviations
+                "formatters": {
+                    "yAxis": {
+                        "type": "number",
+                        "abbreviate": True
+                    },
+                    "tooltip": {
+                        "value": {
+                            "type": "number",
+                            "abbreviate": True
+                        }
+                    }
+                },
             },
             "metadata": {
                 "generated_at": datetime.now().isoformat(),
@@ -324,6 +337,19 @@ class ChartRenderer:
                 },
                 # Data labels config (used by chart renderers)
                 "dataLabels": True,
+                # Number formatters for K/M/B abbreviations
+                "formatters": {
+                    "yAxis": {
+                        "type": "number",
+                        "abbreviate": True
+                    },
+                    "tooltip": {
+                        "value": {
+                            "type": "number",
+                            "abbreviate": True
+                        }
+                    }
+                },
             },
             "metadata": {
                 "generated_at": datetime.now().isoformat(),

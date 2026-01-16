@@ -96,7 +96,7 @@ class EDAConsultantReport(Skill):
         lines.append(f"# Exploratory Data Analysis: {project_name}")
         lines.append("")
         lines.append(f"**Data Source**: {overview.get('filename', 'Unknown')}")
-        lines.append(f"**Records**: {overview.get('rows', 0):,} rows")
+        lines.append(f"**Records**: {format_number(overview.get('rows', 0))} rows")
         lines.append(f"**Features**: {overview.get('columns', 0)} columns")
         lines.append("")
         lines.append("---")
@@ -112,7 +112,7 @@ class EDAConsultantReport(Skill):
         insights = self._extract_insights(synthesis, bridge, review)
         lines.append("## Executive Summary")
         lines.append("")
-        lines.append(f"We analyzed your dataset containing {overview.get('rows', 0):,} records and {overview.get('columns', 0)} features. Here are the {min(3, len(insights))} most important findings:")
+        lines.append(f"We analyzed your dataset containing {format_number(overview.get('rows', 0))} records and {overview.get('columns', 0)} features. Here are the {min(3, len(insights))} most important findings:")
         lines.append("")
         for i, insight in enumerate(insights[:3], 1):
             lines.append(f"{i}. **{insight['headline']}** - {insight['summary']}")
@@ -198,9 +198,9 @@ class EDAConsultantReport(Skill):
 
         lines.append("### Data Quality Metrics")
         lines.append("")
-        lines.append(f"- **Completeness**: {100 - null_pct:.1f}% {'✓ Excellent' if null_pct < 1 else '⚠ Needs attention' if null_pct < 10 else '❌ Critical gaps'}")
-        lines.append(f"- **Uniqueness**: {100 - duplicate_pct:.1f}% {'✓ No duplicates' if duplicate_pct == 0 else f'⚠ {duplicate_pct:.1f}% duplicates detected'}")
-        lines.append(f"- **Sample Size**: {rows:,} records {'✓ Adequate' if rows >= 1000 else '⚠ Limited' if rows >= 100 else '❌ Insufficient'}")
+        lines.append(f"- **Completeness**: {format_percentage((100 - null_pct) / 100)}% {'✓ Excellent' if null_pct < 1 else '⚠ Needs attention' if null_pct < 10 else '❌ Critical gaps'}")
+        lines.append(f"- **Uniqueness**: {format_percentage((100 - duplicate_pct) / 100)}% {'✓ No duplicates' if duplicate_pct == 0 else f'⚠ {format_percentage(duplicate_pct / 100)}% duplicates detected'}")
+        lines.append(f"- **Sample Size**: {format_number(rows)} records {'✓ Adequate' if rows >= 1000 else '⚠ Limited' if rows >= 100 else '❌ Insufficient'}")
         lines.append("")
 
         # Segment concentration (from top contributors)
@@ -392,7 +392,7 @@ class EDAConsultantReport(Skill):
 
         Args:
             col_name: Column name
-            stats: Distribution statistics dict with min, max, mean, std
+            stats: Distribution statistics dict with min, max, mean, std, unique_count, total_count
 
         Returns:
             True if column appears to be an ID
@@ -404,6 +404,15 @@ class EDAConsultantReport(Skill):
         if any(kw in col_lower for kw in id_keywords):
             return True
 
+        # CRITICAL: Check for 100% or near-100% uniqueness (strongest ID signal)
+        unique_count = stats.get("unique_count", 0)
+        total_count = stats.get("total_count", 0)
+        if total_count > 0:
+            uniqueness_pct = unique_count / total_count
+            # If >95% unique, it's an ID column
+            if uniqueness_pct > 0.95:
+                return True
+
         # Check if values are sequential or nearly sequential
         # (IDs often have min=1, max=N where N is close to row count)
         min_val = stats.get("min", 0)
@@ -414,8 +423,8 @@ class EDAConsultantReport(Skill):
         # it's likely a sequential ID (e.g., 1 to N)
         if min_val > 0 and max_val > 1000 and mean_val > 0:
             expected_mean_if_sequential = (min_val + max_val) / 2
-            # If actual mean is within 10% of expected sequential mean, likely an ID
-            if abs(mean_val - expected_mean_if_sequential) / expected_mean_if_sequential < 0.1:
+            # If actual mean is within 15% of expected sequential mean, likely an ID
+            if abs(mean_val - expected_mean_if_sequential) / expected_mean_if_sequential < 0.15:
                 return True
 
         return False
