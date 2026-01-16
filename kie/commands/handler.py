@@ -3091,6 +3091,77 @@ class CommandHandler:
                 logger.warning(f"Analyze skills failed: {e}", exc_info=True)
                 print(f"⚠️  Warning: Some analysis skills failed: {e}")
 
+            # Print rich, consultant-grade analysis summary
+            from kie.charts.formatting import format_number
+
+            print()
+            print("=" * 70)
+            print("📊 ANALYSIS COMPLETE - INSIGHTS SUMMARY")
+            print("=" * 70)
+            print()
+
+            outputs_dir = self.project_root / "outputs"
+            internal_dir = outputs_dir / "internal"
+
+            print(f"📁 Data Analyzed: {Path(data_file).name}")
+            print(f"   Primary Metric: {value_column}")
+            if group_column:
+                print(f"   Segmented By: {group_column}")
+            if time_column:
+                print(f"   Time Dimension: {time_column}")
+            print()
+
+            # Insight categories
+            insight_types = {}
+            for insight in insights:
+                itype = insight.insight_type.value
+                insight_types[itype] = insight_types.get(itype, 0) + 1
+
+            print(f"🔍 Insights Extracted: {len(insights)} total")
+            if insight_types:
+                print("   By Type:")
+                for itype, count in sorted(insight_types.items(), key=lambda x: -x[1]):
+                    print(f"   • {itype}: {count}")
+            print()
+
+            # Top insights
+            print("🎯 TOP INSIGHTS:")
+            for i, insight in enumerate(insights[:5], 1):
+                confidence_pct = int(insight.confidence * 100)
+                print(f"   {i}. {insight.headline}")
+                print(f"      Confidence: {confidence_pct}% | Severity: {insight.severity.value}")
+            if len(insights) > 5:
+                print(f"   ... and {len(insights) - 5} more insights")
+            print()
+
+            # Artifacts created
+            print("📄 Artifacts Created:")
+            print(f"   • Insights Catalog: {catalog_path_yaml.relative_to(self.project_root)}")
+
+            # Check for skill artifacts
+            skill_artifacts = []
+            if (internal_dir / "insight_triage.json").exists():
+                skill_artifacts.append("insight_triage.json (insight scoring)")
+            if (internal_dir / "visualization_plan.json").exists():
+                skill_artifacts.append("visualization_plan.json (chart recommendations)")
+            if (internal_dir / "executive_narrative.json").exists():
+                skill_artifacts.append("executive_narrative.json (story structure)")
+            if (outputs_dir / "executive_summary.md").exists():
+                skill_artifacts.append("executive_summary.md (consultant synthesis)")
+
+            for artifact in skill_artifacts:
+                print(f"   • {artifact}")
+            print()
+
+            # Next steps
+            print("🚀 NEXT STEPS:")
+            print("   1. Review insights catalog: outputs/insights.yaml")
+            print("   2. Generate visualizations: python3 -m kie.cli build charts")
+            print("   3. Create deliverables: python3 -m kie.cli build presentation")
+            print()
+            print("=" * 70)
+            print()
+
             # Update Rails state
             from kie.state import update_rails_state
             update_rails_state(self.project_root, "analyze", success=True)
