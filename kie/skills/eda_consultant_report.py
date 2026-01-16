@@ -247,11 +247,11 @@ class EDAConsultantReport(Skill):
                     "action": "Investigate what makes top performers successful and replicate across other periods. Consider hedging strategies to protect against concentration risk."
                 })
 
-        # Insight 2: Distribution patterns and variability
+        # Insight 2: Distribution patterns and variability (show only MOST important)
         dist_analysis = synthesis.get("distribution_analysis", {})
         count = 0
         for col, stats in dist_analysis.items():
-            if count >= 2:
+            if count >= 1:  # Only show ONE high-variation insight
                 break
 
             # Skip ID columns
