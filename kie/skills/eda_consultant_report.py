@@ -198,8 +198,8 @@ class EDAConsultantReport(Skill):
 
         lines.append("### Data Quality Metrics")
         lines.append("")
-        lines.append(f"- **Completeness**: {format_percentage((100 - null_pct) / 100)}% {'✓ Excellent' if null_pct < 1 else '⚠ Needs attention' if null_pct < 10 else '❌ Critical gaps'}")
-        lines.append(f"- **Uniqueness**: {format_percentage((100 - duplicate_pct) / 100)}% {'✓ No duplicates' if duplicate_pct == 0 else f'⚠ {format_percentage(duplicate_pct / 100)}% duplicates detected'}")
+        lines.append(f"- **Completeness**: {format_percentage((100 - null_pct) / 100)} {'✓ Excellent' if null_pct < 1 else '⚠ Needs attention' if null_pct < 10 else '❌ Critical gaps'}")
+        lines.append(f"- **Uniqueness**: {format_percentage((100 - duplicate_pct) / 100)} {'✓ No duplicates' if duplicate_pct == 0 else f'⚠ {format_percentage(duplicate_pct / 100)} duplicates detected'}")
         lines.append(f"- **Sample Size**: {format_number(rows)} records {'✓ Adequate' if rows >= 1000 else '⚠ Limited' if rows >= 100 else '❌ Insufficient'}")
         lines.append("")
 

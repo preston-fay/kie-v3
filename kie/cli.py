@@ -529,6 +529,15 @@ def main() -> None:
                 client.print_result(result)
                 sys.exit(0 if result["success"] else 1)
 
+            # Special handling for eda command with --theme flag
+            if arg == "eda":
+                theme_value = None
+                if len(sys.argv) > 2 and sys.argv[2] == "--theme" and len(sys.argv) > 3:
+                    theme_value = sys.argv[3]
+                result = client.handler.handle_eda(theme=theme_value)
+                client.print_result(result)
+                sys.exit(0 if result["success"] else 1)
+
             # Special handling for freeform command with subcommand argument
             if arg == "freeform":
                 subcommand = sys.argv[2] if len(sys.argv) > 2 else "status"

@@ -2445,12 +2445,13 @@ class CommandHandler:
                 os.environ.clear()
                 os.environ.update(original_env)
 
-    def handle_eda(self, data_file: str | None = None) -> dict[str, Any]:
+    def handle_eda(self, data_file: str | None = None, theme: str | None = None) -> dict[str, Any]:
         """
         Handle /eda command - run exploratory data analysis.
 
         Args:
             data_file: Specific file to analyze (default: auto-detect from data/)
+            theme: Chart theme ('light' or 'dark', default: prompt user or use saved)
 
         Returns:
             EDA results
@@ -2538,27 +2539,34 @@ class CommandHandler:
             # Check/prompt for theme selection before chart generation
             from kie.preferences import OutputPreferences
             prefs = OutputPreferences(self.project_root)
-            current_theme = prefs.get_theme()
-            if not current_theme:
-                import sys
-                # Check if running in interactive terminal
-                if sys.stdin.isatty():
+
+            # Priority: CLI arg > saved pref > prompt user
+            if theme:
+                selected_theme = theme
+                prefs.set_theme(selected_theme)
+                print(f"✓ Theme set to: {selected_theme}\n")
+            else:
+                current_theme = prefs.get_theme()
+                if current_theme:
+                    selected_theme = current_theme
+                    print(f"✓ Using saved theme: {current_theme}\n")
+                else:
+                    # No CLI arg, no saved pref - prompt user
                     print("\n📊 Chart Theme Selection")
                     print("─" * 50)
                     print("Choose theme for EDA chart rendering:")
                     print("  1. Light mode (white background)")
                     print("  2. Dark mode (dark background)")
-                    theme_choice = input("\nEnter 1 or 2 [default: 1]: ").strip() or "1"
-                else:
-                    # Non-interactive mode: auto-default to light theme
-                    theme_choice = "1"
-                    print("✓ Auto-defaulting to light theme (non-interactive mode)\n")
+                    try:
+                        theme_choice = input("\nEnter 1 or 2 [default: 1]: ").strip() or "1"
+                    except EOFError:
+                        # Non-interactive mode fallback
+                        theme_choice = "1"
+                        print("\n✓ Defaulting to light theme (non-interactive mode)\n")
 
-                selected_theme = "light" if theme_choice == "1" else "dark"
-                prefs.set_theme(selected_theme)
-                print(f"✓ Theme set to: {selected_theme}\n")
-            else:
-                print(f"✓ Using saved theme: {current_theme}\n")
+                    selected_theme = "light" if theme_choice == "1" else "dark"
+                    prefs.set_theme(selected_theme)
+                    print(f"✓ Theme set to: {selected_theme}\n")
 
             # Execute EDA stage skills
             skill_results = {}
