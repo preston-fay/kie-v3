@@ -203,6 +203,8 @@ def to_svg(config: RechartsConfig, output_path: Path) -> Path:
         chart = _create_world_map(data, title, config)
     elif chart_type == "scatter":
         chart = _create_scatter_chart(data, title, config)
+    elif chart_type == "pareto":
+        chart = _create_pareto_chart(data, title, config)
     else:
         raise ValueError(f"Unsupported chart type: {chart_type}")
 
@@ -562,5 +564,77 @@ def _create_world_map(data: list[dict[str, Any]], title: str | None, config: Rec
         country_data[country_code.lower()] = value
 
     chart.add('', country_data)
+
+    return chart
+
+
+def _create_pareto_chart(data: list[dict[str, Any]], title: str | None, config: RechartsConfig) -> pygal.Bar:
+    """
+    Create KDS-compliant Pareto chart (bar chart sorted by value with cumulative line).
+
+    Pareto charts show:
+    - Bars sorted in descending order by value
+    - Cumulative percentage line overlay
+    - Used to identify "vital few" contributors (80/20 rule)
+
+    Args:
+        data: List of data dictionaries with category/value pairs
+        title: Chart title
+        config: RechartsConfig with chart configuration
+
+    Returns:
+        Pygal bar chart with sorted data
+    """
+    # Pareto chart = sorted bar chart + cumulative line
+    chart = pygal.Bar(
+        style=kds_style,
+        width=800,
+        height=400,
+        explicit_size=True,
+        show_legend=True,  # Show legend for bar + cumulative line
+        print_values=True,  # KDS: Data labels required
+        print_values_position='top',
+        show_x_guides=False,  # KDS: No gridlines
+        show_y_guides=False,  # KDS: No gridlines
+        value_formatter=kds_value_formatter,  # Smart number formatting (K/M/B)
+        secondary_range=(0, 100),  # Cumulative % on secondary axis
+    )
+
+    if title:
+        chart.title = title
+
+    # Extract configuration
+    chart_config = config.config if hasattr(config, 'config') else {}
+    x_axis_config = chart_config.get('xAxis', {})
+    bars_config = chart_config.get('bars', [])
+
+    # Determine keys
+    x_key = x_axis_config.get('dataKey', 'category')
+    y_key = bars_config[0].get('dataKey', 'value') if bars_config else 'value'
+
+    # Sort data by value in descending order (Pareto principle)
+    sorted_data = sorted(data, key=lambda x: x.get(y_key, x.get('value', 0)), reverse=True)
+
+    # Extract labels and values
+    x_labels = []
+    values = []
+    for item in sorted_data:
+        category = item.get(x_key, item.get('category', item.get('name', 'Unknown')))
+        value = item.get(y_key, item.get('value', 0))
+        x_labels.append(str(category))
+        values.append(value)
+
+    # Calculate cumulative percentages
+    total = sum(values)
+    cumulative = []
+    cumulative_sum = 0
+    for value in values:
+        cumulative_sum += value
+        cumulative_pct = (cumulative_sum / total * 100) if total > 0 else 0
+        cumulative.append(cumulative_pct)
+
+    chart.x_labels = x_labels
+    chart.add('Value', values)
+    chart.add('Cumulative %', cumulative, secondary=True, formatter=lambda x: f"{x:.0f}%")
 
     return chart

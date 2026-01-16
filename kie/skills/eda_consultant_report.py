@@ -237,14 +237,19 @@ class EDAConsultantReport(Skill):
                 top_sum = sum(list(top_values.values())[:5])
                 top_pct = (top_sum / total_value * 100) if total_value > 0 else 0
 
+                # Extract category name and top values for specific insights
+                category_col = top_contrib_data.get("category", "")
+                category_display = FieldRegistry.beautify(category_col) if category_col else "categories"
+                top_contributor_names = list(top_values.keys())[:3]  # Get top 3 names
+
                 insights.append({
                     "headline": "Revenue is heavily concentrated",
                     "summary": f"The top 5 contributors account for {format_percentage(top_pct, precision=0)} of {dom['dominant_metric']}",
                     "title": "Revenue Concentration Risk",
-                    "narrative": f"The dataset reveals heavy concentration in {dom['dominant_metric']}, with the top 5 contributors accounting for {format_percentage(top_pct, precision=0)} of all value ({format_currency(total_value)} total). This concentration creates vulnerability - if these peak performers were to decline, the portfolio would face significant downside exposure.",
+                    "narrative": f"The dataset reveals heavy concentration in {dom['dominant_metric']}, with the top 5 contributors accounting for {format_percentage(top_pct, precision=0)} of all value ({format_currency(total_value)} total). Top contributors are: {', '.join(str(x) for x in top_contributor_names)}. This concentration creates vulnerability - if these peak performers were to decline, the portfolio would face significant downside exposure.",
                     "chart_path": "eda_charts/contribution_" + top_contrib_data.get("metric", "unknown") + ".svg",
                     "interpretation": "Your business has dependency risk. A handful of high-performing periods drive most value.",
-                    "action": "Investigate what makes top performers successful and replicate across other periods. Consider hedging strategies to protect against concentration risk."
+                    "action": f"1) Deep-dive analysis on top {category_display}: What made {top_contributor_names[0]} successful? 2) Compare characteristics of top vs. bottom performers. 3) Build replication playbook: Which success factors are transferable? 4) Implement hedging: Diversify dependency or protect key relationships."
                 })
 
         # Insight 2: Distribution patterns and variability (show only MOST important)
@@ -281,7 +286,19 @@ class EDAConsultantReport(Skill):
                 summary = f"Values range from {format_number(min_val)} to {format_number(max_val)}, with {format_number(std_val)} standard deviation"
                 narrative = f"The {col_display} metric exhibits substantial variation (CV: {cv:.0%}), indicating heterogeneity across the dataset. Median value ({format_number(median_val)}) differs from mean ({format_number(mean_val)}), suggesting the presence of outliers or distinct segments. This variation presents both opportunities and risks - understanding what drives high-performing segments could unlock significant value."
                 interpretation = f"High variation suggests the presence of distinct segments or performance tiers. Not all records are created equal."
-                action = f"Segment the data by {col_display} performance tiers (top/middle/bottom terciles) and identify characteristics of high performers. Investigate drivers of variation to replicate success factors."
+
+                # Get categorical columns for segmentation suggestions
+                categorical_cols = synthesis.get("dataset_overview", {}).get("column_types", {}).get("categorical", [])
+                # Suggest actual categorical columns for segmentation
+                segment_suggestions = []
+                for cat_col in categorical_cols[:3]:  # Show top 3 categorical columns
+                    cat_display = FieldRegistry.beautify(cat_col)
+                    segment_suggestions.append(cat_display)
+
+                if segment_suggestions:
+                    action = f"1) Segment {col_display} by terciles (top/middle/bottom performers). 2) Cross-analyze with: {', '.join(segment_suggestions)}. 3) Build profile of high-performers: What characteristics distinguish top tercile? 4) Test hypothesis: Can we replicate these factors elsewhere?"
+                else:
+                    action = f"1) Segment {col_display} by terciles (top/middle/bottom performers). 2) Profile characteristics of each segment. 3) Identify replicable success factors from top performers."
             else:
                 # Low variation - relatively homogeneous
                 headline = f"{col_display} is relatively consistent across records"

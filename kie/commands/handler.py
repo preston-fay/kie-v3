@@ -2609,11 +2609,110 @@ class CommandHandler:
                 import traceback
                 log(f"Traceback: {traceback.format_exc()}")
 
-            # Print intent-aware next steps
+            # Print rich, actionable EDA summary
+            from kie.charts.formatting import format_number, format_percentage
+
             print()
-            print("✓ EDA complete")
-            print(f"  Profile: {profile_path}")
-            print(f"  Data: {data_file}")
+            print("=" * 70)
+            print("📊 EDA COMPLETE - DATA QUALITY SUMMARY")
+            print("=" * 70)
+            print()
+
+            # Dataset overview
+            print(f"📁 Data Source: {Path(data_file).name}")
+            print(f"   {format_number(profile.rows)} rows × {profile.columns} columns")
+            print(f"   Memory: {format_number(profile.memory_mb, suffix=' MB', abbreviate=False)}")
+            print()
+
+            # Column type breakdown
+            print("📋 Column Types:")
+            print(f"   • Numeric: {len(profile.numeric_columns)}")
+            print(f"   • Categorical: {len(profile.categorical_columns)}")
+            print(f"   • Datetime: {len(profile.datetime_columns)}")
+            print()
+
+            # Data quality metrics
+            print("✓ Data Quality:")
+            print(f"   • Missing Data: {format_percentage(profile.null_percent / 100)}")
+            print(f"   • Duplicates: {format_number(profile.duplicate_rows)} rows ({format_percentage(profile.duplicate_percent / 100)})")
+            print()
+
+            # Actionable issues (show actual column names)
+            has_issues = False
+
+            if profile.constant_columns:
+                has_issues = True
+                print("⚠️  CONSTANT COLUMNS (No variation - recommend dropping):")
+                for col in profile.constant_columns[:10]:  # Show up to 10
+                    print(f"   • {col}")
+                if len(profile.constant_columns) > 10:
+                    print(f"   ... and {len(profile.constant_columns) - 10} more")
+                print()
+
+            if profile.high_null_columns:
+                has_issues = True
+                print("⚠️  HIGH NULL COLUMNS (>30% missing):")
+                for col in profile.high_null_columns[:10]:
+                    col_prof = profile.column_profiles[col]
+                    print(f"   • {col}: {format_percentage(col_prof.null_percent / 100)} missing")
+                if len(profile.high_null_columns) > 10:
+                    print(f"   ... and {len(profile.high_null_columns) - 10} more")
+                print()
+
+            if profile.high_cardinality_columns:
+                has_issues = True
+                print("⚠️  HIGH CARDINALITY COLUMNS (>90% unique - may be IDs):")
+                for col in profile.high_cardinality_columns[:10]:
+                    col_prof = profile.column_profiles[col]
+                    print(f"   • {col}: {format_number(col_prof.unique_count)} unique values")
+                if len(profile.high_cardinality_columns) > 10:
+                    print(f"   ... and {len(profile.high_cardinality_columns) - 10} more")
+                print()
+
+            # Key numeric metrics (show top 3-5 most important)
+            if profile.numeric_columns:
+                print("📈 Top Numeric Metrics:")
+                # Show first 5 numeric columns with ranges
+                for col in profile.numeric_columns[:5]:
+                    col_prof = profile.column_profiles[col]
+                    if col_prof.min is not None and col_prof.max is not None:
+                        range_str = f"{format_number(col_prof.min)} to {format_number(col_prof.max)}"
+                        median_str = f"median: {format_number(col_prof.median)}" if col_prof.median is not None else ""
+                        print(f"   • {col}: {range_str} ({median_str})")
+                if len(profile.numeric_columns) > 5:
+                    print(f"   ... and {len(profile.numeric_columns) - 5} more numeric columns")
+                print()
+
+            # Actionable recommendations
+            print("🎯 RECOMMENDED ACTIONS:")
+            actions = []
+
+            if profile.constant_columns:
+                actions.append(f"1. DROP {len(profile.constant_columns)} constant columns: {', '.join(profile.constant_columns[:3])}" +
+                             (f" ... +{len(profile.constant_columns)-3} more" if len(profile.constant_columns) > 3 else ""))
+
+            if profile.high_null_columns:
+                actions.append(f"2. HANDLE {len(profile.high_null_columns)} high-null columns: Impute or drop depending on importance")
+
+            if profile.high_cardinality_columns:
+                actions.append(f"3. REVIEW {len(profile.high_cardinality_columns)} high-cardinality columns: Likely IDs - exclude from analysis")
+
+            if not actions:
+                actions.append("✓ No data quality issues detected - ready for analysis!")
+
+            for action in actions:
+                print(f"   {action}")
+            print()
+
+            # Files generated
+            print("📄 Outputs Generated:")
+            print(f"   • Profile: {profile_path.relative_to(self.project_root)}")
+            deliverables_dir = self.project_root / "outputs" / "deliverables"
+            if deliverables_dir.exists():
+                for report_file in deliverables_dir.glob("EDA_*.md"):
+                    print(f"   • Report: {report_file.relative_to(self.project_root)}")
+            print()
+            print("=" * 70)
             print()
 
             # Get intent-aware next steps
