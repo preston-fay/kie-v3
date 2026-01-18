@@ -5,7 +5,7 @@ description: Show Rails workflow progress and suggest next command
 
 ```bash
 # Check for KIE workspace
-if [ ! -d ".kie/src" ]; then
+if [ ! -f "project_state/spec.yaml" ] && [ ! -d "project_state" ]; then
   echo "❌ Not in a KIE workspace"
   echo "Run /startkie to bootstrap first"
   exit 1
@@ -19,7 +19,7 @@ You are in a KIE workspace with Rails workflow tracking.
 Run these commands and report the output:
 
 ```bash
-PYTHONPATH=".kie/src" python3 -m kie.cli status
+python3 -m kie.cli status
 ```
 
 After showing the status output, STOP.
