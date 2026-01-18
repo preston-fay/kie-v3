@@ -224,18 +224,21 @@ def test_state_manager_summary(temp_project):
     assert summary["project_initialized"]
 
 
-def test_command_handler_startkie(temp_project):
+def test_command_handler_startkie():
     """Test /startkie command creates project structure."""
-    handler = CommandHandler(project_root=temp_project)
+    # Use empty temp directory - startkie requires empty folder
+    with tempfile.TemporaryDirectory() as tmpdir:
+        temp_project = Path(tmpdir)
+        handler = CommandHandler(project_root=temp_project)
 
-    result = handler.handle_startkie()
+        result = handler.handle_startkie()
 
-    assert result["success"]
-    assert (temp_project / "CLAUDE.md").exists()
-    assert (temp_project / "README.md").exists()
-    assert (temp_project / ".gitignore").exists()
-    assert (temp_project / "data").exists()
-    assert (temp_project / "outputs").exists()
+        assert result["success"], f"startkie failed: {result.get('message')}"
+        assert (temp_project / "CLAUDE.md").exists()
+        assert (temp_project / "README.md").exists()
+        assert (temp_project / ".gitignore").exists()
+        assert (temp_project / "data").exists()
+        assert (temp_project / "outputs").exists()
 
 
 def test_command_handler_status(temp_project):
@@ -327,103 +330,107 @@ def test_chart_and_table_integration(temp_project):
     assert report.overall_passed
 
 
-def test_end_to_end_workflow(temp_project):
+def test_end_to_end_workflow():
     """Test complete end-to-end workflow."""
-    # 1. Bootstrap project
-    handler = CommandHandler(project_root=temp_project)
-    result = handler.handle_startkie()
-    assert result["success"]
+    import json
 
-    # 2. Interview
-    interview = InterviewEngine(
-        state_path=temp_project / "project_state" / "interview_state.yaml"
-    )
+    # Use empty temp directory - startkie requires empty folder
+    with tempfile.TemporaryDirectory() as tmpdir:
+        temp_project = Path(tmpdir)
 
-    interview.process_message("I need an analysis dashboard for Tech Corp showing quarterly revenue")
-    interview.process_message("I have CSV data")
+        # 1. Bootstrap project
+        handler = CommandHandler(project_root=temp_project)
+        result = handler.handle_startkie()
+        assert result["success"], f"startkie failed: {result.get('message')}"
 
-    assert interview.state.has_project_type
-    assert interview.state.has_data_source
-
-    # Export spec
-    spec_path = interview.export_spec_yaml(temp_project / "project_state" / "spec.yaml")
-    assert spec_path.exists()
-
-    # 3. Create sample data
-    data = pd.DataFrame(
-        {
-            "quarter": ["Q1", "Q2", "Q3", "Q4"],
-            "revenue": [25000000, 27500000, 29000000, 31500000],
-        }
-    )
-
-    data_path = temp_project / "data" / "revenue.csv"
-    data.to_csv(data_path, index=False)
-
-    # 4. Workflow orchestration
-    orchestrator = WorkflowOrchestrator(project_root=temp_project)
-
-    # Requirements stage
-    result = orchestrator.run_requirements_stage()
-    assert result["success"]
-
-    # Data loading stage
-    result = orchestrator.run_data_loading_stage()
-    assert result["success"]
-
-    # 5. Create outputs
-    chart_config = ChartFactory.bar(
-        data=data.to_dict("records"),
-        x="quarter",
-        y=["revenue"],
-        title="Quarterly Revenue",
-    )
-
-    chart_path = temp_project / "outputs" / "charts" / "revenue.json"
-    chart_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(chart_path, "w") as f:
-        import json
-
-        json.dump(chart_config.to_dict(), f)
-
-    # 6. Validate
-    pipeline = ValidationPipeline(
-        ValidationConfig(
-            strict=True,
-            save_reports=True,
-            report_dir=temp_project / "project_state" / "validation_reports",
+        # 2. Interview
+        interview = InterviewEngine(
+            state_path=temp_project / "project_state" / "interview_state.yaml"
         )
-    )
 
-    report = pipeline.validate_chart(
-        data=data,
-        chart_config=chart_config.to_dict(),
-        output_path=chart_path,
-    )
+        interview.process_message("I need an analysis dashboard for Tech Corp showing quarterly revenue")
+        interview.process_message("I have CSV data")
 
-    assert report.overall_passed
+        assert interview.state.has_project_type
+        assert interview.state.has_data_source
 
-    # 7. State management
-    state_manager = StateManager(project_root=temp_project)
-    summary = state_manager.get_state_summary()
+        # Export spec
+        spec_path = interview.export_spec_yaml(temp_project / "project_state" / "spec.yaml")
+        assert spec_path.exists()
 
-    assert summary["project_initialized"]
-    assert summary["interview_complete"]
+        # 3. Create sample data
+        data = pd.DataFrame(
+            {
+                "quarter": ["Q1", "Q2", "Q3", "Q4"],
+                "revenue": [25000000, 27500000, 29000000, 31500000],
+            }
+        )
 
-    # 8. Export complete state
-    export_path = state_manager.export_complete_state()
-    assert export_path.exists()
+        data_path = temp_project / "data" / "revenue.csv"
+        data.to_csv(data_path, index=False)
 
-    # Verify complete state contains all components
-    import yaml
+        # 4. Workflow orchestration
+        orchestrator = WorkflowOrchestrator(project_root=temp_project)
 
-    with open(export_path) as f:
-        complete_state = yaml.safe_load(f)
+        # Requirements stage
+        result = orchestrator.run_requirements_stage()
+        assert result["success"]
 
-    assert "states" in complete_state
-    assert "summary" in complete_state
-    assert complete_state["summary"]["project_initialized"]
+        # Data loading stage
+        result = orchestrator.run_data_loading_stage()
+        assert result["success"]
+
+        # 5. Create outputs
+        chart_config = ChartFactory.bar(
+            data=data.to_dict("records"),
+            x="quarter",
+            y=["revenue"],
+            title="Quarterly Revenue",
+        )
+
+        chart_path = temp_project / "outputs" / "charts" / "revenue.json"
+        chart_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(chart_path, "w") as f:
+            json.dump(chart_config.to_dict(), f)
+
+        # 6. Validate
+        pipeline = ValidationPipeline(
+            ValidationConfig(
+                strict=True,
+                save_reports=True,
+                report_dir=temp_project / "project_state" / "validation_reports",
+            )
+        )
+
+        report = pipeline.validate_chart(
+            data=data,
+            chart_config=chart_config.to_dict(),
+            output_path=chart_path,
+        )
+
+        assert report.overall_passed
+
+        # 7. State management
+        state_manager = StateManager(project_root=temp_project)
+        summary = state_manager.get_state_summary()
+
+        assert summary["project_initialized"]
+        assert summary["interview_complete"]
+
+        # 8. Export complete state
+        export_path = state_manager.export_complete_state()
+        assert export_path.exists()
+
+        # Verify complete state contains all components
+        import yaml
+
+        with open(export_path) as f:
+            complete_state = yaml.safe_load(f)
+
+        assert "states" in complete_state
+        assert "summary" in complete_state
+        assert complete_state["summary"]["project_initialized"]
 
 
 if __name__ == "__main__":

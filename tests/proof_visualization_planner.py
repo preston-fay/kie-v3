@@ -114,9 +114,11 @@ def main() -> int:
         from kie.skills import get_registry, SkillContext
 
         outputs_dir = project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
         artifacts = {}
-        if (outputs_dir / "insights.yaml").exists():
-            artifacts["insights_catalog"] = outputs_dir / "insights.yaml"
+        if (internal_dir / "insights.yaml").exists():
+            artifacts["insights_catalog"] = internal_dir / "insights.yaml"
 
         context = SkillContext(
             project_root=project_root,

@@ -143,8 +143,11 @@ def test_sampledata_install_idempotent(temp_project_with_structure):
     assert sample_file.exists()
 
 
-def test_eda_prefers_real_data(temp_project_with_structure):
+def test_eda_prefers_real_data(temp_project_with_structure, monkeypatch):
     """Test that EDA prefers real data over sample_data.csv."""
+    # Mock input to prevent stdin blocking in tests
+    monkeypatch.setattr('builtins.input', lambda _: '')
+
     handler = CommandHandler(temp_project_with_structure)
 
     # Install sample data
@@ -171,8 +174,11 @@ def test_eda_prefers_real_data(temp_project_with_structure):
     assert result.get("is_sample_data", False) is False
 
 
-def test_eda_uses_sample_when_no_real_data(temp_project_with_structure):
+def test_eda_uses_sample_when_no_real_data(temp_project_with_structure, monkeypatch):
     """Test that EDA uses sample data when only sample_data.csv exists."""
+    # Mock input to prevent stdin blocking in tests
+    monkeypatch.setattr('builtins.input', lambda _: '')
+
     handler = CommandHandler(temp_project_with_structure)
 
     # Install sample data
@@ -206,8 +212,11 @@ def test_eda_fails_when_no_data(temp_project_with_structure):
     assert "/sampledata" in message.lower() or "demo" in message.lower()
 
 
-def test_eda_demo_label_in_review(temp_project_with_structure):
+def test_eda_demo_label_in_review(temp_project_with_structure, monkeypatch):
     """Test that eda_review.md labels sample data as DEMO."""
+    # Mock input to prevent stdin blocking in tests
+    monkeypatch.setattr('builtins.input', lambda _: '')
+
     handler = CommandHandler(temp_project_with_structure)
 
     # Install sample data
@@ -219,7 +228,7 @@ def test_eda_demo_label_in_review(temp_project_with_structure):
     assert result["is_sample_data"] is True
 
     # Read eda_review.md
-    review_file = temp_project_with_structure / "outputs" / "eda_review.md"
+    review_file = temp_project_with_structure / "outputs" / "internal" / "eda_review.md"
     assert review_file.exists()
 
     review_content = review_file.read_text()
@@ -229,8 +238,11 @@ def test_eda_demo_label_in_review(temp_project_with_structure):
     assert "sample_data.csv" in review_content
 
 
-def test_eda_demo_flag_in_json(temp_project_with_structure):
+def test_eda_demo_flag_in_json(temp_project_with_structure, monkeypatch):
     """Test that eda_review.json includes is_sample_data flag."""
+    # Mock input to prevent stdin blocking in tests
+    monkeypatch.setattr('builtins.input', lambda _: '')
+
     handler = CommandHandler(temp_project_with_structure)
 
     # Install sample data
@@ -242,7 +254,7 @@ def test_eda_demo_flag_in_json(temp_project_with_structure):
 
     # Read eda_review.json
     import json
-    review_json = temp_project_with_structure / "outputs" / "eda_review.json"
+    review_json = temp_project_with_structure / "outputs" / "internal" / "eda_review.json"
     assert review_json.exists()
 
     with open(review_json) as f:
@@ -251,8 +263,11 @@ def test_eda_demo_flag_in_json(temp_project_with_structure):
     assert review_data["is_sample_data"] is True
 
 
-def test_eda_no_demo_flag_with_real_data(temp_project_with_structure):
+def test_eda_no_demo_flag_with_real_data(temp_project_with_structure, monkeypatch):
     """Test that is_sample_data is False when using real data."""
+    # Mock input to prevent stdin blocking in tests
+    monkeypatch.setattr('builtins.input', lambda _: '')
+
     handler = CommandHandler(temp_project_with_structure)
 
     # Add real data (no sample data)
@@ -272,13 +287,13 @@ def test_eda_no_demo_flag_with_real_data(temp_project_with_structure):
 
     # Check JSON
     import json
-    review_json = temp_project_with_structure / "outputs" / "eda_review.json"
+    review_json = temp_project_with_structure / "outputs" / "internal" / "eda_review.json"
     with open(review_json) as f:
         review_data = json.load(f)
 
     assert review_data["is_sample_data"] is False
 
     # Check markdown - should NOT have DEMO warning
-    review_md = temp_project_with_structure / "outputs" / "eda_review.md"
+    review_md = temp_project_with_structure / "outputs" / "internal" / "eda_review.md"
     review_content = review_md.read_text()
     assert "DEMO MODE" not in review_content

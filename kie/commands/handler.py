@@ -14,6 +14,7 @@ import yaml
 
 from kie.data import EDA, DataLoader
 from kie.insights import InsightCatalog, InsightEngine
+from kie.paths import ArtifactPaths
 from kie.powerpoint import SlideBuilder
 from kie.validation import ValidationConfig, ValidationPipeline
 
@@ -1336,7 +1337,10 @@ class CommandHandler:
                 }
 
             # Check 2: Charts exist (if building presentation/dashboard)
+            # Charts can be in either outputs/charts/ (old) or outputs/internal/chart_configs/ (new)
             charts = list((outputs_dir / "charts").glob("*.json"))
+            if not charts:
+                charts = list((internal_dir / "chart_configs").glob("*.json"))
             if not charts:
                 print("\n" + "="*70)
                 print("❌ BUILD BLOCKED - NO CHARTS FOUND")
@@ -1860,7 +1864,7 @@ class CommandHandler:
 
             # Print rich, consultant-grade build summary
             from kie.charts.formatting import format_number
-            import json
+            # NOTE: json is already imported at module level (line 7)
 
             print()
             print("=" * 70)
@@ -2624,8 +2628,11 @@ class CommandHandler:
             log(f"Analysis complete: {profile.rows} rows, {profile.columns} columns")
 
             # Save profile (both YAML and JSON for compatibility)
-            profile_path = self.project_root / "outputs" / "eda_profile.yaml"
-            profile_path.parent.mkdir(parents=True, exist_ok=True)
+            # CRITICAL: EDA profiles go to internal/ (not consultant-visible)
+            from kie.paths import ArtifactPaths
+            paths = ArtifactPaths(self.project_root)
+            profile_path = paths.eda_profile_yaml(create_dirs=True)
+            json_path = paths.eda_profile_json(create_dirs=True)
 
             import yaml
             profile_dict = profile.to_dict()
@@ -2637,7 +2644,6 @@ class CommandHandler:
 
             # Also save JSON (for better compatibility with skills)
             import json
-            json_path = self.project_root / "outputs" / "eda_profile.json"
             with open(json_path, "w") as f:
                 json.dump(profile_dict, f, indent=2, default=str)
             log(f"Profile also saved as JSON: {json_path}")
@@ -2988,6 +2994,10 @@ class CommandHandler:
             # Extract insights using the intelligently mapped columns
             engine = InsightEngine()
 
+            # Check if user explicitly overrode the primary metric column
+            # If so, bypass ID column detection (user's choice is "God Mode")
+            is_override = metric_request in column_overrides
+
             # Use comprehensive extraction for rich datasets
             # (Comprehensive mode discovers 15-20+ insights vs 5 in basic mode)
             insights = engine.auto_extract_comprehensive(
@@ -2996,7 +3006,8 @@ class CommandHandler:
                 group_column=group_column,
                 time_column=time_column,
                 max_insights=20,
-                objective=objective  # Pass objective for correlation prioritization
+                objective=objective,  # Pass objective for correlation prioritization
+                is_override=is_override  # Bypass ID detection if user explicitly chose this column
             )
 
             # Build catalog
@@ -3006,9 +3017,9 @@ class CommandHandler:
             )
 
             # Save catalog (both YAML and JSON for compatibility)
-            catalog_path_yaml = self.project_root / "outputs" / "insights.yaml"
-            catalog_path_json = self.project_root / "outputs" / "insights_catalog.json"
-            catalog_path_yaml.parent.mkdir(parents=True, exist_ok=True)
+            paths = ArtifactPaths(self.project_root)
+            catalog_path_yaml = paths.insights_yaml(create_dirs=True)
+            catalog_path_json = paths.insights_catalog(create_dirs=True)
 
             # Save as YAML (primary format)
             catalog.save(str(catalog_path_yaml))
@@ -3027,6 +3038,7 @@ class CommandHandler:
                 "insights_count": len(insights),
                 "catalog_saved": str(catalog_path_yaml),
                 "data_file": data_file,
+                "primary_metric": value_column,  # Include the actual column used for analysis
                 "insights": [
                     {
                         "type": i.insight_type.value,
@@ -3047,9 +3059,12 @@ class CommandHandler:
                 internal_dir = outputs_dir / "internal"
 
                 # Pass 1: Execute skills with initial artifacts
+                # Use ArtifactPaths for consistent path resolution (internal/ is canonical)
                 artifacts_pass1 = {}
-                if (outputs_dir / "insights.yaml").exists():
-                    artifacts_pass1["insights_catalog"] = outputs_dir / "insights.yaml"
+                if (internal_dir / "insights.yaml").exists():
+                    artifacts_pass1["insights_catalog"] = internal_dir / "insights.yaml"
+                elif (internal_dir / "insights_catalog.json").exists():
+                    artifacts_pass1["insights_catalog"] = internal_dir / "insights_catalog.json"
                 if (internal_dir / "insight_triage.json").exists():
                     artifacts_pass1["insight_triage"] = internal_dir / "insight_triage.json"
 
@@ -3066,8 +3081,10 @@ class CommandHandler:
 
                 # Pass 2: Re-scan for newly created artifacts and execute remaining skills
                 artifacts_pass2 = {}
-                if (outputs_dir / "insights.yaml").exists():
-                    artifacts_pass2["insights_catalog"] = outputs_dir / "insights.yaml"
+                if (internal_dir / "insights.yaml").exists():
+                    artifacts_pass2["insights_catalog"] = internal_dir / "insights.yaml"
+                elif (internal_dir / "insights_catalog.json").exists():
+                    artifacts_pass2["insights_catalog"] = internal_dir / "insights_catalog.json"
                 if (internal_dir / "insight_triage.json").exists():
                     artifacts_pass2["insight_triage"] = internal_dir / "insight_triage.json"
                 if (internal_dir / "visualization_plan.json").exists():
@@ -3531,11 +3548,14 @@ To regenerate deliverables:
                 previews["maps"] = [f.name for f in (outputs_dir / "maps").glob("*.html")]
 
             # Insight artifacts (catalog, triage, narrative, visualization plan)
+            paths = ArtifactPaths(self.project_root)
             if outputs_dir.exists():
-                if (outputs_dir / "insights.yaml").exists():
-                    previews["insights_json"].append("insights.yaml")
-                if (outputs_dir / "insights_catalog.json").exists():
-                    previews["insights_json"].append("insights_catalog.json")
+                insights_yaml = paths.insights_yaml()
+                if insights_yaml.exists():
+                    previews["insights_json"].append(str(insights_yaml.relative_to(self.project_root)))
+                insights_catalog = paths.insights_catalog()
+                if insights_catalog.exists():
+                    previews["insights_json"].append(str(insights_catalog.relative_to(self.project_root)))
                 # Check internal/ for JSON artifacts
                 if (internal_dir / "insight_triage.json").exists():
                     previews["insights_json"].append("internal/insight_triage.json")
@@ -4643,9 +4663,11 @@ project_state/  - Project tracking
         internal_dir = outputs_dir / "internal"
         manifest_path = internal_dir / "story_manifest.json"
 
+        paths = ArtifactPaths(self.project_root)
         artifacts_created = []
-        if (outputs_dir / "insights_catalog.json").exists():
-            artifacts_created.append("insights_catalog.json")
+        insights_catalog = paths.insights_catalog()
+        if insights_catalog.exists():
+            artifacts_created.append(str(insights_catalog.relative_to(self.project_root)))
         if (internal_dir / "insight_triage.json").exists():
             artifacts_created.append("internal/insight_triage.json")
         if (outputs_dir / "narrative_synthesis.md").exists():
@@ -4984,3 +5006,106 @@ project_state/  - Project tracking
                 backup_plan_path.rename(viz_plan_path)
 
         return result
+
+    def handle_simplify(self, path: str | None = None) -> dict[str, Any]:
+        """
+        Handle /simplify command - analyze code for clarity and simplification opportunities.
+
+        Inspired by Anthropic's Code Simplifier Plugin that keeps their codebase clean.
+
+        Args:
+            path: Optional path to analyze (file or directory). Defaults to project root.
+
+        Returns:
+            Simplification analysis result with issues and recommendations
+        """
+        from kie.skills import CodeSimplifierSkill, get_registry
+        from kie.skills.base import SkillContext
+
+        print()
+        print("=" * 70)
+        print("CODE SIMPLIFIER")
+        print("Analyzing code for clarity, consistency, and maintainability...")
+        print("=" * 70)
+        print()
+
+        # Determine target path
+        if path:
+            target_path = Path(path)
+            if not target_path.is_absolute():
+                target_path = self.project_root / target_path
+        else:
+            target_path = self.project_root
+
+        if not target_path.exists():
+            return {
+                "success": False,
+                "message": f"Path not found: {target_path}"
+            }
+
+        # Create skill context
+        context = SkillContext(
+            project_root=self.project_root,
+            current_stage="build",
+            artifacts={},
+            metadata={"target_path": str(target_path)}
+        )
+
+        # Execute skill
+        skill = CodeSimplifierSkill()
+        result = skill.execute(context)
+
+        if not result.success:
+            print("❌ Code simplifier failed")
+            for error in result.errors:
+                print(f"   • {error}")
+            return {
+                "success": False,
+                "message": "Code simplifier failed",
+                "errors": result.errors
+            }
+
+        # Print summary
+        print("✅ Analysis complete!")
+        print()
+
+        # Read and display summary from the generated report
+        report_path = result.artifacts.get("code_simplifier_json")
+        if report_path and Path(report_path).exists():
+            import json
+            with open(report_path) as f:
+                report_data = json.load(f)
+
+            summary = report_data.get("summary", {})
+            print(f"Files analyzed: {summary.get('total_files', 0)}")
+            print(f"  • Clean: {summary.get('clean', 0)}")
+            print(f"  • Needs attention: {summary.get('needs_attention', 0)}")
+            print(f"  • Needs refactor: {summary.get('needs_refactor', 0)}")
+            print()
+            print(f"Total issues found: {summary.get('total_issues', 0)}")
+            print()
+
+            # Show top issues by type
+            issue_counts = summary.get("issues_by_type", {})
+            if issue_counts:
+                print("Issues by type:")
+                for issue_type, count in sorted(issue_counts.items(), key=lambda x: -x[1])[:5]:
+                    print(f"  • {issue_type}: {count}")
+                print()
+
+        # Show output locations
+        print("Reports generated:")
+        for artifact_name, artifact_path in result.artifacts.items():
+            print(f"  • {artifact_path}")
+        print()
+
+        print("=" * 70)
+        print()
+
+        return {
+            "success": True,
+            "message": "Code simplification analysis complete",
+            "artifacts": {k: str(v) for k, v in result.artifacts.items()},
+            "evidence": result.evidence,
+            "warnings": result.warnings
+        }

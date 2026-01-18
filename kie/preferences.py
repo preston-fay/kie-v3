@@ -43,9 +43,18 @@ class OutputPreferences:
         """
         Get current output theme preference.
 
+        Priority: Environment variable > saved preference
+
         Returns:
             Theme value ('light' or 'dark') or None if not set
         """
+        import os
+
+        # Check environment variable first (for testing and automation)
+        env_theme = os.environ.get("KIE_DEFAULT_THEME")
+        if env_theme in ["light", "dark"]:
+            return env_theme
+
         if not self.prefs_path.exists():
             return None
 

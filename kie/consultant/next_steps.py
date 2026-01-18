@@ -14,6 +14,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from kie.paths import ArtifactPaths
+
 
 class NextStepsAdvisor:
     """
@@ -128,11 +130,12 @@ class NextStepsAdvisor:
 
     def _check_artifacts(self) -> dict[str, bool]:
         """Check which artifacts exist."""
+        paths = ArtifactPaths(self.project_root)
         return {
             "has_data": self._has_data_files(),
             "has_spec": (self.project_state_dir / "spec.yaml").exists(),
-            "has_eda_profile": (self.outputs_dir / "eda_profile.json").exists(),
-            "has_insights_catalog": (self.outputs_dir / "insights_catalog.json").exists(),
+            "has_eda_profile": paths.eda_profile_json().exists(),
+            "has_insights_catalog": paths.insights_catalog().exists(),
             "has_insight_brief": (self.outputs_dir / "insight_brief.md").exists(),
             "has_dashboard": (self.exports_dir / "dashboard" / "package.json").exists(),
             "has_presentation": (self.exports_dir / "presentation.pptx").exists(),

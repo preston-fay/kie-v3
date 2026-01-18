@@ -60,7 +60,8 @@ def test_actionability_scoring_high_confidence_action_keywords(tmp_path):
             }
         ]
     }
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(triage))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(triage))
     (project_state_dir / "intent.yaml").write_text("objective: Increase revenue\n")
 
     # Run skill
@@ -77,7 +78,7 @@ def test_actionability_scoring_high_confidence_action_keywords(tmp_path):
     assert result.success
 
     # Load scores
-    scores_path = outputs_dir / "actionability_scores.json"
+    scores_path = outputs_dir / "internal" / "actionability_scores.json"
     assert scores_path.exists()
 
     with open(scores_path) as f:
@@ -111,7 +112,8 @@ def test_actionability_scoring_medium_confidence_directional(tmp_path):
             }
         ]
     }
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(triage))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(triage))
     (project_state_dir / "intent.yaml").write_text("objective: Growth strategy\n")
 
     # Run skill
@@ -128,7 +130,7 @@ def test_actionability_scoring_medium_confidence_directional(tmp_path):
     assert result.success
 
     # Load scores
-    with open(outputs_dir / "actionability_scores.json") as f:
+    with open(outputs_dir / "internal" / "actionability_scores.json") as f:
         scores = json.load(f)
 
     # Check classification
@@ -159,7 +161,8 @@ def test_actionability_scoring_low_confidence_informational(tmp_path):
             }
         ]
     }
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(triage))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(triage))
     (project_state_dir / "intent.yaml").write_text("objective: Analyze sales performance\n")
 
     # Run skill
@@ -176,7 +179,7 @@ def test_actionability_scoring_low_confidence_informational(tmp_path):
     assert result.success
 
     # Load scores
-    with open(outputs_dir / "actionability_scores.json") as f:
+    with open(outputs_dir / "internal" / "actionability_scores.json") as f:
         scores = json.load(f)
 
     # Check classification
@@ -208,7 +211,8 @@ def test_actionability_scoring_objective_alignment_bonus(tmp_path):
             }
         ]
     }
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(triage))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(triage))
     (project_state_dir / "intent.yaml").write_text("objective: Analyze revenue trends\n")
 
     # Run skill
@@ -225,7 +229,7 @@ def test_actionability_scoring_objective_alignment_bonus(tmp_path):
     assert result.success
 
     # Load scores
-    with open(outputs_dir / "actionability_scores.json") as f:
+    with open(outputs_dir / "internal" / "actionability_scores.json") as f:
         scores = json.load(f)
 
     # Check classification - without objective alignment would be informational
@@ -273,7 +277,8 @@ def test_actionability_scoring_summary_counts(tmp_path):
             },
         ]
     }
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(triage))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(triage))
     (project_state_dir / "intent.yaml").write_text("objective: Growth\n")
 
     # Run skill
@@ -290,7 +295,7 @@ def test_actionability_scoring_summary_counts(tmp_path):
     assert result.success
 
     # Load scores
-    with open(outputs_dir / "actionability_scores.json") as f:
+    with open(outputs_dir / "internal" / "actionability_scores.json") as f:
         scores = json.load(f)
 
     # Check summary
@@ -327,7 +332,8 @@ def test_actionability_scoring_markdown_generation(tmp_path):
             }
         ]
     }
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(triage))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(triage))
     (project_state_dir / "intent.yaml").write_text("objective: Test\n")
 
     # Run skill
@@ -344,7 +350,7 @@ def test_actionability_scoring_markdown_generation(tmp_path):
     assert result.success
 
     # Check markdown exists
-    md_path = outputs_dir / "actionability_scores.md"
+    md_path = outputs_dir / "internal" / "actionability_scores.md"
     assert md_path.exists()
 
     # Check markdown content

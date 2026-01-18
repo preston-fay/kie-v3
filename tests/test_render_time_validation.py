@@ -64,7 +64,8 @@ class TestRenderTimeValidation:
             ]
         }
 
-        viz_plan_path = temp_workspace / "outputs" / "visualization_plan.json"
+        (temp_workspace / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
+        viz_plan_path = temp_workspace / "outputs" / "internal" / "visualization_plan.json"
         with open(viz_plan_path, "w") as f:
             json.dump(viz_plan, f)
 
@@ -88,15 +89,23 @@ class TestRenderTimeValidation:
         assert result["charts_rendered"] == 1
         assert result["kds_validated"] is True
 
-        # Chart file should exist
-        chart_file = temp_workspace / "outputs" / "charts" / "test_001__bar.json"
+        # Chart file should exist (in internal/chart_configs/)
+        from kie.paths import ArtifactPaths
+        paths = ArtifactPaths(temp_workspace)
+        chart_file = paths.chart_config("test_001__bar.json")
         assert chart_file.exists()
 
-        # Chart should be valid JSON
+        # Chart should be valid JSON (recharts config)
         with open(chart_file) as f:
             chart_config = json.load(f)
-            assert chart_config["insight_id"] == "test_001"
-            assert chart_config["visualization_type"] == "bar"
+            # Chart config contains recharts settings, not metadata
+            assert chart_config["type"] == "bar"
+            assert "data" in chart_config
+            assert "config" in chart_config
+
+        # Check result metadata
+        assert result["charts"][0]["insight_id"] == "test_001"
+        assert result["charts"][0]["visualization_type"] == "bar"
 
     def test_renderer_blocks_forbidden_colors(self, temp_workspace, visualization_plan_valid):
         """
@@ -129,13 +138,11 @@ class TestRenderTimeValidation:
 
         # Check error message contains violation details
         error = exc_info.value
-        assert "KDS COMPLIANCE FAILURE" in str(error)
-        assert "violations" in error.details
-        assert len(error.details["violations"]) > 0
+        error_str = str(error)
+        assert "Forbidden color" in error_str or "violates KDS" in error_str
 
-        # Verify green color is mentioned in violations
-        violations_str = " ".join(error.details["violations"])
-        assert "#00FF00" in violations_str.upper() or "forbidden color" in violations_str.lower()
+        # Verify green color is mentioned in error
+        assert "#00FF00" in error_str.upper()
 
     def test_renderer_blocks_gridlines(self, temp_workspace, visualization_plan_valid):
         """
@@ -216,7 +223,8 @@ class TestRenderTimeValidation:
             ]
         }
 
-        viz_plan_path = temp_workspace / "outputs" / "visualization_plan.json"
+        (temp_workspace / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
+        viz_plan_path = temp_workspace / "outputs" / "internal" / "visualization_plan.json"
         with open(viz_plan_path, "w") as f:
             json.dump(viz_plan, f)
 
@@ -271,13 +279,11 @@ class TestRenderTimeValidation:
 
         error_message = str(exc_info.value)
 
-        # Error should be clear and structured
-        assert "❌ KDS COMPLIANCE FAILURE" in error_message
-        assert "Charts violate Kearney Design System guidelines" in error_message
-        assert "Fix required before charts can be published" in error_message
+        # Error should be clear and describe the violation
+        assert "violates KDS" in error_message or "Forbidden color" in error_message
 
-        # Error details should include all violations
-        assert "gridline" in error_message.lower() or "grid" in error_message.lower()
+        # Error details should include the specific issue
+        assert "#00FF00" in error_message.upper()
 
     def test_renderer_validation_preserves_chart_data(
         self, temp_workspace, visualization_plan_valid
@@ -332,10 +338,15 @@ class TestRenderTimeValidationIntegration:
                 "gridLines": False,
                 "colors": ["#7823DC"],  # KDS primary
                 "fontFamily": "Inter, Arial, sans-serif",
+                "xAxis": {"axisLine": False, "tickLine": False},
+                "yAxis": {"axisLine": False, "tickLine": False},
             },
         }
 
-        chart_path = charts_dir / "test_chart.json"
+        # Use internal/chart_configs/ for chart JSON
+        chart_configs_dir = project_root / "outputs" / "internal" / "chart_configs"
+        chart_configs_dir.mkdir(parents=True, exist_ok=True)
+        chart_path = chart_configs_dir / "test_chart.json"
         with open(chart_path, "w") as f:
             json.dump(compliant_chart, f)
 

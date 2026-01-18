@@ -152,7 +152,7 @@ def test_skill_requires_insights_catalog(temp_project):
 def test_skill_loads_yaml_format(temp_project, sample_insights):
     """Test that skill can load insights from YAML format."""
     # Save catalog as YAML
-    catalog_path = temp_project / "outputs" / "insights.yaml"
+    catalog_path = temp_project / "outputs" / "internal" / "insights.yaml"
     sample_insights.save(str(catalog_path))
 
     skill = InsightTriageSkill()
@@ -173,14 +173,16 @@ def test_skill_loads_yaml_format(temp_project, sample_insights):
     assert "triage_json" in result.artifacts
 
     # Should also create JSON version
-    json_catalog = temp_project / "outputs" / "insights_catalog.json"
+    json_catalog = temp_project / "outputs" / "internal" / "insights_catalog.json"
     assert json_catalog.exists()
 
 
 def test_skill_loads_json_format(temp_project, sample_insights):
     """Test that skill can load insights from JSON format."""
     # Save catalog as JSON
-    catalog_path = temp_project / "outputs" / "insights_catalog.json"
+    internal_dir = temp_project / "outputs" / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(sample_insights.to_dict(), indent=2))
 
     skill = InsightTriageSkill()
@@ -204,7 +206,7 @@ def test_skill_loads_json_format(temp_project, sample_insights):
 def test_deterministic_ranking(temp_project, sample_insights):
     """Test that ranking is deterministic based on severity and confidence."""
     # Save catalog
-    catalog_path = temp_project / "outputs" / "insights.yaml"
+    catalog_path = temp_project / "outputs" / "internal" / "insights.yaml"
     sample_insights.save(str(catalog_path))
 
     skill = InsightTriageSkill()
@@ -239,7 +241,7 @@ def test_deterministic_ranking(temp_project, sample_insights):
 def test_suppression_logic(temp_project, sample_insights):
     """Test that low-quality insights are suppressed."""
     # Save catalog
-    catalog_path = temp_project / "outputs" / "insights.yaml"
+    catalog_path = temp_project / "outputs" / "internal" / "insights.yaml"
     sample_insights.save(str(catalog_path))
 
     skill = InsightTriageSkill()
@@ -282,7 +284,7 @@ def test_no_rails_state_mutation(temp_project, sample_insights):
         json.dump(original_state, f)
 
     # Save catalog
-    catalog_path = temp_project / "outputs" / "insights.yaml"
+    catalog_path = temp_project / "outputs" / "internal" / "insights.yaml"
     sample_insights.save(str(catalog_path))
 
     skill = InsightTriageSkill()
@@ -307,7 +309,7 @@ def test_no_rails_state_mutation(temp_project, sample_insights):
 def test_truth_gate_artifacts_exist(temp_project, sample_insights):
     """Test that all claimed artifacts actually exist (Truth Gate)."""
     # Save catalog
-    catalog_path = temp_project / "outputs" / "insights.yaml"
+    catalog_path = temp_project / "outputs" / "internal" / "insights.yaml"
     sample_insights.save(str(catalog_path))
 
     skill = InsightTriageSkill()
@@ -334,7 +336,7 @@ def test_truth_gate_artifacts_exist(temp_project, sample_insights):
 def test_high_confidence_insights_promoted(temp_project, sample_insights):
     """Test that high-confidence insights are marked for leading."""
     # Save catalog
-    catalog_path = temp_project / "outputs" / "insights.yaml"
+    catalog_path = temp_project / "outputs" / "internal" / "insights.yaml"
     sample_insights.save(str(catalog_path))
 
     skill = InsightTriageSkill()
@@ -365,7 +367,7 @@ def test_high_confidence_insights_promoted(temp_project, sample_insights):
 def test_markdown_output_format(temp_project, sample_insights):
     """Test that markdown output has correct format."""
     # Save catalog
-    catalog_path = temp_project / "outputs" / "insights.yaml"
+    catalog_path = temp_project / "outputs" / "internal" / "insights.yaml"
     sample_insights.save(str(catalog_path))
 
     skill = InsightTriageSkill()

@@ -563,13 +563,21 @@ def test_teacher_is_wrong_override():
 
         assert result['success'], f"Analysis failed: {result.get('message')}"
 
-        insights_text = json.dumps(result['insights']).lower()
-        assert 'zipcode' in insights_text or '90210' in insights_text or '10001' in insights_text, \
-            "Override failed! System did not use ZipCode despite explicit override."
+        # Verify override was applied:
+        # 1. The primary_metric should be ZipCode
+        assert result.get('primary_metric') == 'ZipCode', \
+            f"Override failed! Primary metric should be ZipCode, got: {result.get('primary_metric')}"
+
+        # 2. The insight headlines should mention "Zipcode" (beautified column name)
+        # This is the critical check - override MUST affect display names, not just column selection
+        headlines = [i['headline'].lower() for i in result['insights']]
+        assert any('zipcode' in h for h in headlines), \
+            f"Override failed! Headlines should mention 'Zipcode' but got: {headlines}"
 
         print("✅ Human Override Test PASSED")
         print(f"   - System obeyed override: revenue → ZipCode")
-        print(f"   - Proof of obedience: User's word is final")
+        print(f"   - Primary metric set to ZipCode as specified in column_mapping")
+        print(f"   - Insight headlines correctly display 'Zipcode'")
 
 
 def test_partial_override():

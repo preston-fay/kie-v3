@@ -231,11 +231,19 @@ class MapBuilder:
         if self.map is None:
             self.create_map()
 
-        # Load GeoJSON if path provided
+        # Load GeoJSON if path or URL provided
         geo_data = config.geo_data
         if isinstance(geo_data, str | Path):
-            with open(geo_data) as f:
-                geo_data = json.load(f)
+            geo_data_str = str(geo_data)
+            if geo_data_str.startswith(('http://', 'https://')):
+                # Fetch from URL
+                import urllib.request
+                with urllib.request.urlopen(geo_data_str) as response:
+                    geo_data = json.loads(response.read().decode('utf-8'))
+            else:
+                # Load from local file
+                with open(geo_data) as f:
+                    geo_data = json.load(f)
 
         # Create choropleth
         choropleth = folium.Choropleth(

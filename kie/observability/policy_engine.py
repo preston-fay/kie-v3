@@ -12,6 +12,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+from kie.paths import ArtifactPaths
+
 
 class PolicyDecision(Enum):
     """Policy decision outcomes."""
@@ -209,19 +211,20 @@ class PolicyEngine:
         context: dict[str, Any]
     ) -> PolicyResult:
         """Check preconditions for /analyze command."""
-        # /analyze requires EDA artifacts
-        eda_profile = self.project_root / "outputs" / "eda_profile.json"
+        # /analyze requires EDA artifacts (now in outputs/internal/)
+        eda_profile_json = self.project_root / "outputs" / "internal" / "eda_profile.json"
+        eda_profile_yaml = self.project_root / "outputs" / "internal" / "eda_profile.yaml"
 
-        if not eda_profile.exists():
+        if not eda_profile_json.exists() and not eda_profile_yaml.exists():
             return PolicyResult(
                 decision=PolicyDecision.BLOCK,
                 message="Cannot analyze without EDA profile",
                 violated_invariant="Stage Preconditions (Invariant 2)",
-                missing_prerequisite="outputs/eda_profile.json",
+                missing_prerequisite="outputs/internal/eda_profile.json or .yaml",
                 recovery_steps=[
                     "/eda        # Run EDA first to profile data",
                     "/analyze    # Then extract insights",
-                    "# ISSUE #4 FIX: If EDA was run but file missing, check outputs/ folder permissions",
+                    "# ISSUE #4 FIX: If EDA was run but file missing, check outputs/internal/ folder permissions",
                 ]
             )
 
@@ -234,7 +237,8 @@ class PolicyEngine:
     ) -> PolicyResult:
         """Check preconditions for /build command."""
         # /build requires analyze artifacts
-        insights_catalog = self.project_root / "outputs" / "insights_catalog.json"
+        paths = ArtifactPaths(self.project_root)
+        insights_catalog = paths.insights_catalog()
 
         if not insights_catalog.exists():
             return PolicyResult(

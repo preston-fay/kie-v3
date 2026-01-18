@@ -211,12 +211,15 @@ def test_dashboard_override_integration():
         analyze_result = handler.handle_analyze()
         assert analyze_result['success'], f"Analyze failed: {analyze_result.get('message')}"
 
+        # Build charts first (required before dashboard)
+        charts_result = handler.handle_build(target="charts")
+
         result = handler.handle_build(target="dashboard")
 
         assert result['success'], f"Build failed: {result.get('message', 'Unknown error')}"
 
         # Check visualization_plan.json for override application
-        viz_plan_path = outputs_dir / "visualization_plan.json"
+        viz_plan_path = outputs_dir / "internal" / "visualization_plan.json"
         if viz_plan_path.exists():
             import json
             viz_plan = json.loads(viz_plan_path.read_text())
@@ -281,12 +284,15 @@ def test_dashboard_without_override_uses_intelligence():
         analyze_result = handler.handle_analyze()
         assert analyze_result['success'], f"Analyze failed: {analyze_result.get('message')}"
 
+        # Build charts first (required before dashboard)
+        charts_result = handler.handle_build(target="charts")
+
         result = handler.handle_build(target="dashboard")
 
         assert result['success'], f"Build failed: {result.get('message')}"
 
         # Check visualization_plan.json for intelligent column selection
-        viz_plan_path = outputs_dir / "visualization_plan.json"
+        viz_plan_path = outputs_dir / "internal" / "visualization_plan.json"
         if viz_plan_path.exists():
             import json
             viz_plan = json.loads(viz_plan_path.read_text())

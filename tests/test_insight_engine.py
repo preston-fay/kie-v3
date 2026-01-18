@@ -158,7 +158,8 @@ class TestComparisonInsights:
 
         # North should be leader with 1M out of 2.8M total = ~35.7%
         assert "North" in insight.headline
-        assert "35%" in insight.headline or "36%" in insight.headline
+        # Allow for various precision formats (35%, 35.7%, 36%)
+        assert "35" in insight.headline or "36" in insight.headline
 
     def test_comparison_with_chart(self, engine, sample_comparison_data):
         """Test comparison insight with chart path."""

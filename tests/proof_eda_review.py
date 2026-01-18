@@ -98,7 +98,7 @@ West,Widget A,118000,75000,2024-02-15
         print("STEP 4: Verify EDA Review Artifact Produced")
         print("=" * 70)
 
-        review_path = workspace / "outputs" / "eda_review.md"
+        review_path = workspace / "outputs" / "internal" / "eda_review.md"
 
         if not review_path.exists():
             print(f"❌ FAIL: eda_review.md not found at {review_path}")
@@ -200,7 +200,7 @@ West,Widget A,118000,75000,2024-02-15
         print("STEP 7: Verify JSON Artifact")
         print("=" * 70)
 
-        json_path = workspace / "outputs" / "eda_review.json"
+        json_path = workspace / "outputs" / "internal" / "eda_review.json"
 
         if not json_path.exists():
             print(f"❌ FAIL: eda_review.json not found at {json_path}")

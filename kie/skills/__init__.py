@@ -35,6 +35,7 @@ from kie.skills.story_manifest import StoryManifestSkill
 from kie.skills.visual_qc import VisualQCSkill
 from kie.skills.visualization_planner import VisualizationPlannerSkill
 from kie.skills.visual_storyboard import VisualStoryboardSkill
+from kie.skills.code_simplifier import CodeSimplifierSkill
 
 # Auto-register skills
 register_skill(ActionabilityScoringSkill())
@@ -57,6 +58,7 @@ register_skill(StoryManifestSkill())
 register_skill(VisualQCSkill())
 register_skill(VisualizationPlannerSkill())
 register_skill(VisualStoryboardSkill())
+register_skill(CodeSimplifierSkill())
 
 __all__ = [
     "Skill",
@@ -85,4 +87,5 @@ __all__ = [
     "VisualQCSkill",
     "VisualizationPlannerSkill",
     "VisualStoryboardSkill",
+    "CodeSimplifierSkill",
 ]

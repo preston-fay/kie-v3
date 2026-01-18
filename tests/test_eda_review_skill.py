@@ -50,6 +50,8 @@ def test_eda_review_skill_execution_success():
     with tempfile.TemporaryDirectory() as temp_dir:
         project_root = Path(temp_dir)
         outputs_dir = project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
         # Create mock EDA profile
@@ -72,7 +74,7 @@ def test_eda_review_skill_execution_success():
             },
         }
 
-        profile_path = outputs_dir / "eda_profile.yaml"
+        profile_path = internal_dir / "eda_profile.yaml"
         with open(profile_path, "w") as f:
             yaml.dump(profile, f)
 
@@ -136,6 +138,8 @@ def test_eda_review_skill_graceful_failure():
     with tempfile.TemporaryDirectory() as temp_dir:
         project_root = Path(temp_dir)
         outputs_dir = project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
         # Execute skill WITHOUT creating profile
@@ -177,6 +181,8 @@ def test_eda_review_skill_deterministic_output():
     with tempfile.TemporaryDirectory() as temp_dir:
         project_root = Path(temp_dir)
         outputs_dir = project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
         # Create profile
@@ -199,7 +205,7 @@ def test_eda_review_skill_deterministic_output():
             },
         }
 
-        profile_path = outputs_dir / "eda_profile.yaml"
+        profile_path = internal_dir / "eda_profile.yaml"
         with open(profile_path, "w") as f:
             yaml.dump(profile, f)
 
@@ -243,6 +249,8 @@ def test_eda_review_skill_no_rails_mutation():
     with tempfile.TemporaryDirectory() as temp_dir:
         project_root = Path(temp_dir)
         outputs_dir = project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
         # Create Rails state
@@ -259,7 +267,7 @@ def test_eda_review_skill_no_rails_mutation():
             "issues": {"high_null_columns": [], "constant_columns": [], "high_cardinality_columns": []},
         }
 
-        profile_path = outputs_dir / "eda_profile.yaml"
+        profile_path = internal_dir / "eda_profile.yaml"
         with open(profile_path, "w") as f:
             yaml.dump(profile, f)
 
@@ -296,6 +304,8 @@ def test_eda_review_skill_references_data_file():
     with tempfile.TemporaryDirectory() as temp_dir:
         project_root = Path(temp_dir)
         outputs_dir = project_root / "outputs"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
         outputs_dir.mkdir(parents=True, exist_ok=True)
 
         # Create profile
@@ -306,7 +316,7 @@ def test_eda_review_skill_references_data_file():
             "issues": {"high_null_columns": [], "constant_columns": [], "high_cardinality_columns": []},
         }
 
-        profile_path = outputs_dir / "eda_profile.yaml"
+        profile_path = internal_dir / "eda_profile.yaml"
         with open(profile_path, "w") as f:
             yaml.dump(profile, f)
 

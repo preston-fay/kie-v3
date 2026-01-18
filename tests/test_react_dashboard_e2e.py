@@ -108,11 +108,12 @@ def test_react_builder_with_schema(sample_csv, temp_project):
     assert (result_dir / "src" / "Dashboard.tsx").exists()
     assert (result_dir / "public" / "data.csv").exists()
 
-    # Verify Dashboard.tsx uses dynamic column names
+    # Verify Dashboard.tsx uses KDS story manifest pattern
     dashboard_content = (result_dir / "src" / "Dashboard.tsx").read_text()
-    assert 'DataRow' in dashboard_content  # Uses generated interface
-    assert 'company' in dashboard_content  # Entity column
-    assert 'performance_score' in dashboard_content or 'revenue_millions' in dashboard_content  # Metrics
+    # KDS dashboard uses story manifest pattern, not DataRow
+    assert 'StoryManifest' in dashboard_content  # Uses KDS story pattern
+    assert 'Visual' in dashboard_content  # Visual interface
+    assert 'Section' in dashboard_content  # Section interface
 
 
 def test_react_builder_fallback_without_schema(sample_csv, temp_project):
@@ -140,9 +141,9 @@ def test_react_builder_fallback_without_schema(sample_csv, temp_project):
     assert result_dir.exists()
     assert (result_dir / "src" / "Dashboard.tsx").exists()
 
-    # Verify fallback uses hardcoded interface
+    # Verify fallback still uses KDS story manifest pattern (same as with schema)
     dashboard_content = (result_dir / "src" / "Dashboard.tsx").read_text()
-    assert 'interface DataRow' in dashboard_content
+    assert 'StoryManifest' in dashboard_content  # KDS pattern regardless of schema
 
 
 def test_npm_install_succeeds(sample_csv, temp_project):

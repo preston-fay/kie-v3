@@ -147,6 +147,7 @@ def test_showcase_run_generates_wow_stack(tmp_path):
     outputs_dir = tmp_path / "outputs"
 
     # Check for WOW Stack artifacts
+    # Showcase mode writes insights_catalog.json directly to outputs/ (not internal/)
     assert (outputs_dir / "insights_catalog.json").exists()
     assert (outputs_dir / "insight_triage.json").exists()
     assert (outputs_dir / "insight_triage.md").exists()

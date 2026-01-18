@@ -27,7 +27,8 @@ def demo_wow_factor():
 
         # Setup workspace
         outputs_dir = tmp_path / "outputs"
-        outputs_dir.mkdir()
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
         project_state_dir = tmp_path / "project_state"
         project_state_dir.mkdir()
         evidence_dir = project_state_dir / "evidence_ledger"
@@ -107,7 +108,7 @@ def demo_wow_factor():
             },
         }
 
-        catalog_path = outputs_dir / "insights_catalog.json"
+        catalog_path = internal_dir / "insights_catalog.json"
         catalog_path.write_text(json.dumps(catalog_data, indent=2))
 
         # Create evidence ledger entries

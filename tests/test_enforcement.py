@@ -111,7 +111,7 @@ def test_analyze_requires_eda_profile(tmp_path):
 
     assert result.is_blocked
     assert "Cannot analyze without EDA profile" in result.message
-    assert result.missing_prerequisite == "outputs/eda_profile.json"
+    assert result.missing_prerequisite == "outputs/internal/eda_profile.json or .yaml"
     assert "/eda" in result.recovery_steps[0]
 
 
@@ -121,8 +121,9 @@ def test_analyze_allows_with_eda_profile(tmp_path):
 
     # Create EDA profile
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
-    (outputs_dir / "eda_profile.json").write_text('{"test": "data"}')
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+    (internal_dir / "eda_profile.json").write_text('{"test": "data"}')
 
     result = engine.evaluate_preconditions("analyze", "eda", {})
 
@@ -148,8 +149,9 @@ def test_build_allows_with_insights_catalog(tmp_path):
 
     # Create insights catalog
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
-    (outputs_dir / "insights_catalog.json").write_text('{"test": "data"}')
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+    (internal_dir / "insights_catalog.json").write_text('{"test": "data"}')
 
     result = engine.evaluate_preconditions("build", "analyze", {})
 

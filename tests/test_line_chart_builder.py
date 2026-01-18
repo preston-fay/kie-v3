@@ -41,8 +41,8 @@ class TestLineChartBuilderBasics:
         assert config.chart_type == 'line'
         assert len(config.data) == 4
         assert config.title == 'Monthly Sales'
-        assert config.data[0]['month'] == 'Jan'
-        assert config.data[0]['sales'] == 1200
+        assert config.data[0]['Month'] == 'Jan'
+        assert config.data[0]['Sales'] == 1200
 
     def test_line_chart_with_list_of_dicts(self):
         """Test line chart with list of dicts input."""
@@ -57,7 +57,7 @@ class TestLineChartBuilderBasics:
 
         assert config.chart_type == 'line'
         assert len(config.data) == 3
-        assert config.data[1]['revenue'] == 120
+        assert config.data[1]['Revenue'] == 120
 
     def test_multi_series_line_chart(self):
         """Test line chart with multiple series."""
@@ -82,9 +82,9 @@ class TestLineChartBuilderBasics:
         # Check that three lines are configured
         lines = config.config.get('lines', [])
         assert len(lines) == 3
-        assert lines[0]['dataKey'] == 'revenue'
-        assert lines[1]['dataKey'] == 'cost'
-        assert lines[2]['dataKey'] == 'profit'
+        assert lines[0]['dataKey'] == 'Revenue'
+        assert lines[1]['dataKey'] == 'Cost'
+        assert lines[2]['dataKey'] == 'Profit'
 
     def test_single_y_key_as_string(self):
         """Test that single y_key can be passed as string."""
@@ -98,7 +98,7 @@ class TestLineChartBuilderBasics:
 
         lines = config.config['lines']
         assert len(lines) == 1
-        assert lines[0]['dataKey'] == 'y'
+        assert lines[0]['dataKey'] == 'Y'
 
 
 class TestCurveTypes:
@@ -480,7 +480,7 @@ class TestDateHandling:
         config = builder.build(data, x_key='date', y_keys='value', title='Time Series')
 
         assert config.chart_type == 'line'
-        assert config.data[0]['date'] == '2024-01-01'
+        assert config.data[0]['Date'] == '2024-01-01'
 
     def test_datetime_objects(self):
         """Test line chart with datetime objects."""
@@ -495,7 +495,7 @@ class TestDateHandling:
         # Datetime objects should be serializable
         assert len(config.data) == 5
         # First value should be timestamp (may be serialized as string)
-        assert 'timestamp' in config.data[0]
+        assert 'Timestamp' in config.data[0]
 
     def test_month_names_x_axis(self):
         """Test typical monthly trend chart."""
@@ -534,7 +534,7 @@ class TestEdgeCases:
         config = builder.build(data, x_key='x', y_keys='y')
 
         assert len(config.data) == 1
-        assert config.data[0]['y'] == 100
+        assert config.data[0]['Y'] == 100
 
     def test_two_data_points(self):
         """Test chart with two data points (minimum for a line)."""
@@ -573,8 +573,8 @@ class TestEdgeCases:
         config = builder.build(data, x_key='x', y_keys='y')
 
         assert len(config.data) == 4
-        assert config.data[0]['y'] == 0
-        assert config.data[2]['y'] == 0
+        assert config.data[0]['Y'] == 0
+        assert config.data[2]['Y'] == 0
 
     def test_negative_values(self):
         """Test handling of negative values."""
@@ -586,8 +586,8 @@ class TestEdgeCases:
         builder = LineChartBuilder()
         config = builder.build(data, x_key='x', y_keys='y')
 
-        assert config.data[0]['y'] == -10
-        assert config.data[2]['y'] == -5
+        assert config.data[0]['Y'] == -10
+        assert config.data[2]['Y'] == -5
 
     def test_large_dataset(self):
         """Test handling of large dataset."""
@@ -613,7 +613,7 @@ class TestEdgeCases:
 
         # Should preserve data structure (None values will be in data)
         assert len(config.data) == 5
-        assert config.data[0]['y'] == 10
+        assert config.data[0]['Y'] == 10
 
 
 class TestJSONSerialization:

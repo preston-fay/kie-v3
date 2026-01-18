@@ -62,6 +62,7 @@ class KIEClient:
 - `/build [target]` - Build deliverables (all, presentation, dashboard)
 - `/preview` - Preview outputs
 - `/doctor` - Check workspace health and detect package collisions
+- `/simplify [path]` - Analyze code for clarity and simplification
 - `/help` - Show this help
 - `/quit` or `/exit` - Exit KIE
 
@@ -88,6 +89,7 @@ Type a command to get started!
             print("  /build [target]- Build deliverables")
             print("  /preview       - Preview outputs")
             print("  /doctor        - Check workspace health")
+            print("  /simplify      - Analyze code for clarity")
             print("  /help          - Show this help")
             print("  /quit or /exit - Exit KIE")
             print()
@@ -290,6 +292,10 @@ Type a command to get started!
                 result = self.handler.handle_preview(show_internal=True)
             elif cmd == "/doctor":
                 result = self.handler.handle_doctor()
+            elif cmd == "/simplify":
+                # Parse optional path argument
+                target_path = args if args else None
+                result = self.handler.handle_simplify(path=target_path)
             elif cmd == "/template":
                 result = self.handler.handle_template()
             elif cmd == "/intent":
@@ -508,7 +514,7 @@ def main() -> None:
 
         # Check if it's a known command (without slash prefix for CLI)
         known_commands = ["go", "startkie", "status", "intent", "spec", "interview", "eda",
-                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck", "rails", "theme", "freeform", "sampledata"]
+                        "analyze", "map", "validate", "build", "preview", "doctor", "template", "help", "railscheck", "rails", "theme", "freeform", "sampledata", "simplify"]
 
         if arg in known_commands or arg == "railscheck":
             # It's a command - execute and exit

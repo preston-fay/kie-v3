@@ -134,14 +134,15 @@ def test_skill_fails_without_triage(temp_project, sample_viz_plan):
     """Test that skill fails cleanly if insight_triage.json missing."""
     # Create viz plan but not triage
     outputs_dir = temp_project / "outputs"
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
     context = SkillContext(
         project_root=temp_project,
         current_stage="analyze",
-        artifacts={"visualization_plan": outputs_dir / "visualization_plan.json"},
+        artifacts={"visualization_plan": outputs_dir / "internal" / "visualization_plan.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -157,8 +158,10 @@ def test_skill_generates_storyboard_with_all_inputs(
     """Test that skill generates storyboard when all inputs available."""
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -166,8 +169,8 @@ def test_skill_generates_storyboard_with_all_inputs(
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )
@@ -183,8 +186,10 @@ def test_deterministic_ordering(temp_project, sample_triage_data, sample_viz_pla
     """Test that same inputs produce same outputs."""
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -192,8 +197,8 @@ def test_deterministic_ordering(temp_project, sample_triage_data, sample_viz_pla
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )
@@ -202,9 +207,9 @@ def test_deterministic_ordering(temp_project, sample_triage_data, sample_viz_pla
     result1 = skill.execute(context)
     storyboard1_json = json.loads(Path(result1.artifacts["visual_storyboard_json"]).read_text())
 
-    # Delete outputs
-    (outputs_dir / "visual_storyboard.json").unlink()
-    (outputs_dir / "visual_storyboard.md").unlink()
+    # Delete outputs (JSON in internal/, MD in deliverables/)
+    (outputs_dir / "internal" / "visual_storyboard.json").unlink()
+    (outputs_dir / "deliverables" / "visual_storyboard.md").unlink()
 
     # Second run
     result2 = skill.execute(context)
@@ -232,8 +237,10 @@ def test_suppressed_insights_never_appear(temp_project, sample_triage_data, samp
 
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -241,8 +248,8 @@ def test_suppressed_insights_never_appear(temp_project, sample_triage_data, samp
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )
@@ -263,7 +270,7 @@ def test_suppressed_insights_never_appear(temp_project, sample_triage_data, samp
 
 
 def test_visual_count_limit_enforced(temp_project, sample_triage_data):
-    """Test that visual count limit (≤6) is enforced."""
+    """Test that all insights with visualizations are included (no arbitrary limit)."""
     # Create 8 visualizations
     viz_plan = {
         "generated_at": "2026-01-11T12:00:00",
@@ -298,8 +305,10 @@ def test_visual_count_limit_enforced(temp_project, sample_triage_data):
 
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -307,8 +316,8 @@ def test_visual_count_limit_enforced(temp_project, sample_triage_data):
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )
@@ -319,16 +328,18 @@ def test_visual_count_limit_enforced(temp_project, sample_triage_data):
 
     storyboard_json = json.loads(Path(result.artifacts["visual_storyboard_json"]).read_text())
 
-    # Should have ≤6 visuals
-    assert storyboard_json["total_visuals"] <= 6
+    # Should include all 8 visuals (limit removed per user request)
+    assert storyboard_json["total_visuals"] == 8
 
 
 def test_multiple_chart_types_sequenced(temp_project, sample_triage_data, sample_viz_plan):
     """Test that multiple chart types are sequenced correctly."""
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -336,8 +347,8 @@ def test_multiple_chart_types_sequenced(temp_project, sample_triage_data, sample
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )
@@ -365,8 +376,10 @@ def test_no_rails_state_mutation(temp_project, sample_triage_data, sample_viz_pl
 
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -374,8 +387,8 @@ def test_no_rails_state_mutation(temp_project, sample_triage_data, sample_viz_pl
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )
@@ -400,8 +413,10 @@ def test_truth_gate_artifacts_exist(temp_project, sample_triage_data, sample_viz
     """Test that all claimed artifacts actually exist."""
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -409,8 +424,8 @@ def test_truth_gate_artifacts_exist(temp_project, sample_triage_data, sample_viz
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )
@@ -429,8 +444,10 @@ def test_sections_follow_mandatory_order(temp_project, sample_triage_data, sampl
     """Test that sections follow the mandatory order."""
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -438,8 +455,8 @@ def test_sections_follow_mandatory_order(temp_project, sample_triage_data, sampl
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )
@@ -474,8 +491,10 @@ def test_artifact_classification_internal(temp_project, sample_triage_data, samp
     """Test that artifacts are marked as INTERNAL."""
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -483,8 +502,8 @@ def test_artifact_classification_internal(temp_project, sample_triage_data, samp
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )
@@ -507,8 +526,10 @@ def test_visual_diversity_enforced(temp_project, sample_triage_data, sample_viz_
     """Test that visual diversity is tracked and enforced."""
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(json.dumps(sample_triage_data, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps(sample_viz_plan, indent=2))
 
     skill = VisualStoryboardSkill()
 
@@ -516,8 +537,8 @@ def test_visual_diversity_enforced(temp_project, sample_triage_data, sample_viz_
         project_root=temp_project,
         current_stage="analyze",
         artifacts={
-            "insight_triage": outputs_dir / "insight_triage.json",
-            "visualization_plan": outputs_dir / "visualization_plan.json",
+            "insight_triage": outputs_dir / "internal" / "insight_triage.json",
+            "visualization_plan": outputs_dir / "internal" / "visualization_plan.json",
         },
         evidence_ledger_id="test_run"
     )

@@ -52,12 +52,12 @@ class EDAReviewSkill(Skill):
         """
         outputs_dir = context.project_root / "outputs"
 
-        # Load EDA profile
-        eda_profile_path = outputs_dir / "eda_profile.yaml"
+        # Load EDA profile (artifacts are in outputs/internal/)
+        eda_profile_path = outputs_dir / "internal" / "eda_profile.yaml"
 
         if not eda_profile_path.exists():
             # Try JSON fallback
-            eda_profile_path = outputs_dir / "eda_profile.json"
+            eda_profile_path = outputs_dir / "internal" / "eda_profile.json"
 
         if not eda_profile_path.exists():
             return self._generate_failure_doc(outputs_dir)
@@ -72,7 +72,7 @@ class EDAReviewSkill(Skill):
                     profile = yaml.safe_load(f)
             except yaml.YAMLError:
                 # Fallback: Try JSON format if YAML has numpy objects
-                json_path = outputs_dir / "eda_profile.json"
+                json_path = outputs_dir / "internal" / "eda_profile.json"
                 if json_path.exists():
                     with open(json_path) as f:
                         profile = json.load(f)

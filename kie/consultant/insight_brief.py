@@ -18,6 +18,7 @@ from typing import Any
 import yaml
 
 from kie.insights import InsightCatalog, InsightSeverity, InsightCategory
+from kie.paths import ArtifactPaths
 
 
 class InsightBriefGenerator:
@@ -49,9 +50,10 @@ class InsightBriefGenerator:
         Returns:
             Result dictionary with brief path and content
         """
-        # Load artifacts
-        insights_catalog_path = self.outputs_dir / "insights_catalog.json"
-        eda_profile_path = self.outputs_dir / "eda_profile.json"
+        # Load artifacts using centralized paths
+        paths = ArtifactPaths(self.project_root)
+        insights_catalog_path = paths.insights_catalog()
+        eda_profile_path = paths.eda_profile_json()
 
         if not insights_catalog_path.exists():
             return {

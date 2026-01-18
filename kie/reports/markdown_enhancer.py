@@ -127,6 +127,9 @@ def create_insight_distribution_table(
     strength_counts = {}
     for insight in insights:
         strength = insight.get(strength_key, "supporting")
+        # Handle dict values (e.g., confidence: {"numeric": 0.85, "label": "HIGH"})
+        if isinstance(strength, dict):
+            strength = strength.get("label", "supporting").lower()
         strength_counts[strength] = strength_counts.get(strength, 0) + 1
 
     total = len(insights)

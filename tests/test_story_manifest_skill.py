@@ -23,10 +23,12 @@ def test_story_manifest_requires_insight_triage(tmp_path):
     project_state_dir.mkdir()
 
     # Create all required inputs EXCEPT insight_triage
-    (outputs_dir / "visual_storyboard.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visual_storyboard.json").write_text(
         json.dumps({"elements": []})
     )
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
     (outputs_dir / "executive_summary.md").write_text("# Summary\n")
     (project_state_dir / "intent.yaml").write_text("objective: Test\n")
 
@@ -53,10 +55,14 @@ def test_story_manifest_requires_visual_storyboard(tmp_path):
     project_state_dir.mkdir()
 
     # Create all required inputs EXCEPT visual_storyboard
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps({"judged_insights": []})
     )
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal" / "actionability_scores.json").write_text(json.dumps({"insights": [], "summary": {}}))
+    (outputs_dir / "internal" / "visual_qc.json").write_text(json.dumps({"checks": []}))
     (outputs_dir / "executive_summary.md").write_text("# Summary\n")
     (project_state_dir / "intent.yaml").write_text("objective: Test\n")
 
@@ -101,11 +107,16 @@ def test_story_manifest_requires_charts_exist(tmp_path):
         ]
     }
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps({"judged_insights": []})
     )
-    (outputs_dir / "visual_storyboard.json").write_text(json.dumps(storyboard))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visual_storyboard.json").write_text(json.dumps(storyboard))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal" / "actionability_scores.json").write_text(json.dumps({"insights": [], "summary": {}}))
+    (outputs_dir / "internal" / "visual_qc.json").write_text(json.dumps({"checks": []}))
     (outputs_dir / "executive_summary.md").write_text("# Summary\n")
     (project_state_dir / "intent.yaml").write_text("objective: Test\n")
 
@@ -162,7 +173,8 @@ def test_story_manifest_deterministic_output(tmp_path):
         ]
     }
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(
             {
                 "judged_insights": [
@@ -175,8 +187,12 @@ def test_story_manifest_deterministic_output(tmp_path):
             }
         )
     )
-    (outputs_dir / "visual_storyboard.json").write_text(json.dumps(storyboard))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visual_storyboard.json").write_text(json.dumps(storyboard))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal" / "actionability_scores.json").write_text(json.dumps({"insights": [], "summary": {}}))
+    (outputs_dir / "internal" / "visual_qc.json").write_text(json.dumps({"checks": []}))
     (outputs_dir / "executive_summary.md").write_text("# Summary\n- Bullet 1\n")
     (project_state_dir / "intent.yaml").write_text("objective: Test objective\n")
 
@@ -196,9 +212,10 @@ def test_story_manifest_deterministic_output(tmp_path):
     with open(manifest1_path) as f:
         manifest1 = json.load(f)
 
-    # Delete manifest
+    # Delete manifest (JSON in outputs/, MD in deliverables/)
     manifest1_path.unlink()
-    (outputs_dir / "story_manifest.md").unlink()
+    (outputs_dir / "internal" / "story_manifest.json").unlink()
+    (outputs_dir / "deliverables" / "story_manifest.md").unlink()
 
     # Run again
     result2 = skill.execute(context)
@@ -288,11 +305,16 @@ def test_story_manifest_section_order(tmp_path):
         ]
     }
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps({"judged_insights": []})
     )
-    (outputs_dir / "visual_storyboard.json").write_text(json.dumps(storyboard))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visual_storyboard.json").write_text(json.dumps(storyboard))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal" / "actionability_scores.json").write_text(json.dumps({"insights": [], "summary": {}}))
+    (outputs_dir / "internal" / "visual_qc.json").write_text(json.dumps({"checks": []}))
     (outputs_dir / "executive_summary.md").write_text("# Summary\n- Finding 1\n")
     (project_state_dir / "intent.yaml").write_text("objective: Test objective\n")
 
@@ -371,7 +393,8 @@ def test_story_manifest_includes_actionability_annotations(tmp_path):
             "informational_count": 0,
         },
     }
-    (outputs_dir / "actionability_scores.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "actionability_scores.json").write_text(
         json.dumps(actionability_scores)
     )
 
@@ -392,13 +415,14 @@ def test_story_manifest_includes_actionability_annotations(tmp_path):
         ]
     }
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(
             {
-                "judged_insights": [
+                "top_insights": [
                     {
                         "insight_id": "test-1",
-                        "headline": "Critical Finding",
+                        "title": "Critical Finding",
                         "confidence": "high",
                         "severity": "Key",
                     }
@@ -406,8 +430,11 @@ def test_story_manifest_includes_actionability_annotations(tmp_path):
             }
         )
     )
-    (outputs_dir / "visual_storyboard.json").write_text(json.dumps(storyboard))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visual_storyboard.json").write_text(json.dumps(storyboard))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal" / "visual_qc.json").write_text(json.dumps({"checks": []}))
     (outputs_dir / "executive_summary.md").write_text("# Summary\\n- Finding 1\\n")
     (project_state_dir / "intent.yaml").write_text("objective: Test objective\\n")
 
@@ -491,7 +518,8 @@ def test_story_manifest_includes_visual_quality_annotations(tmp_path):
             "internal_only": 1,
         },
     }
-    (outputs_dir / "visual_qc.json").write_text(json.dumps(visual_qc))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visual_qc.json").write_text(json.dumps(visual_qc))
 
     # Create actionability scores
     actionability_scores = {
@@ -510,7 +538,8 @@ def test_story_manifest_includes_visual_quality_annotations(tmp_path):
             "informational_count": 1,
         },
     }
-    (outputs_dir / "actionability_scores.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "actionability_scores.json").write_text(
         json.dumps(actionability_scores)
     )
 
@@ -531,13 +560,14 @@ def test_story_manifest_includes_visual_quality_annotations(tmp_path):
         ]
     }
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(
             {
-                "judged_insights": [
+                "top_insights": [
                     {
                         "insight_id": "test-1",
-                        "headline": "Test Finding",
+                        "title": "Test Finding",
                         "confidence": "low",
                         "severity": "Supporting",
                     }
@@ -545,8 +575,10 @@ def test_story_manifest_includes_visual_quality_annotations(tmp_path):
             }
         )
     )
-    (outputs_dir / "visual_storyboard.json").write_text(json.dumps(storyboard))
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visual_storyboard.json").write_text(json.dumps(storyboard))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
     (outputs_dir / "executive_summary.md").write_text("# Summary\n- Finding 1\n")
     (project_state_dir / "intent.yaml").write_text("objective: Test objective\n")
 

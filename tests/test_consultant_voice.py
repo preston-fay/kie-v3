@@ -110,7 +110,10 @@ It is interesting to note that revenue really shows strong growth.
 
 - Data is quite limited
 """
-    (outputs_dir / "executive_summary.md").write_text(summary)
+    # Skill reads from internal/ directory
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+    (internal_dir / "executive_summary.md").write_text(summary)
 
     # Execute skill
     skill = ConsultantVoiceSkill()
@@ -123,10 +126,12 @@ It is interesting to note that revenue really shows strong growth.
     result = skill.execute(context)
 
     assert result.success
-    assert (outputs_dir / "executive_summary_consultant.md").exists()
+    # Output goes to deliverables/ directory
+    deliverables_dir = outputs_dir / "deliverables"
+    assert (deliverables_dir / "executive_summary_consultant.md").exists()
 
     # Check polished version
-    polished = (outputs_dir / "executive_summary_consultant.md").read_text()
+    polished = (deliverables_dir / "executive_summary_consultant.md").read_text()
 
     # Filler removed
     assert "very" not in polished
@@ -148,8 +153,12 @@ def test_consultant_voice_generates_diff_summary(tmp_path):
     outputs_dir = tmp_path / "outputs"
     outputs_dir.mkdir()
 
+    # Skill reads from internal/ directory
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+
     summary = "The data is very interesting and really shows growth."
-    (outputs_dir / "executive_summary.md").write_text(summary)
+    (internal_dir / "executive_summary.md").write_text(summary)
 
     skill = ConsultantVoiceSkill()
     context = SkillContext(
@@ -161,9 +170,11 @@ def test_consultant_voice_generates_diff_summary(tmp_path):
     result = skill.execute(context)
 
     assert result.success
-    assert (outputs_dir / "consultant_voice.md").exists()
+    # Diff output goes to deliverables/ directory
+    deliverables_dir = outputs_dir / "deliverables"
+    assert (deliverables_dir / "consultant_voice.md").exists()
 
-    diff = (outputs_dir / "consultant_voice.md").read_text()
+    diff = (deliverables_dir / "consultant_voice.md").read_text()
 
     # Should contain diff info
     assert "executive_summary.md" in diff
@@ -197,6 +208,10 @@ def test_consultant_voice_no_changes_if_already_clean(tmp_path):
     outputs_dir = tmp_path / "outputs"
     outputs_dir.mkdir()
 
+    # Skill reads from internal/ directory
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+
     # Already consultant-grade text
     clean_summary = """# Executive Summary
 
@@ -205,7 +220,7 @@ Revenue indicates strong Q3 performance.
 - Sales increased 25% year-over-year
 - Margins expanded to 30%
 """
-    (outputs_dir / "executive_summary.md").write_text(clean_summary)
+    (internal_dir / "executive_summary.md").write_text(clean_summary)
 
     skill = ConsultantVoiceSkill()
     context = SkillContext(
@@ -219,7 +234,9 @@ Revenue indicates strong Q3 performance.
     assert result.success
 
     # Check if polished version is similar (may have minor whitespace changes)
-    polished = (outputs_dir / "executive_summary_consultant.md").read_text()
+    # Output goes to deliverables/ directory
+    deliverables_dir = outputs_dir / "deliverables"
+    polished = (deliverables_dir / "executive_summary_consultant.md").read_text()
     assert "Revenue indicates strong Q3 performance" in polished
     assert "25%" in polished
     assert "30%" in polished
@@ -230,12 +247,16 @@ def test_consultant_voice_preserves_all_insight_references(tmp_path):
     outputs_dir = tmp_path / "outputs"
     outputs_dir.mkdir()
 
+    # Skill reads from internal/ directory
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+
     summary = """# Executive Summary
 
 It really shows that insight-1 indicates revenue growth.
 The data very clearly suggests insight-2 implies cost reduction.
 """
-    (outputs_dir / "executive_summary.md").write_text(summary)
+    (internal_dir / "executive_summary.md").write_text(summary)
 
     skill = ConsultantVoiceSkill()
     context = SkillContext(
@@ -246,7 +267,9 @@ The data very clearly suggests insight-2 implies cost reduction.
 
     result = skill.execute(context)
 
-    polished = (outputs_dir / "executive_summary_consultant.md").read_text()
+    # Output goes to deliverables/ directory
+    deliverables_dir = outputs_dir / "deliverables"
+    polished = (deliverables_dir / "executive_summary_consultant.md").read_text()
 
     # Insight references must be preserved
     assert "insight-1" in polished

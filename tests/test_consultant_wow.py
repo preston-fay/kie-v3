@@ -36,7 +36,8 @@ def test_insight_brief_generates_from_catalog(tmp_path):
     """Test Insight Brief generates from insights catalog."""
     # Setup outputs directory
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Create minimal insights catalog
     catalog_data = {
@@ -65,7 +66,7 @@ def test_insight_brief_generates_from_catalog(tmp_path):
         "data_summary": {"row_count": 1000, "column_count": 5},
     }
 
-    catalog_path = outputs_dir / "insights_catalog.json"
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(catalog_data))
 
     # Generate brief
@@ -94,7 +95,8 @@ def test_insight_brief_generates_from_catalog(tmp_path):
 def test_insight_brief_cites_evidence(tmp_path):
     """Test Insight Brief cites evidence with artifacts."""
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Create catalog with evidence
     catalog_data = {
@@ -117,7 +119,7 @@ def test_insight_brief_cites_evidence(tmp_path):
         "data_summary": {},
     }
 
-    catalog_path = outputs_dir / "insights_catalog.json"
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(catalog_data))
 
     # Generate brief
@@ -136,7 +138,8 @@ def test_insight_brief_cites_evidence(tmp_path):
 def test_insight_brief_identifies_limitations(tmp_path):
     """Test Insight Brief identifies data limitations."""
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Create catalog with low confidence insight
     catalog_data = {
@@ -158,7 +161,7 @@ def test_insight_brief_identifies_limitations(tmp_path):
         "data_summary": {"row_count": 50},  # Small sample
     }
 
-    catalog_path = outputs_dir / "insights_catalog.json"
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(catalog_data))
 
     gen = InsightBriefGenerator(tmp_path)
@@ -203,8 +206,9 @@ def test_next_steps_after_eda_with_profile(tmp_path):
     """Test next steps suggest analyze after successful EDA."""
     # Create outputs with EDA profile AND spec.yaml (intent required)
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
-    (outputs_dir / "eda_profile.json").write_text('{"test": "data"}')
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+    (internal_dir / "eda_profile.json").write_text('{"test": "data"}')
 
     # Create spec.yaml to satisfy intent requirement
     state_dir = tmp_path / "project_state"
@@ -225,8 +229,9 @@ def test_next_steps_after_analyze(tmp_path):
     """Test next steps suggest build after analyze."""
     # Create outputs with insights catalog
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
-    (outputs_dir / "insights_catalog.json").write_text('{"insights": []}')
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+    (internal_dir / "insights_catalog.json").write_text('{"insights": []}')
 
     advisor = NextStepsAdvisor(tmp_path)
     steps = advisor.generate_next_steps("analyze", {"success": True})
@@ -288,7 +293,8 @@ def test_run_story_generates_from_ledger(tmp_path):
 
     # Create outputs directory
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Create ledger entry
     ledger_data = {
@@ -333,7 +339,8 @@ def test_run_story_includes_insights_if_available(tmp_path):
     evidence_dir = tmp_path / "project_state" / "evidence_ledger"
     evidence_dir.mkdir(parents=True)
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Create ledger
     ledger_data = {
@@ -355,7 +362,7 @@ def test_run_story_includes_insights_if_available(tmp_path):
             }
         ]
     }
-    (outputs_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
+    (internal_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
 
     # Generate story
     gen = RunStoryGenerator(tmp_path)
@@ -372,7 +379,8 @@ def test_run_story_evidence_backed(tmp_path):
     evidence_dir = tmp_path / "project_state" / "evidence_ledger"
     evidence_dir.mkdir(parents=True)
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Create ledger with outputs
     ledger_data = {
@@ -427,7 +435,8 @@ def test_wow_features_never_block_commands(tmp_path):
 def test_wow_features_cite_only_real_artifacts(tmp_path):
     """Test WOW features only cite artifacts that exist."""
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Create catalog with reference to non-existent chart
     catalog_data = {
@@ -450,7 +459,7 @@ def test_wow_features_cite_only_real_artifacts(tmp_path):
         "data_summary": {},
     }
 
-    (outputs_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
+    (internal_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
 
     # Brief should cite the catalog (which exists) but note if evidence is missing
     gen = InsightBriefGenerator(tmp_path)

@@ -105,14 +105,15 @@ def test_skill_generates_complete_bridge(temp_project, sample_synthesis):
     """Test that skill generates all required sections."""
     # Save synthesis
     outputs_dir = temp_project / "outputs"
-    (outputs_dir / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
 
     skill = EDAAnalysisBridgeSkill()
 
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_synthesis_json": outputs_dir / "eda_synthesis.json"},
+        artifacts={"eda_synthesis_json": outputs_dir / "internal" / "eda_synthesis.json"},
         evidence_ledger_id="test_run",
     )
 
@@ -144,7 +145,8 @@ def test_skill_generates_complete_bridge(temp_project, sample_synthesis):
 def test_bridge_uses_column_reduction_correctly(temp_project, sample_synthesis):
     """Test that bridge uses column_reduction categories correctly."""
     outputs_dir = temp_project / "outputs"
-    (outputs_dir / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
 
     skill = EDAAnalysisBridgeSkill()
 
@@ -182,7 +184,8 @@ def test_bridge_uses_column_reduction_correctly(temp_project, sample_synthesis):
 def test_bridge_contains_decisive_language(temp_project, sample_synthesis):
     """Test that bridge uses decisive language, not speculative."""
     outputs_dir = temp_project / "outputs"
-    (outputs_dir / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
 
     skill = EDAAnalysisBridgeSkill()
 
@@ -209,7 +212,8 @@ def test_bridge_contains_decisive_language(temp_project, sample_synthesis):
 def test_deterministic_output(temp_project, sample_synthesis):
     """Test that output is deterministic for fixed input."""
     outputs_dir = temp_project / "outputs"
-    (outputs_dir / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
 
     skill = EDAAnalysisBridgeSkill()
 
@@ -252,7 +256,8 @@ def test_no_rails_state_mutation(temp_project, sample_synthesis):
 
     # Save synthesis
     outputs_dir = temp_project / "outputs"
-    (outputs_dir / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
 
     skill = EDAAnalysisBridgeSkill()
 
@@ -276,7 +281,8 @@ def test_no_rails_state_mutation(temp_project, sample_synthesis):
 def test_truth_gate_artifacts_exist(temp_project, sample_synthesis):
     """Test that all claimed artifacts actually exist (Truth Gate)."""
     outputs_dir = temp_project / "outputs"
-    (outputs_dir / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
 
     skill = EDAAnalysisBridgeSkill()
 
@@ -302,7 +308,8 @@ def test_truth_gate_artifacts_exist(temp_project, sample_synthesis):
 def test_bridge_recommends_analysis_types(temp_project, sample_synthesis):
     """Test that bridge recommends appropriate analysis types."""
     outputs_dir = temp_project / "outputs"
-    (outputs_dir / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
 
     skill = EDAAnalysisBridgeSkill()
 
@@ -340,7 +347,8 @@ def test_bridge_aligns_to_intent(temp_project, sample_synthesis):
 
     # Save synthesis
     outputs_dir = temp_project / "outputs"
-    (outputs_dir / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "eda_synthesis.json").write_text(json.dumps(sample_synthesis, indent=2))
 
     skill = EDAAnalysisBridgeSkill()
 

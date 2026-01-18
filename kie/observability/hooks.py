@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from kie.observability.evidence_ledger import EvidenceLedger, read_rails_stage, record_artifacts
+from kie.paths import ArtifactPaths
 
 
 class ObservabilityHooks:
@@ -249,15 +250,17 @@ class ObservabilityHooks:
 
             # Build skill context
             outputs_dir = self.project_root / "outputs"
+            paths = ArtifactPaths(self.project_root)
             artifacts = {}
 
-            # Check common artifacts
-            if (outputs_dir / "insights_catalog.json").exists():
-                artifacts["insights_catalog"] = outputs_dir / "insights_catalog.json"
-            elif (outputs_dir / "insights.yaml").exists():
-                artifacts["insights_catalog"] = outputs_dir / "insights.yaml"
-            if (outputs_dir / "eda_profile.json").exists():
-                artifacts["eda_profile"] = outputs_dir / "eda_profile.json"
+            # Check common artifacts (using centralized paths with fallback)
+            insights_catalog_path = paths.insights_catalog()
+            if insights_catalog_path.exists():
+                artifacts["insights_catalog"] = insights_catalog_path
+
+            eda_profile_path = paths.eda_profile_json()
+            if eda_profile_path.exists():
+                artifacts["eda_profile"] = eda_profile_path
             if (outputs_dir / "insight_triage.json").exists():
                 artifacts["insight_triage"] = outputs_dir / "insight_triage.json"
 

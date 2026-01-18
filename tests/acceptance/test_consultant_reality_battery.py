@@ -50,6 +50,11 @@ class ConsultantRealityBattery:
         result = handler.handle_startkie()
         assert result["success"], f"Workspace setup failed: {result.get('message')}"
 
+        # Set chart theme to prevent stdin prompts during EDA
+        from kie.preferences import OutputPreferences
+        prefs = OutputPreferences(project_root)
+        prefs.set_theme("light")
+
     @staticmethod
     def assert_no_stdin_prompts(monkeypatch):
         """Mock input() to catch any stdin attempts (immediate failure)."""
@@ -192,9 +197,11 @@ def test_journey_b_demo_data_opt_in(reality_battery, monkeypatch, capsys):
 
     # Verify skill orchestration: both synthesis and bridge artifacts exist
     outputs_dir = project_root / "outputs"
-    synthesis_json = outputs_dir / "eda_synthesis.json"
-    bridge_json = outputs_dir / "eda_analysis_bridge.json"
-    bridge_md = outputs_dir / "eda_analysis_bridge.md"
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+    synthesis_json = internal_dir / "eda_synthesis.json"
+    bridge_json = internal_dir / "eda_analysis_bridge.json"
+    bridge_md = internal_dir / "eda_analysis_bridge.md"
 
     assert synthesis_json.exists(), "eda_synthesis.json not created"
     assert bridge_json.exists(), "eda_analysis_bridge.json not created"
@@ -257,8 +264,17 @@ def test_journey_c_theme_gate(reality_battery, monkeypatch, capsys):
     with open(spec_path, "w") as f:
         yaml.dump(spec, f)
 
-    # Verify theme NOT set
+    # Clear theme set by setup_workspace to test theme gate
+    # Also clear env var to ensure theme gate triggers
+    import os
+    os.environ.pop("KIE_DEFAULT_THEME", None)
     prefs = OutputPreferences(project_root)
+    # Delete preferences file to clear theme
+    prefs_path = project_root / "project_state" / "output_preferences.yaml"
+    if prefs_path.exists():
+        prefs_path.unlink()
+
+    # Verify theme NOT set
     assert prefs.get_theme() is None
 
     # Attempt /build - should block (NOT crash with EOF)
@@ -337,6 +353,27 @@ def test_journey_d_go_path(reality_battery, monkeypatch, capsys):
     }
     with open(rails_state_path, "w") as f:
         json.dump(rails_state, f)
+
+    # Create required artifacts that /analyze would produce
+    # so that /go can proceed to the theme gate test
+    internal_dir = project_root / "outputs" / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+
+    # Minimal insight_triage.json
+    (internal_dir / "insight_triage.json").write_text('{"insights": []}')
+
+    # Minimal visualization_plan.json
+    (internal_dir / "visualization_plan.json").write_text('{"specifications": []}')
+
+    # Minimal executive_narrative.md
+    (internal_dir / "executive_narrative.md").write_text("# Executive Summary\nDemo narrative.")
+
+    # Clear theme to test theme gate
+    import os
+    os.environ.pop("KIE_DEFAULT_THEME", None)
+    prefs_path = project_root / "project_state" / "output_preferences.yaml"
+    if prefs_path.exists():
+        prefs_path.unlink()
 
     # Try /go --full without theme - should block at build
     result = handler.handle_go(full=True)
@@ -444,8 +481,8 @@ def test_journey_f_large_csv(reality_battery, monkeypatch, capsys):
     result = handler.handle_eda()
     assert result["success"], f"EDA failed on large CSV: {result.get('message')}"
 
-    # Verify profile was created
-    profile_path = project_root / "outputs" / "eda_profile.yaml"
+    # Verify profile was created (now in internal/ directory)
+    profile_path = project_root / "outputs" / "internal" / "eda_profile.yaml"
     reality_battery.assert_artifacts_exist([profile_path])
 
     print("✓ Journey F: Large CSV handled successfully")
@@ -531,9 +568,11 @@ def test_journey_h_chart_rendering_from_viz_plan(reality_battery, monkeypatch):
     # Manually trigger skills to ensure viz plan exists
     from kie.skills import get_registry, SkillContext
     outputs_dir = project_root / "outputs"
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
     artifacts = {}
-    if (outputs_dir / "insights.yaml").exists():
-        artifacts["insights_catalog"] = outputs_dir / "insights.yaml"
+    if (internal_dir / "insights.yaml").exists():
+        artifacts["insights_catalog"] = internal_dir / "insights.yaml"
 
     context = SkillContext(
         project_root=project_root,
@@ -545,8 +584,8 @@ def test_journey_h_chart_rendering_from_viz_plan(reality_battery, monkeypatch):
     registry = get_registry()
     registry.execute_skills_for_stage("analyze", context)
 
-    # Verify visualization_plan.json exists
-    viz_plan_path = outputs_dir / "visualization_plan.json"
+    # Verify visualization_plan.json exists (now in internal/ directory)
+    viz_plan_path = internal_dir / "visualization_plan.json"
     assert viz_plan_path.exists(), "visualization_plan.json missing after analyze"
 
     with open(viz_plan_path) as f:
@@ -560,9 +599,9 @@ def test_journey_h_chart_rendering_from_viz_plan(reality_battery, monkeypatch):
     result = handler.handle_build(target="charts")
     assert result["success"], f"Build failed: {result.get('message')}"
 
-    # Verify charts directory exists
-    charts_dir = outputs_dir / "charts"
-    assert charts_dir.exists(), "charts/ directory not created"
+    # Verify charts directory exists (now in internal/chart_configs/)
+    charts_dir = internal_dir / "chart_configs"
+    assert charts_dir.exists(), "chart_configs/ directory not created"
 
     # Count total visualizations (handle both single and multi-visual specs)
     total_viz_count = 0
@@ -668,7 +707,9 @@ def test_journey_i_freeform_bridge(reality_battery, monkeypatch):
 
     # Verify core bridge functionality: insights_catalog created
     outputs_dir = project_root / "outputs"
-    insights_catalog = outputs_dir / "insights_catalog.json"
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
+    insights_catalog = internal_dir / "insights_catalog.json"
     assert insights_catalog.exists(), "insights_catalog.json not created by bridge"
 
     # Verify freeform catalog created
@@ -680,7 +721,8 @@ def test_journey_i_freeform_bridge(reality_battery, monkeypatch):
     assert notice_file.exists(), "NOTICE.md not created"
 
     # Verify pipeline artifacts created (even if story_manifest fails)
-    assert (outputs_dir / "insight_triage.json").exists(), "insight_triage.json not created"
+    # insight_triage.json is now in internal/ directory
+    assert (internal_dir / "insight_triage.json").exists(), "insight_triage.json not created"
 
     print("✓ Journey I: Freeform bridge works correctly")
 

@@ -142,7 +142,8 @@ def test_insight_brief_produces_identical_output(tmp_path):
     """Test InsightBriefSkill produces IDENTICAL output to old generator."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Create minimal insights catalog
     catalog_data = {
@@ -163,14 +164,14 @@ def test_insight_brief_produces_identical_output(tmp_path):
         "data_summary": {},
     }
 
-    (outputs_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
+    (internal_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
 
     # Execute skill
     skill = InsightBriefSkill()
     context = SkillContext(
         project_root=tmp_path,
         current_stage="analyze",
-        artifacts={"insights_catalog": outputs_dir / "insights_catalog.json"},
+        artifacts={"insights_catalog": internal_dir / "insights_catalog.json"},
     )
 
     result = skill.execute(context)
@@ -191,7 +192,8 @@ def test_insight_brief_produces_identical_output(tmp_path):
 
     # Check content structure (same as before)
     content = brief_md.read_text()
-    assert "# Insight Brief" in content
+    # Brief now starts with "# The Data Landscape" heading
+    assert "# The Data Landscape" in content or "# Insight Brief" in content
     assert "## Executive Summary" in content
     assert "## Key Findings" in content
     assert "## Artifact Provenance" in content
@@ -219,7 +221,8 @@ def test_run_story_produces_identical_output(tmp_path):
     """Test RunStorySkill produces IDENTICAL output to old generator."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
     project_state_dir = tmp_path / "project_state"
     project_state_dir.mkdir()
     evidence_dir = project_state_dir / "evidence_ledger"
@@ -280,21 +283,22 @@ def test_skills_never_mutate_rails_state(tmp_path):
 
     # Create outputs
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
     catalog_data = {
         "generated_at": datetime.now().isoformat(),
         "business_question": "Test",
         "insights": [],
         "data_summary": {},
     }
-    (outputs_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
+    (internal_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
 
     # Execute skill
     skill = InsightBriefSkill()
     context = SkillContext(
         project_root=tmp_path,
         current_stage="analyze",
-        artifacts={"insights_catalog": outputs_dir / "insights_catalog.json"},
+        artifacts={"insights_catalog": internal_dir / "insights_catalog.json"},
     )
 
     skill.execute(context)
@@ -369,7 +373,8 @@ def test_skill_execution_via_registry(tmp_path):
     """Test skills execute correctly via registry."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     catalog_data = {
         "generated_at": datetime.now().isoformat(),
@@ -377,13 +382,13 @@ def test_skill_execution_via_registry(tmp_path):
         "insights": [],
         "data_summary": {},
     }
-    (outputs_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
+    (internal_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
 
     # Build context
     context = SkillContext(
         project_root=tmp_path,
         current_stage="analyze",
-        artifacts={"insights_catalog": outputs_dir / "insights_catalog.json"},
+        artifacts={"insights_catalog": internal_dir / "insights_catalog.json"},
     )
 
     # Execute skills via registry
@@ -399,7 +404,8 @@ def test_skill_execution_via_registry(tmp_path):
 def test_skills_record_evidence(tmp_path):
     """Test skills record evidence in their results."""
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     catalog_data = {
         "generated_at": datetime.now().isoformat(),
@@ -418,13 +424,13 @@ def test_skills_record_evidence(tmp_path):
         ],
         "data_summary": {},
     }
-    (outputs_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
+    (internal_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
 
     skill = InsightBriefSkill()
     context = SkillContext(
         project_root=tmp_path,
         current_stage="analyze",
-        artifacts={"insights_catalog": outputs_dir / "insights_catalog.json"},
+        artifacts={"insights_catalog": internal_dir / "insights_catalog.json"},
     )
 
     result = skill.execute(context)

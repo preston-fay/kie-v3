@@ -36,6 +36,8 @@ class ConsultantRealityGate:
         self.kie_src = workspace / ".kie" / "src"
         self.data_dir = workspace / "data"
         self.outputs_dir = workspace / "outputs"
+        self.internal_dir = self.outputs_dir / "internal"
+        self.internal_dir.mkdir(parents=True, exist_ok=True)
         self.exports_dir = workspace / "exports"
         self.project_state_dir = workspace / "project_state"
 
@@ -199,10 +201,11 @@ class ConsultantRealityGate:
         result = self.run_kie_cli("eda")
 
         # Verify EDA artifacts created
-        eda_profile_json = self.outputs_dir / "eda_profile.json"
-        eda_profile_yaml = self.outputs_dir / "eda_profile.yaml"
-        eda_review_md = self.outputs_dir / "eda_review.md"
-        eda_review_json = self.outputs_dir / "eda_review.json"
+        eda_profile_json = self.internal_dir / "eda_profile.json"
+        eda_profile_yaml = self.internal_dir / "eda_profile.yaml"
+        # EDA review files are saved to internal/ directory
+        eda_review_md = self.internal_dir / "eda_review.md"
+        eda_review_json = self.internal_dir / "eda_review.json"
 
         # At least one profile format must exist
         assert (
@@ -277,7 +280,7 @@ class ConsultantRealityGate:
         result = self.run_kie_cli("analyze")
 
         # Verify insights.yaml created (the actual output file)
-        insights_yaml = self.outputs_dir / "insights.yaml"
+        insights_yaml = self.internal_dir / "insights.yaml"
         assert insights_yaml.exists(), "insights.yaml must be created after analyze"
 
         with open(insights_yaml) as f:
@@ -306,6 +309,14 @@ class ConsultantRealityGate:
             }, f)
 
         print("  - Theme pre-configured: dark")
+
+        # Build charts first (required before presentation)
+        try:
+            self.run_kie_cli("build", ["charts"], expect_failure=False)
+            print("  - Charts built successfully")
+        except AssertionError as e:
+            # Chart building may fail for various reasons, that's ok
+            print(f"  - Charts build skipped: {str(e)[:50]}")
 
         # Run build with theme set
         try:

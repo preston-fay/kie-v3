@@ -149,8 +149,11 @@ class VisualizationPlannerSkill(Skill):
         )
 
         # Save outputs
-        viz_plan_json_path = outputs_dir / "internal" / "visualization_plan.json"
-        viz_plan_md_path = outputs_dir / "internal" / "visualization_plan.md"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+
+        viz_plan_json_path = internal_dir / "visualization_plan.json"
+        viz_plan_md_path = internal_dir / "visualization_plan.md"
 
         viz_plan_json_path.write_text(json.dumps(viz_plan_json, indent=2))
         viz_plan_md_path.write_text(viz_plan_md)
@@ -185,8 +188,11 @@ class VisualizationPlannerSkill(Skill):
             "specifications": [],
         }
 
-        viz_plan_md_path = outputs_dir / "internal" / "visualization_plan.md"
-        viz_plan_json_path = outputs_dir / "internal" / "visualization_plan.json"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+
+        viz_plan_md_path = internal_dir / "visualization_plan.md"
+        viz_plan_json_path = internal_dir / "visualization_plan.json"
 
         viz_plan_md_path.write_text(viz_plan_md)
         viz_plan_json_path.write_text(json.dumps(viz_plan_json, indent=2))

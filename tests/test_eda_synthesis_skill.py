@@ -33,7 +33,7 @@ def temp_project():
         project_root = Path(tmpdir)
 
         # Create directories
-        (project_root / "outputs").mkdir(parents=True)
+        (project_root / "outputs" / "internal").mkdir(parents=True)
         (project_root / "project_state").mkdir(parents=True)
         (project_root / "data").mkdir(parents=True)
 
@@ -73,7 +73,7 @@ def temp_project():
             }
         }
 
-        eda_profile_path = project_root / "outputs" / "eda_profile.json"
+        eda_profile_path = project_root / "outputs" / "internal" / "eda_profile.json"
         with open(eda_profile_path, "w") as f:
             json.dump(eda_profile, f, indent=2)
 
@@ -85,7 +85,7 @@ def test_skill_requires_all_prerequisites(temp_project):
     skill = EDASynthesisSkill()
 
     # Remove eda_profile
-    (temp_project / "outputs" / "eda_profile.json").unlink()
+    (temp_project / "outputs" / "internal" / "eda_profile.json").unlink()
 
     context = SkillContext(
         project_root=temp_project,
@@ -110,7 +110,7 @@ def test_skill_requires_data_file(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -133,7 +133,7 @@ def test_skill_generates_synthesis_with_all_inputs(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -154,7 +154,7 @@ def test_all_required_tables_created(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -186,7 +186,7 @@ def test_all_required_charts_created(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -216,7 +216,7 @@ def test_markdown_has_required_sections(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -233,9 +233,10 @@ def test_markdown_has_required_sections(temp_project):
         "## 2. What Dominates",
         "## 3. Distributions & Shape",
         "## 4. Outliers & Anomalies",
-        "## 5. Missingness & Data Quality",
-        "## 6. Column Reduction (Critical)",
-        "## 7. What This Means for Analysis",
+        "## 5. Correlation Analysis",
+        "## 6. Missingness & Data Quality",
+        "## 7. Column Reduction (Critical)",
+        "## 8. What This Means for Analysis",
     ]
 
     for section in required_sections:
@@ -253,7 +254,7 @@ def test_json_structure_is_complete(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -292,7 +293,7 @@ def test_column_reduction_produces_decisions(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -326,7 +327,7 @@ def test_deterministic_outputs(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -339,8 +340,8 @@ def test_deterministic_outputs(temp_project):
         synthesis1 = json.load(f)
 
     # Delete outputs
-    (temp_project / "outputs" / "eda_synthesis.md").unlink()
-    (temp_project / "outputs" / "eda_synthesis.json").unlink()
+    (temp_project / "outputs" / "internal" / "eda_synthesis.md").unlink()
+    (temp_project / "outputs" / "internal" / "eda_synthesis.json").unlink()
 
     # Second run
     result2 = skill.execute(context)
@@ -370,7 +371,7 @@ def test_no_rails_state_mutation(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -397,7 +398,7 @@ def test_truth_gate_artifacts_exist(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -418,7 +419,7 @@ def test_artifact_classification_internal(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -446,7 +447,7 @@ def test_actionable_insights_generated(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 
@@ -475,8 +476,8 @@ def test_handles_constant_columns(temp_project):
     df["constant_col"] = 42
     df.to_csv(data_file, index=False)
 
-    # Update EDA profile
-    eda_profile_path = temp_project / "outputs" / "eda_profile.json"
+    # Update EDA profile (now in internal/ directory)
+    eda_profile_path = temp_project / "outputs" / "internal" / "eda_profile.json"
     with open(eda_profile_path) as f:
         eda_profile = json.load(f)
 
@@ -491,7 +492,7 @@ def test_handles_constant_columns(temp_project):
     context = SkillContext(
         project_root=temp_project,
         current_stage="eda",
-        artifacts={"eda_profile": temp_project / "outputs" / "eda_profile.json"},
+        artifacts={"eda_profile": temp_project / "outputs" / "internal" / "eda_profile.json"},
         evidence_ledger_id="test_run"
     )
 

@@ -117,8 +117,10 @@ class RunStoryGenerator:
             return yaml.safe_load(f)
 
     def _load_insights_catalog(self) -> dict[str, Any] | None:
-        """Load insights catalog."""
-        catalog_path = self.outputs_dir / "insights_catalog.json"
+        """Load insights catalog from canonical location (internal/ directory)."""
+        from kie.paths import ArtifactPaths
+        paths = ArtifactPaths(self.project_root)
+        catalog_path = paths.insights_catalog()
         if not catalog_path.exists():
             return None
 
@@ -126,12 +128,17 @@ class RunStoryGenerator:
             return json.load(f)
 
     def _load_insight_brief(self) -> str | None:
-        """Load insight brief."""
-        brief_path = self.outputs_dir / "insight_brief.md"
-        if not brief_path.exists():
-            return None
+        """Load insight brief from canonical location (internal/ directory)."""
+        # Check internal/ first (new location), then outputs/ (old location)
+        internal_path = self.outputs_dir / "internal" / "insight_brief.md"
+        if internal_path.exists():
+            return internal_path.read_text()
 
-        return brief_path.read_text()
+        old_path = self.outputs_dir / "insight_brief.md"
+        if old_path.exists():
+            return old_path.read_text()
+
+        return None
 
     def _generate_story_content(
         self,

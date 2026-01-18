@@ -97,7 +97,8 @@ def test_rails_workflow():
             print("STDERR:", result.stderr)
 
         assert result.returncode == 0, f"/eda failed with code {result.returncode}"
-        assert (workspace / "outputs" / "eda_profile.yaml").exists(), "EDA output not created"
+        # EDA outputs now go to outputs/internal/
+        assert (workspace / "outputs" / "internal" / "eda_profile.yaml").exists(), "EDA output not created"
 
         # Step 4b: Set intent (required by Intent Gate)
         print("\nStep 4b: Setting intent...")
@@ -123,7 +124,9 @@ def test_rails_workflow():
             print("STDERR:", result.stderr)
 
         assert result.returncode == 0, f"/analyze failed with code {result.returncode}"
-        assert (workspace / "outputs" / "insights.yaml").exists(), "Analyze output not created"
+        # Analyze outputs now go to outputs/internal/ - canonical name is insights.yaml
+        internal_dir = workspace / "outputs" / "internal"
+        assert (internal_dir / "insights.yaml").exists() or (internal_dir / "insights_catalog.json").exists(), "Analyze output not created"
 
         print(f"\n{'='*60}")
         print("✓ ALL RAILS WORKFLOW TESTS PASSED")

@@ -27,6 +27,7 @@ from typing import Any
 
 import yaml
 
+from kie.paths import ArtifactPaths
 from kie.skills.base import Skill, SkillContext, SkillResult
 
 
@@ -102,9 +103,10 @@ class ClientReadinessSkill(Skill):
         # Determine overall readiness
         overall_readiness = self._determine_overall_readiness(classifications)
 
-        # Generate outputs
-        markdown_path = outputs_dir / "client_readiness.md"
-        json_path = outputs_dir / "client_readiness.json"
+        # Generate outputs using centralized paths
+        paths = ArtifactPaths(context.project_root)
+        markdown_path = outputs_dir / "client_readiness.md"  # Keep MD in deliverables/
+        json_path = paths.client_readiness_json(create_dirs=True)
 
         markdown_content = self._generate_markdown(
             overall_readiness,

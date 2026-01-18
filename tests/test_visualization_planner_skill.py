@@ -128,7 +128,8 @@ def test_skill_fails_cleanly_on_missing_triage(temp_project):
 def test_skill_generates_complete_plan(temp_project, sample_triage_data):
     """Test that skill generates all required fields."""
     # Save triage JSON
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(sample_triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -168,24 +169,40 @@ def test_skill_generates_complete_plan(temp_project, sample_triage_data):
         assert "insight_id" in spec
         assert "insight_title" in spec
         assert "visualization_required" in spec
-        assert "visualization_type" in spec
-        assert "purpose" in spec
         assert "confidence" in spec
 
         if spec["visualization_required"]:
-            # Full specs must have all fields
-            assert "x_axis" in spec
-            assert "y_axis" in spec
-            assert "highlights" in spec
-            assert "suppress" in spec
-            assert "annotations" in spec
-            assert "caveats" in spec
+            # Handle both old (flat) and new (visuals array) structures
+            if "visuals" in spec:
+                # New structure with visuals array
+                assert len(spec["visuals"]) > 0
+                # Check each visual has required fields
+                for visual in spec["visuals"]:
+                    assert "visualization_type" in visual
+                    assert "purpose" in visual
+                    assert "x_axis" in visual
+                    assert "y_axis" in visual
+                    assert "highlights" in visual
+                    assert "suppress" in visual
+                    assert "annotations" in visual
+                    assert "caveats" in visual
+            else:
+                # Old flat structure
+                assert "visualization_type" in spec
+                assert "purpose" in spec
+                assert "x_axis" in spec
+                assert "y_axis" in spec
+                assert "highlights" in spec
+                assert "suppress" in spec
+                assert "annotations" in spec
+                assert "caveats" in spec
 
 
 def test_deterministic_output(temp_project, sample_triage_data):
     """Test that output is deterministic for fixed input."""
     # Save triage JSON
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(sample_triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -238,7 +255,8 @@ def test_visualization_required_false_path(temp_project):
         },
     }
 
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -292,7 +310,8 @@ def test_visualization_required_false_no_evidence(temp_project):
         },
     }
 
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -333,7 +352,8 @@ def test_no_rails_state_mutation(temp_project, sample_triage_data):
         json.dump(original_state, f)
 
     # Save triage JSON
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(sample_triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -358,7 +378,8 @@ def test_no_rails_state_mutation(temp_project, sample_triage_data):
 def test_truth_gate_artifacts_exist(temp_project, sample_triage_data):
     """Test that all claimed artifacts actually exist (Truth Gate)."""
     # Save triage JSON
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(sample_triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -385,7 +406,8 @@ def test_truth_gate_artifacts_exist(temp_project, sample_triage_data):
 def test_markdown_structure_completeness(temp_project, sample_triage_data):
     """Test that markdown output has complete structure."""
     # Save triage JSON
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(sample_triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -459,7 +481,8 @@ def test_confidence_thresholds_respected(temp_project):
         },
     }
 
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -507,7 +530,8 @@ def test_intent_integration(temp_project, sample_triage_data):
         yaml.dump(intent_data, f)
 
     # Save triage JSON
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(sample_triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -569,7 +593,8 @@ def test_skip_avoid_leading_with_insights(temp_project):
         },
     }
 
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -619,7 +644,8 @@ def test_comparison_pattern_triggers_on_share_language(temp_project):
         },
     }
 
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -672,7 +698,8 @@ def test_comparison_pattern_triggers_on_concentration_purpose(temp_project):
         },
     }
 
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -726,7 +753,8 @@ def test_drivers_pattern_triggers_on_driver_language(temp_project):
         },
     }
 
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()
@@ -779,7 +807,8 @@ def test_drivers_pattern_triggers_on_relationship_purpose(temp_project):
         },
     }
 
-    triage_path = temp_project / "outputs" / "insight_triage.json"
+    triage_path = temp_project / "outputs" / "internal" / "insight_triage.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     triage_path.write_text(json.dumps(triage_data, indent=2))
 
     skill = VisualizationPlannerSkill()

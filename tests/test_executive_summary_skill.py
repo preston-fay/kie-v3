@@ -176,13 +176,16 @@ def test_summary_has_required_sections(
     # Save required inputs
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
-    (outputs_dir / "executive_narrative.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "executive_narrative.json").write_text(
         json.dumps(sample_narrative_json, indent=2)
     )
-    (outputs_dir / "visualization_plan.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(
         json.dumps(sample_viz_plan, indent=2)
     )
 
@@ -210,13 +213,16 @@ def test_key_findings_map_to_triage_insights(
     # Save required inputs
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
-    (outputs_dir / "executive_narrative.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "executive_narrative.json").write_text(
         json.dumps(sample_narrative_json, indent=2)
     )
-    (outputs_dir / "visualization_plan.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(
         json.dumps(sample_viz_plan, indent=2)
     )
 
@@ -252,13 +258,16 @@ def test_implications_are_not_restatements(
     # Save required inputs
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
-    (outputs_dir / "executive_narrative.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "executive_narrative.json").write_text(
         json.dumps(sample_narrative_json, indent=2)
     )
-    (outputs_dir / "visualization_plan.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(
         json.dumps(sample_viz_plan, indent=2)
     )
 
@@ -304,13 +313,16 @@ def test_caveats_present_for_low_confidence(
     # Save required inputs
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
-    (outputs_dir / "executive_narrative.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "executive_narrative.json").write_text(
         json.dumps(sample_narrative_json, indent=2)
     )
-    (outputs_dir / "visualization_plan.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(
         json.dumps(sample_viz_plan, indent=2)
     )
 
@@ -342,13 +354,16 @@ def test_summary_length_is_variable(
     # Save required inputs
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
-    (outputs_dir / "executive_narrative.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "executive_narrative.json").write_text(
         json.dumps(sample_narrative_json, indent=2)
     )
-    (outputs_dir / "visualization_plan.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(
         json.dumps(sample_viz_plan, indent=2)
     )
 
@@ -385,7 +400,8 @@ def test_summary_length_is_variable(
         ]
     )
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
 
@@ -408,13 +424,16 @@ def test_no_rails_state_mutation(
     # Save required inputs
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
-    (outputs_dir / "executive_narrative.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "executive_narrative.json").write_text(
         json.dumps(sample_narrative_json, indent=2)
     )
-    (outputs_dir / "visualization_plan.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(
         json.dumps(sample_viz_plan, indent=2)
     )
 
@@ -441,13 +460,16 @@ def test_truth_gate_artifacts_exist(
     # Save required inputs
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
-    (outputs_dir / "executive_narrative.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "executive_narrative.json").write_text(
         json.dumps(sample_narrative_json, indent=2)
     )
-    (outputs_dir / "visualization_plan.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(
         json.dumps(sample_viz_plan, indent=2)
     )
 
@@ -469,13 +491,16 @@ def test_artifact_classification_internal(
     # Save required inputs
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
-    (outputs_dir / "executive_narrative.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "executive_narrative.json").write_text(
         json.dumps(sample_narrative_json, indent=2)
     )
-    (outputs_dir / "visualization_plan.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(
         json.dumps(sample_viz_plan, indent=2)
     )
 
@@ -505,13 +530,16 @@ def test_no_garbage_categories_in_summary(
     # Save required inputs
     outputs_dir = temp_project / "outputs"
 
-    (outputs_dir / "insight_triage.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "insight_triage.json").write_text(
         json.dumps(sample_triage_data, indent=2)
     )
-    (outputs_dir / "executive_narrative.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "executive_narrative.json").write_text(
         json.dumps(sample_narrative_json, indent=2)
     )
-    (outputs_dir / "visualization_plan.json").write_text(
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(
         json.dumps(sample_viz_plan, indent=2)
     )
 

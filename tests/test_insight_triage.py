@@ -85,7 +85,8 @@ def test_handles_missing_insights_gracefully(tmp_path):
     """Test skill handles missing insights catalog gracefully."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     skill = InsightTriageSkill()
     context = SkillContext(
@@ -122,7 +123,8 @@ def test_handles_empty_catalog_gracefully(tmp_path):
     """Test skill handles empty insights catalog gracefully."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Create empty catalog
     catalog_data = {
@@ -133,7 +135,7 @@ def test_handles_empty_catalog_gracefully(tmp_path):
         "data_summary": None,
     }
 
-    catalog_path = outputs_dir / "insights_catalog.json"
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(catalog_data))
 
     skill = InsightTriageSkill()
@@ -160,7 +162,8 @@ def test_triage_logic_with_insights(tmp_path):
     """Test triage logic correctly scores and prioritizes insights."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     project_state = tmp_path / "project_state"
     project_state.mkdir()
@@ -229,7 +232,7 @@ def test_triage_logic_with_insights(tmp_path):
         data_summary={"row_count": 1000},
     )
 
-    catalog_path = outputs_dir / "insights_catalog.json"
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(catalog.to_dict()))
 
     skill = InsightTriageSkill()
@@ -277,7 +280,8 @@ def test_evidence_references_include_hashes(tmp_path):
     """Test evidence references include artifact hashes when available."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     project_state = tmp_path / "project_state"
     project_state.mkdir()
@@ -331,7 +335,7 @@ def test_evidence_references_include_hashes(tmp_path):
         data_summary={"row_count": 1000},
     )
 
-    catalog_path = outputs_dir / "insights_catalog.json"
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(catalog.to_dict()))
 
     skill = InsightTriageSkill()
@@ -364,7 +368,8 @@ def test_confidence_levels_assigned_correctly(tmp_path):
     """Test confidence levels are assigned based on evidence and risk."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # High confidence: strong evidence, low risk
     high_conf_insight = Insight(
@@ -403,7 +408,7 @@ def test_confidence_levels_assigned_correctly(tmp_path):
         data_summary={"row_count": 1000},
     )
 
-    catalog_path = outputs_dir / "insights_catalog.json"
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(catalog.to_dict()))
 
     skill = InsightTriageSkill()
@@ -436,7 +441,8 @@ def test_caveats_generated_correctly(tmp_path):
     """Test caveats are generated for insights with limitations."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     # Insight with no statistical significance
     insight = Insight(
@@ -461,7 +467,7 @@ def test_caveats_generated_correctly(tmp_path):
         data_summary={"row_count": 1000},
     )
 
-    catalog_path = outputs_dir / "insights_catalog.json"
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(catalog.to_dict()))
 
     skill = InsightTriageSkill()
@@ -523,7 +529,8 @@ def test_no_rails_state_mutation(tmp_path):
     """Test skill does not mutate Rails state."""
     # Setup
     outputs_dir = tmp_path / "outputs"
-    outputs_dir.mkdir()
+    internal_dir = outputs_dir / "internal"
+    internal_dir.mkdir(parents=True, exist_ok=True)
 
     project_state = tmp_path / "project_state"
     project_state.mkdir()
@@ -549,7 +556,7 @@ def test_no_rails_state_mutation(tmp_path):
         "data_summary": None,
     }
 
-    catalog_path = outputs_dir / "insights_catalog.json"
+    catalog_path = internal_dir / "insights_catalog.json"
     catalog_path.write_text(json.dumps(catalog_data))
 
     skill = InsightTriageSkill()

@@ -88,7 +88,18 @@ def test_interview_rails_flow_with_data():
 
         assert result.returncode == 0, f"theme set failed: {result.stderr}\nStdout: {result.stdout}"
 
-        # Run Rails workflow: build
+        # Build charts first (required before presentation/dashboard)
+        result = subprocess.run(
+            ["python3", "-m", "kie.cli", "build", "charts"],
+            cwd=project_root,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        assert result.returncode == 0, f"build charts failed: {result.stderr}\nStdout: {result.stdout}"
+
+        # Run Rails workflow: build (presentation/dashboard)
         result = subprocess.run(
             ["python3", "-m", "kie.cli", "build"],
             cwd=project_root,

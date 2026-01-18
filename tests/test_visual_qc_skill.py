@@ -22,7 +22,8 @@ def test_visual_qc_requires_visualization_plan(tmp_path):
     charts_dir.mkdir()
 
     # Create story_manifest but NO visualization_plan
-    (outputs_dir / "story_manifest.json").write_text(json.dumps({"sections": []}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "story_manifest.json").write_text(json.dumps({"sections": []}))
 
     # Run skill
     skill = VisualQCSkill()
@@ -47,7 +48,8 @@ def test_visual_qc_requires_story_manifest(tmp_path):
     charts_dir.mkdir()
 
     # Create visualization_plan but NO story_manifest
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
 
     # Run skill
     skill = VisualQCSkill()
@@ -89,8 +91,10 @@ def test_visual_qc_clean_chart_client_ready(tmp_path):
     (charts_dir / "clean_chart.json").write_text(json.dumps(chart_data))
 
     # Create required inputs
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
-    (outputs_dir / "story_manifest.json").write_text(json.dumps({"sections": []}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "story_manifest.json").write_text(json.dumps({"sections": []}))
 
     # Run skill
     skill = VisualQCSkill()
@@ -106,7 +110,7 @@ def test_visual_qc_clean_chart_client_ready(tmp_path):
     assert result.success
 
     # Load QC report
-    qc_path = outputs_dir / "visual_qc.json"
+    qc_path = outputs_dir / "internal" / "visual_qc.json"
     assert qc_path.exists()
 
     with open(qc_path) as f:
@@ -142,8 +146,10 @@ def test_visual_qc_missing_labels_with_caveats(tmp_path):
     (charts_dir / "missing_labels.json").write_text(json.dumps(chart_data))
 
     # Create required inputs
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
-    (outputs_dir / "story_manifest.json").write_text(json.dumps({"sections": []}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "story_manifest.json").write_text(json.dumps({"sections": []}))
 
     # Run skill
     skill = VisualQCSkill()
@@ -158,7 +164,7 @@ def test_visual_qc_missing_labels_with_caveats(tmp_path):
     assert result.success
 
     # Check classification
-    qc_path = outputs_dir / "visual_qc.json"
+    qc_path = outputs_dir / "internal" / "visual_qc.json"
     with open(qc_path) as f:
         qc_data = json.load(f)
 
@@ -190,8 +196,10 @@ def test_visual_qc_too_many_categories_internal_only(tmp_path):
     (charts_dir / "too_many_cats.json").write_text(json.dumps(chart_data))
 
     # Create required inputs
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
-    (outputs_dir / "story_manifest.json").write_text(json.dumps({"sections": []}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "story_manifest.json").write_text(json.dumps({"sections": []}))
 
     # Run skill
     skill = VisualQCSkill()
@@ -206,7 +214,7 @@ def test_visual_qc_too_many_categories_internal_only(tmp_path):
     assert result.success
 
     # Check classification
-    qc_path = outputs_dir / "visual_qc.json"
+    qc_path = outputs_dir / "internal" / "visual_qc.json"
     with open(qc_path) as f:
         qc_data = json.load(f)
 
@@ -239,8 +247,10 @@ def test_visual_qc_deterministic_output(tmp_path):
     (charts_dir / "test_chart.json").write_text(json.dumps(chart_data))
 
     # Create required inputs
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
-    (outputs_dir / "story_manifest.json").write_text(json.dumps({"sections": []}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "story_manifest.json").write_text(json.dumps({"sections": []}))
 
     # Run skill twice
     skill = VisualQCSkill()
@@ -254,13 +264,13 @@ def test_visual_qc_deterministic_output(tmp_path):
     assert result1.success
 
     # Load first result
-    qc_path = outputs_dir / "visual_qc.json"
+    qc_path = outputs_dir / "internal" / "visual_qc.json"
     with open(qc_path) as f:
         qc_data1 = json.load(f)
 
     # Delete and run again
     qc_path.unlink()
-    (outputs_dir / "visual_qc.md").unlink()
+    (outputs_dir / "internal" / "visual_qc.md").unlink()
 
     result2 = skill.execute(context)
     assert result2.success
@@ -298,8 +308,10 @@ def test_visual_qc_truncated_axis_detection(tmp_path):
     (charts_dir / "truncated.json").write_text(json.dumps(chart_data))
 
     # Create required inputs
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
-    (outputs_dir / "story_manifest.json").write_text(json.dumps({"sections": []}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "story_manifest.json").write_text(json.dumps({"sections": []}))
 
     # Run skill
     skill = VisualQCSkill()
@@ -314,7 +326,7 @@ def test_visual_qc_truncated_axis_detection(tmp_path):
     assert result.success
 
     # Check that truncated axis is detected
-    qc_path = outputs_dir / "visual_qc.json"
+    qc_path = outputs_dir / "internal" / "visual_qc.json"
     with open(qc_path) as f:
         qc_data = json.load(f)
 
@@ -348,8 +360,10 @@ def test_visual_qc_extreme_skew_detection(tmp_path):
     (charts_dir / "skewed.json").write_text(json.dumps(chart_data))
 
     # Create required inputs
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
-    (outputs_dir / "story_manifest.json").write_text(json.dumps({"sections": []}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "story_manifest.json").write_text(json.dumps({"sections": []}))
 
     # Run skill
     skill = VisualQCSkill()
@@ -364,7 +378,7 @@ def test_visual_qc_extreme_skew_detection(tmp_path):
     assert result.success
 
     # Check that skew is detected
-    qc_path = outputs_dir / "visual_qc.json"
+    qc_path = outputs_dir / "internal" / "visual_qc.json"
     with open(qc_path) as f:
         qc_data = json.load(f)
 
@@ -428,8 +442,10 @@ def test_visual_qc_summary_counts(tmp_path):
     )
 
     # Create required inputs
-    (outputs_dir / "visualization_plan.json").write_text(json.dumps({}))
-    (outputs_dir / "story_manifest.json").write_text(json.dumps({"sections": []}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "visualization_plan.json").write_text(json.dumps({}))
+    (outputs_dir / "internal").mkdir(parents=True, exist_ok=True)
+    (outputs_dir / "internal" / "story_manifest.json").write_text(json.dumps({"sections": []}))
 
     # Run skill
     skill = VisualQCSkill()
@@ -444,7 +460,7 @@ def test_visual_qc_summary_counts(tmp_path):
     assert result.success
 
     # Check summary counts
-    qc_path = outputs_dir / "visual_qc.json"
+    qc_path = outputs_dir / "internal" / "visual_qc.json"
     with open(qc_path) as f:
         qc_data = json.load(f)
 

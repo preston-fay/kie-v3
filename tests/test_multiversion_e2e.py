@@ -103,9 +103,11 @@ def test_multiversion_trend_generates_line_and_area():
         data.to_csv(data_path, index=False)
 
         # Save visualization plan (required by ChartRenderer)
+        # ChartRenderer expects outputs/internal/visualization_plan.json
         outputs_dir = tmp_path / "outputs"
-        outputs_dir.mkdir(exist_ok=True)
-        plan_path = outputs_dir / "visualization_plan.json"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+        plan_path = internal_dir / "visualization_plan.json"
         with open(plan_path, "w") as f:
             json.dump({"specifications": viz_specs}, f, indent=2)  # Note: "specifications" key
 
@@ -116,7 +118,10 @@ def test_multiversion_trend_generates_line_and_area():
         assert result["charts_rendered"] == 2, f"Expected 2 charts, got {result['charts_rendered']}"
 
         # Check filenames follow convention
-        charts_dir = tmp_path / "outputs" / "charts"
+        # Charts now go to internal/chart_configs/ (not outputs/charts/)
+        # Primary version filename: insight_1__line.json (no __primary suffix)
+        # Alternative version filename: insight_1__area__alt1.json
+        charts_dir = tmp_path / "outputs" / "internal" / "chart_configs"
         primary_file = charts_dir / "insight_1__line.json"
         alt_file = charts_dir / "insight_1__area__alt1.json"
 
@@ -141,14 +146,15 @@ def test_multiversion_trend_generates_line_and_area():
 
 def test_multiversion_concentration_with_few_categories():
     """
-    TEST: CONCENTRATION insight with 3 categories generates bar AND pie.
+    TEST: CONCENTRATION insight generates multi-visual pattern (bar + pareto).
 
-    Auto-detection rule: pie if 2-4 categories (KDS max 4 slices)
+    Visual Pattern Library: CONCENTRATION triggers bar + pareto pattern
+    (Visual Pattern Library takes precedence over Chart Excellence Plan alternatives)
     Expected output:
-    - insight_2__bar.json (primary)
-    - insight_2__pie__alt1.json (alternative)
+    - visuals[0]: bar (top N comparison)
+    - visuals[1]: pareto (cumulative concentration)
     """
-    # Create data with 3 categories (triggers pie alternative)
+    # Create data with 3 categories
     data = pd.DataFrame({
         "product": ["Product_A", "Product_B", "Product_C"],
         "revenue": [500000, 300000, 200000]
@@ -184,29 +190,33 @@ def test_multiversion_concentration_with_few_categories():
         ]
         spec = viz_specs[0]
 
-        # Verify spec has multiple chart versions
-        assert "chart_versions" in spec
-        versions = spec["chart_versions"]
+        # Visual Pattern Library triggers for CONCENTRATION, producing "visuals" (not "chart_versions")
+        assert "visuals" in spec, f"Expected 'visuals' from Visual Pattern Library, got keys: {spec.keys()}"
+        visuals = spec["visuals"]
 
-        # Should have 2 versions: bar (primary) + pie (alt1)
-        assert len(versions) == 2, f"Expected 2 versions, got {len(versions)}"
+        # Should have 2 visuals: bar (top_n) + pareto (cumulative)
+        assert len(visuals) == 2, f"Expected 2 visuals, got {len(visuals)}"
 
-        # Check versions
-        assert versions[0]["visualization_type"] == "bar"
-        assert versions[1]["visualization_type"] == "pie"
+        # Check visuals match Visual Pattern Library output
+        assert visuals[0]["visualization_type"] == "bar"
+        assert visuals[0]["pattern_role"] == "top_n"
+        assert visuals[1]["visualization_type"] == "pareto"
+        assert visuals[1]["pattern_role"] == "cumulative"
 
-        print("✅ Pie alternative generation PASSED")
+        print("✅ Visual Pattern Library (bar + pareto) generation PASSED")
 
 
 def test_autodetection_filters_out_pie_with_many_categories():
     """
-    TEST: CONCENTRATION insight with >4 categories does NOT generate pie.
+    TEST: CONCENTRATION insight with many categories generates Visual Pattern Library output.
 
-    Auto-detection rule: pie ONLY if 2-4 categories (KDS compliance)
+    Visual Pattern Library: CONCENTRATION (regardless of category count) triggers bar + pareto
+    The pie alternative filtering is bypassed because Visual Pattern Library takes precedence.
     Expected output:
-    - insight_3__bar.json (primary ONLY)
+    - visuals[0]: bar (top N)
+    - visuals[1]: pareto (cumulative)
     """
-    # Create data with 6 categories (violates KDS 4-slice max)
+    # Create data with 6 categories
     data = pd.DataFrame({
         "region": [f"Region_{i}" for i in range(6)],
         "revenue": [100000 + i*50000 for i in range(6)]
@@ -224,7 +234,7 @@ def test_autodetection_filters_out_pie_with_many_categories():
         ]
     }]
 
-    # VisualizationPlanner should filter out pie
+    # VisualizationPlanner applies Visual Pattern Library for CONCENTRATION
     planner = VisualizationPlannerSkill()
     viz_specs = [
         planner._create_visualization_spec(
@@ -237,20 +247,20 @@ def test_autodetection_filters_out_pie_with_many_categories():
     ]
     spec = viz_specs[0]
 
-    if "chart_versions" in spec:
-        versions = spec["chart_versions"]
-        # Should only have bar, NOT pie
-        assert len(versions) == 1, f"Expected 1 version (pie filtered out), got {len(versions)}"
-        assert versions[0]["visualization_type"] == "bar"
+    # Visual Pattern Library produces "visuals" (bar + pareto), not "chart_versions"
+    assert "visuals" in spec, f"Expected 'visuals' from Visual Pattern Library, got keys: {spec.keys()}"
+    visuals = spec["visuals"]
 
-        # Ensure pie was filtered
-        viz_types = [v["visualization_type"] for v in versions]
-        assert "pie" not in viz_types, "Pie should be filtered out for >4 categories"
-    else:
-        # Single version (no alternatives)
-        assert spec["visualization_type"] == "bar"
+    # Should have bar + pareto (Visual Pattern Library output)
+    assert len(visuals) == 2, f"Expected 2 visuals, got {len(visuals)}"
+    assert visuals[0]["visualization_type"] == "bar"
+    assert visuals[1]["visualization_type"] == "pareto"
 
-    print("✅ Auto-detection filtering PASSED")
+    # Verify NO pie (KDS 4-slice max rule is irrelevant when Visual Pattern Library triggers)
+    viz_types = [v["visualization_type"] for v in visuals]
+    assert "pie" not in viz_types, "Pie should not be in Visual Pattern Library output"
+
+    print("✅ Visual Pattern Library (bar + pareto, no pie) PASSED")
 
 
 def test_trend_generates_line_and_area():

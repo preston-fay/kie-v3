@@ -132,7 +132,9 @@ def test_freeform_bridge_end_to_end():
 
         # Verify artifacts created
         outputs_dir = tmp_path / "outputs"
-        insights_catalog = outputs_dir / "insights_catalog.json"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+        insights_catalog = internal_dir / "insights_catalog.json"
         freeform_catalog = outputs_dir / "freeform_insights_catalog.json"
         story_manifest = outputs_dir / "story_manifest.json"
         notice_file = freeform_dir / "NOTICE.md"

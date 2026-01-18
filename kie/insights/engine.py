@@ -91,22 +91,28 @@ class InsightEngine:
             return True
 
         # Check uniqueness - IDs are typically >95% unique
+        # But only apply this check to larger datasets (>20 rows)
+        # Small datasets often have unique values naturally
         if col_name in df.columns:
             total = len(df)
-            if total > 0:
+            if total > 20:  # Only check uniqueness for larger datasets
                 unique_count = df[col_name].nunique()
                 uniqueness_pct = unique_count / total
                 if uniqueness_pct > 0.95:
                     return True
 
         # Check for sequential pattern (IDs often sequential)
+        # Only apply if: large range (max >> min suggests incrementing IDs)
+        # AND values look sequential (mean is close to midpoint)
         if col_name in df.columns and pd.api.types.is_numeric_dtype(df[col_name]):
             non_null = df[col_name].dropna()
-            if len(non_null) > 0:
+            if len(non_null) > 10:  # Need enough data points
                 min_val = non_null.min()
                 max_val = non_null.max()
                 mean_val = non_null.mean()
-                if min_val > 0 and max_val > 1000:
+                # IDs typically start near 1 and have large range (max/min > 100)
+                # Business metrics like revenue don't typically start near 1
+                if min_val >= 1 and min_val < 100 and max_val / min_val > 100:
                     expected_mean = (min_val + max_val) / 2
                     # Within 15% of expected sequential mean
                     if abs(mean_val - expected_mean) / expected_mean < 0.15:
@@ -248,7 +254,8 @@ class InsightEngine:
         formatted_value = format_number(leader_value)
 
         # Generate headline
-        headline = f"{leader} Leads {display_metric} at {format_percentage(leader_share / 100)} Share"
+        # leader_share is already in percentage form (e.g., 35.7 for 35.7%)
+        headline = f"{leader} Leads {display_metric} at {format_percentage(leader_share)} Share"
 
         # Generate supporting text
         if len(sorted_items) > 1:
@@ -256,8 +263,8 @@ class InsightEngine:
             gap = leader_value - runner_up_value
             gap_pct = (gap / runner_up_value * 100) if runner_up_value > 0 else 0
             supporting_text = (
-                f"{leader} accounts for {format_percentage(leader_share / 100)} of total {display_metric.lower()}, "
-                f"outpacing {runner_up} by {format_number(gap)} ({format_percentage(gap_pct / 100)}). "
+                f"{leader} accounts for {format_percentage(leader_share)} of total {display_metric.lower()}, "
+                f"outpacing {runner_up} by {format_number(gap)} ({format_percentage(gap_pct)}). "
             )
             if len(sorted_items) > 2:
                 others = ", ".join([item[0] for item in sorted_items[2:4]])
@@ -276,7 +283,7 @@ class InsightEngine:
             Evidence(
                 evidence_type="metric",
                 reference=f"{leader}_share",
-                value=format_percentage(leader_share / 100),
+                value=format_percentage(leader_share),
                 label=f"{leader} share of total",
             ),
         ]
@@ -491,7 +498,8 @@ class InsightEngine:
         else:
             examples = ", ".join(format_number(v) for v in outliers["outlier_values"][:3])
 
-        headline = f"{n_outliers} Outliers Identified in {display_metric} ({format_percentage(pct / 100, precision=1)} of Data)"
+        # pct is already in percentage form (e.g., 10.0 for 10%)
+        headline = f"{n_outliers} Outliers Identified in {display_metric} ({format_percentage(pct, precision=1)} of Data)"
 
         supporting_text = (
             f"{n_outliers} values fall outside normal range "
@@ -740,6 +748,7 @@ class InsightEngine:
         group_column: str | None = None,
         time_column: str | None = None,
         label_column: str | None = None,
+        is_override: bool = False,
     ) -> list[Insight]:
         """
         Automatically extract insights from a DataFrame.
@@ -750,6 +759,8 @@ class InsightEngine:
             group_column: Optional column for grouping
             time_column: Optional column for time series
             label_column: Optional column for labels
+            is_override: If True, skip ID column detection for value_column
+                        (user explicitly chose this column via column_mapping)
 
         Returns:
             List of extracted insights
@@ -757,7 +768,8 @@ class InsightEngine:
         insights = []
 
         # Skip ID columns - they don't produce meaningful business insights
-        if self._is_id_column(df, value_column):
+        # BUT: if is_override=True, the user explicitly chose this column, so respect that
+        if not is_override and self._is_id_column(df, value_column):
             logger.debug(f"Skipping ID column: {value_column}")
             return insights
 
@@ -789,21 +801,23 @@ class InsightEngine:
                 values_dict = {
                     name: stats["sum"] for name, stats in comparison["groups"].items()
                 }
-                insights.append(self.create_comparison_insight(value_column, values_dict))
+                comparison_insight = self.create_comparison_insight(value_column, values_dict)
+                if comparison_insight:  # Skip None insights
+                    insights.append(comparison_insight)
 
                 # Concentration insight if warranted
                 if comparison["is_concentrated"]:
                     # Beautify dimension for client-friendly output
                     value_display = FieldRegistry.beautify(value_column)
                     group_display = FieldRegistry.beautify(group_column)
-                    insights.append(
-                        self.create_concentration_insight(
-                            dimension=f"{value_display} by {group_display}",
-                            top_item=comparison["leader"],
-                            top_share=comparison["leader_share"],
-                            total_items=comparison["n_groups"],
-                        )
+                    concentration_insight = self.create_concentration_insight(
+                        dimension=f"{value_display} by {group_display}",
+                        top_item=comparison["leader"],
+                        top_share=comparison["leader_share"],
+                        total_items=comparison["n_groups"],
                     )
+                    if concentration_insight:  # Skip None insights
+                        insights.append(concentration_insight)
 
         # Trend analysis
         if time_column:
@@ -834,6 +848,7 @@ class InsightEngine:
         label_column: str | None = None,
         max_insights: int = 20,
         objective: str | None = None,
+        is_override: bool = False,
     ) -> list[Insight]:
         """
         Comprehensive insight extraction for rich datasets.
@@ -852,6 +867,9 @@ class InsightEngine:
             time_column: Optional column for time series
             label_column: Optional column for labels
             max_insights: Maximum number of insights to extract (default: 20)
+            objective: Optional objective for correlation prioritization
+            is_override: If True, value_column was explicitly set via column_mapping
+                        (bypasses ID column detection for the primary column)
 
         Returns:
             List of extracted insights (15-20+ for rich datasets)
@@ -860,7 +878,7 @@ class InsightEngine:
 
         # Start with basic insights from primary column
         basic_insights = self.auto_extract(
-            df, value_column, group_column, time_column, label_column
+            df, value_column, group_column, time_column, label_column, is_override
         )
         insights.extend(basic_insights)
 
@@ -918,7 +936,9 @@ class InsightEngine:
                     values_dict = {
                         name: stats["sum"] for name, stats in comparison["groups"].items()
                     }
-                    insights.append(self.create_comparison_insight(col, values_dict))
+                    comp_insight = self.create_comparison_insight(col, values_dict)
+                    if comp_insight:  # Skip None insights
+                        insights.append(comp_insight)
 
             # Time trend for additional columns
             if time_column and col in df.columns and len(df) >= 3:

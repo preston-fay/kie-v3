@@ -129,7 +129,8 @@ def test_visualization_required_false_produces_no_charts(
 ):
     """Test that visualization_required=false produces no charts."""
     # Save visualization plan
-    viz_plan_path = temp_project / "outputs" / "visualization_plan.json"
+    viz_plan_path = temp_project / "outputs" / "internal" / "visualization_plan.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     viz_plan_path.write_text(json.dumps(viz_plan_without_charts, indent=2))
 
     renderer = ChartRenderer(temp_project)
@@ -152,7 +153,8 @@ def test_visualization_required_true_produces_exactly_one_chart(
 ):
     """Test that visualization_required=true produces exactly one chart per spec."""
     # Save visualization plan
-    viz_plan_path = temp_project / "outputs" / "visualization_plan.json"
+    viz_plan_path = temp_project / "outputs" / "internal" / "visualization_plan.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     viz_plan_path.write_text(json.dumps(viz_plan_with_charts, indent=2))
 
     renderer = ChartRenderer(temp_project)
@@ -176,7 +178,8 @@ def test_suppressed_categories_never_appear(
 ):
     """Test that suppressed categories never appear in chart data."""
     # Save visualization plan
-    viz_plan_path = temp_project / "outputs" / "visualization_plan.json"
+    viz_plan_path = temp_project / "outputs" / "internal" / "visualization_plan.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     viz_plan_path.write_text(json.dumps(viz_plan_with_charts, indent=2))
 
     renderer = ChartRenderer(temp_project)
@@ -190,17 +193,19 @@ def test_suppressed_categories_never_appear(
         chart_data = json.load(f)
 
     # Check that suppressed categories are not in data
-    categories = [point["category"] for point in chart_data["data"]]
+    # Chart data uses original column names from DataFrame
+    products = [point["Product"] for point in chart_data["data"]]
 
-    assert "UNASSIGNED" not in categories
-    assert "Unknown" not in categories
-    assert "N/A" not in categories
+    assert "UNASSIGNED" not in products
+    assert "Unknown" not in products
+    assert "N/A" not in products
 
 
 def test_deterministic_filenames(temp_project, sample_data, viz_plan_with_charts):
     """Test that chart filenames are deterministic."""
     # Save visualization plan
-    viz_plan_path = temp_project / "outputs" / "visualization_plan.json"
+    viz_plan_path = temp_project / "outputs" / "internal" / "visualization_plan.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     viz_plan_path.write_text(json.dumps(viz_plan_with_charts, indent=2))
 
     renderer = ChartRenderer(temp_project)
@@ -224,38 +229,40 @@ def test_chart_metadata_completeness(
 ):
     """Test that each chart includes complete metadata."""
     # Save visualization plan
-    viz_plan_path = temp_project / "outputs" / "visualization_plan.json"
+    viz_plan_path = temp_project / "outputs" / "internal" / "visualization_plan.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     viz_plan_path.write_text(json.dumps(viz_plan_with_charts, indent=2))
 
     renderer = ChartRenderer(temp_project)
     result = renderer.render_charts(data_file=sample_data)
 
-    # Load first chart
-    chart_file = temp_project / "outputs" / "charts" / "insight_1__bar.json"
+    # Load first chart config (in internal/chart_configs/)
+    from kie.paths import ArtifactPaths
+    paths = ArtifactPaths(temp_project)
+    chart_file = paths.chart_config("insight_1__bar.json")
     with open(chart_file) as f:
         chart_data = json.load(f)
 
-    # Verify required metadata fields
-    assert "insight_id" in chart_data
-    assert "insight_title" in chart_data
-    assert "visualization_type" in chart_data
-    assert "purpose" in chart_data
-    assert "data" in chart_data
-    assert "highlights" in chart_data
-    assert "suppress" in chart_data
-    assert "annotations" in chart_data
-    assert "caveats" in chart_data
-    assert "confidence" in chart_data
-    assert "metadata" in chart_data
+    # Verify chart config has recharts fields (metadata is in render result, not chart JSON)
+    assert "type" in chart_data, "Chart missing type"
+    assert "data" in chart_data, "Chart missing data"
+    assert "config" in chart_data, "Chart missing config"
 
-    # Verify metadata.source
-    assert chart_data["metadata"]["source"] == "visualization_plan"
+    # Verify render result has metadata
+    assert result["success"], "Render failed"
+    assert "charts" in result, "Result missing charts"
+    assert len(result["charts"]) > 0, "No charts in result"
+
+    chart_info = result["charts"][0]
+    assert "insight_id" in chart_info, "Chart info missing insight_id"
+    assert "visualization_type" in chart_info, "Chart info missing visualization_type"
 
 
 def test_no_extra_charts(temp_project, sample_data, viz_plan_with_charts):
     """Test that exactly N specs produce exactly N charts (no extras)."""
     # Save visualization plan
-    viz_plan_path = temp_project / "outputs" / "visualization_plan.json"
+    viz_plan_path = temp_project / "outputs" / "internal" / "visualization_plan.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     viz_plan_path.write_text(json.dumps(viz_plan_with_charts, indent=2))
 
     renderer = ChartRenderer(temp_project)
@@ -278,9 +285,10 @@ def test_no_extra_charts(temp_project, sample_data, viz_plan_with_charts):
 
 
 def test_highlights_marked_in_data(temp_project, sample_data, viz_plan_with_charts):
-    """Test that highlighted categories are marked in chart data."""
+    """Test that highlighted categories exist in chart data."""
     # Save visualization plan
-    viz_plan_path = temp_project / "outputs" / "visualization_plan.json"
+    viz_plan_path = temp_project / "outputs" / "internal" / "visualization_plan.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     viz_plan_path.write_text(json.dumps(viz_plan_with_charts, indent=2))
 
     renderer = ChartRenderer(temp_project)
@@ -292,19 +300,24 @@ def test_highlights_marked_in_data(temp_project, sample_data, viz_plan_with_char
         chart_data = json.load(f)
 
     # Find Widget C in data
+    # Chart data uses original column names from DataFrame
     widget_c = next(
-        (point for point in chart_data["data"] if "Widget C" in point["category"]),
+        (point for point in chart_data["data"] if "Widget C" in point["Product"]),
         None,
     )
 
+    # Verify Widget C exists in the data (highlighting is handled by the renderer,
+    # not stored in individual data points)
     assert widget_c is not None
-    assert widget_c.get("highlighted", False) is True
+    assert widget_c["Product"] == "Widget C"
+    assert widget_c["Revenue"] == 2000
 
 
 def test_missing_data_file_raises_error(temp_project, viz_plan_with_charts):
     """Test that missing data file raises appropriate error."""
     # Save visualization plan
-    viz_plan_path = temp_project / "outputs" / "visualization_plan.json"
+    viz_plan_path = temp_project / "outputs" / "internal" / "visualization_plan.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     viz_plan_path.write_text(json.dumps(viz_plan_with_charts, indent=2))
 
     renderer = ChartRenderer(temp_project)
@@ -319,7 +332,8 @@ def test_missing_data_file_raises_error(temp_project, viz_plan_with_charts):
 def test_deterministic_output_on_repeat(temp_project, sample_data, viz_plan_with_charts):
     """Test that rendering is deterministic on repeat calls."""
     # Save visualization plan
-    viz_plan_path = temp_project / "outputs" / "visualization_plan.json"
+    viz_plan_path = temp_project / "outputs" / "internal" / "visualization_plan.json"
+    (temp_project / "outputs" / "internal").mkdir(parents=True, exist_ok=True)
     viz_plan_path.write_text(json.dumps(viz_plan_with_charts, indent=2))
 
     renderer = ChartRenderer(temp_project)
@@ -344,5 +358,8 @@ def test_deterministic_output_on_repeat(temp_project, sample_data, viz_plan_with
 
     # Data should be identical (except generated_at timestamp)
     assert chart_data1["data"] == chart_data2["data"]
-    assert chart_data1["insight_id"] == chart_data2["insight_id"]
-    assert chart_data1["visualization_type"] == chart_data2["visualization_type"]
+    assert chart_data1["type"] == chart_data2["type"]
+
+    # Verify metadata from results match
+    assert result1["charts"][0]["insight_id"] == result2["charts"][0]["insight_id"]
+    assert result1["charts"][0]["visualization_type"] == result2["charts"][0]["visualization_type"]

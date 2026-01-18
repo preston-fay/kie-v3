@@ -286,58 +286,133 @@ class VisualStoryboardSkill(Skill):
 
         # Section 1: Context & Baseline (ALL context visuals)
         for spec in context_specs:
-            order += 1
-            elements.append(self._create_element(
-                section="Context & Baseline",
-                order=order,
-                spec=spec,
-                role="set baseline and scale",
-                is_first=(order == 1)
-            ))
+            # CRITICAL FIX: Create elements for ALL visuals in spec, not just first one
+            visuals = spec.get("visuals", [])
+            if visuals and isinstance(visuals, list):
+                for visual in visuals:
+                    order += 1
+                    elements.append(self._create_element_from_visual(
+                        section="Context & Baseline",
+                        order=order,
+                        spec=spec,
+                        visual=visual,
+                        role="set baseline and scale",
+                        is_first=(order == 1)
+                    ))
+            else:
+                # Fallback for old format (single viz at spec level)
+                order += 1
+                elements.append(self._create_element(
+                    section="Context & Baseline",
+                    order=order,
+                    spec=spec,
+                    role="set baseline and scale",
+                    is_first=(order == 1)
+                ))
 
         # Section 2: Dominance & Comparison (ALL comparison visuals)
         for spec in dominance_specs:
-            order += 1
-            elements.append(self._create_element(
-                section="Dominance & Comparison",
-                order=order,
-                spec=spec,
-                role="highlight leaders and gaps",
-                is_first=(order == 1)
-            ))
+            # CRITICAL FIX: Create elements for ALL visuals in spec, not just first one
+            visuals = spec.get("visuals", [])
+            if visuals and isinstance(visuals, list):
+                for visual in visuals:
+                    order += 1
+                    elements.append(self._create_element_from_visual(
+                        section="Dominance & Comparison",
+                        order=order,
+                        spec=spec,
+                        visual=visual,
+                        role="highlight leaders and gaps",
+                        is_first=(order == 1)
+                    ))
+            else:
+                # Fallback for old format (single viz at spec level)
+                order += 1
+                elements.append(self._create_element(
+                    section="Dominance & Comparison",
+                    order=order,
+                    spec=spec,
+                    role="highlight leaders and gaps",
+                    is_first=(order == 1)
+                ))
 
         # Section 3: Drivers & Structure (ALL driver visuals)
         for spec in drivers_specs:
-            order += 1
-            elements.append(self._create_element(
-                section="Drivers & Structure",
-                order=order,
-                spec=spec,
-                role="explain what drives outcomes",
-                is_first=(order == 1)
-            ))
+            # CRITICAL FIX: Create elements for ALL visuals in spec, not just first one
+            visuals = spec.get("visuals", [])
+            if visuals and isinstance(visuals, list):
+                for visual in visuals:
+                    order += 1
+                    elements.append(self._create_element_from_visual(
+                        section="Drivers & Structure",
+                        order=order,
+                        spec=spec,
+                        visual=visual,
+                        role="explain what drives outcomes",
+                        is_first=(order == 1)
+                    ))
+            else:
+                # Fallback for old format (single viz at spec level)
+                order += 1
+                elements.append(self._create_element(
+                    section="Drivers & Structure",
+                    order=order,
+                    spec=spec,
+                    role="explain what drives outcomes",
+                    is_first=(order == 1)
+                ))
 
         # Section 4: Risk, Outliers & Caveats (ALL risk visuals)
         for spec in risk_specs:
-            order += 1
-            elements.append(self._create_element(
-                section="Risk, Outliers & Caveats",
-                order=order,
-                spec=spec,
-                role="stress-test the story",
-                is_first=(order == 1)
-            ))
+            # CRITICAL FIX: Create elements for ALL visuals in spec, not just first one
+            visuals = spec.get("visuals", [])
+            if visuals and isinstance(visuals, list):
+                for visual in visuals:
+                    order += 1
+                    elements.append(self._create_element_from_visual(
+                        section="Risk, Outliers & Caveats",
+                        order=order,
+                        spec=spec,
+                        visual=visual,
+                        role="stress-test the story",
+                        is_first=(order == 1)
+                    ))
+            else:
+                # Fallback for old format (single viz at spec level)
+                order += 1
+                elements.append(self._create_element(
+                    section="Risk, Outliers & Caveats",
+                    order=order,
+                    spec=spec,
+                    role="stress-test the story",
+                    is_first=(order == 1)
+                ))
 
         # Section 5: Implications & Actions (ALL implication visuals)
         for spec in implications_specs:
-            order += 1
-            elements.append(self._create_element(
-                section="Implications & Actions",
-                order=order,
-                spec=spec,
-                role="land the story",
-                is_first=(order == 1)
-            ))
+            # CRITICAL FIX: Create elements for ALL visuals in spec, not just first one
+            visuals = spec.get("visuals", [])
+            if visuals and isinstance(visuals, list):
+                for visual in visuals:
+                    order += 1
+                    elements.append(self._create_element_from_visual(
+                        section="Implications & Actions",
+                        order=order,
+                        spec=spec,
+                        visual=visual,
+                        role="land the story",
+                        is_first=(order == 1)
+                    ))
+            else:
+                # Fallback for old format (single viz at spec level)
+                order += 1
+                elements.append(self._create_element(
+                    section="Implications & Actions",
+                    order=order,
+                    spec=spec,
+                    role="land the story",
+                    is_first=(order == 1)
+                ))
 
         return elements
 
@@ -354,6 +429,51 @@ class VisualStoryboardSkill(Skill):
 
         return suppressed
 
+    def _create_element_from_visual(
+        self,
+        section: str,
+        order: int,
+        spec: dict[str, Any],
+        visual: dict[str, Any],
+        role: str,
+        is_first: bool
+    ) -> StoryboardElement:
+        """Create a storyboard element from a specific visual in the visuals array."""
+        insight_id = spec.get("insight_id", "unknown")
+        viz_type = visual.get("visualization_type", "unknown")
+        pattern_role = visual.get("pattern_role", "")
+
+        # Build chart_ref matching actual filename pattern
+        if pattern_role:
+            chart_ref = f"{insight_id}__{viz_type}__{pattern_role}.json"
+        else:
+            chart_ref = f"{insight_id}__{viz_type}.json"
+
+        # Generate transition text
+        if is_first:
+            transition_text = "Starting the visual narrative."
+        else:
+            transition_text = self._generate_transition(section, order, spec, role)
+
+        # Generate emphasis
+        emphasis = self._generate_emphasis(spec)
+
+        # Filter meaningful caveats
+        caveats = self._filter_caveats(spec.get("caveats", []))
+
+        return StoryboardElement(
+            section=section,
+            order=order,
+            insight_id=insight_id,
+            chart_ref=chart_ref,
+            role=role,
+            transition_text=transition_text,
+            emphasis=emphasis,
+            caveats=caveats,
+            visualization_type=viz_type,
+            insight_title=spec.get("insight_title", "Untitled")
+        )
+
     def _create_element(
         self,
         section: str,
@@ -362,7 +482,7 @@ class VisualStoryboardSkill(Skill):
         role: str,
         is_first: bool
     ) -> StoryboardElement:
-        """Create a storyboard element from a visualization spec."""
+        """Create a storyboard element from a visualization spec (legacy fallback)."""
         insight_id = spec.get("insight_id", "unknown")
 
         # CRITICAL FIX: Handle multi-version charts (spec.visuals array)

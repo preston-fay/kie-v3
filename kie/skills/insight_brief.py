@@ -57,9 +57,11 @@ class InsightBriefSkill(Skill):
         outputs_dir = context.project_root / "outputs"
         evidence_dir = context.project_root / "project_state" / "evidence_ledger"
 
-        # Load artifacts
-        insights_catalog_path = outputs_dir / "insights_catalog.json"
-        eda_profile_path = outputs_dir / "eda_profile.json"
+        # Load artifacts using canonical paths (supports internal/ directory)
+        from kie.paths import ArtifactPaths
+        paths = ArtifactPaths(context.project_root)
+        insights_catalog_path = paths.insights_catalog()
+        eda_profile_path = paths.eda_profile_json()
 
         if not insights_catalog_path.exists():
             return SkillResult(

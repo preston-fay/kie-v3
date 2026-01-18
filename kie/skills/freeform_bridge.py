@@ -170,8 +170,10 @@ class FreeformBridgeSkill(Skill):
         with open(freeform_catalog_path, "w") as f:
             json.dump(catalog.to_dict(), f, indent=2)
 
-        # Save as standard insights_catalog.json for pipeline
-        insights_catalog_path = outputs_dir / "insights_catalog.json"
+        # Save as standard insights_catalog.json for pipeline (using ArtifactPaths for canonical location)
+        from kie.paths import ArtifactPaths
+        paths = ArtifactPaths(context.project_root)
+        insights_catalog_path = paths.insights_catalog(create_dirs=True)
         with open(insights_catalog_path, "w") as f:
             json.dump(catalog.to_dict(), f, indent=2)
 

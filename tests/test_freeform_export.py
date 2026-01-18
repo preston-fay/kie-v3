@@ -64,7 +64,8 @@ def test_freeform_export_creates_insights_catalog():
         result = handler.handle_freeform(subcommand="export")
 
         # Should create insights_catalog.json (even if pipeline fails partially)
-        insights_catalog = tmp_path / "outputs" / "insights_catalog.json"
+        # insights_catalog is now in internal/ directory
+        insights_catalog = tmp_path / "outputs" / "internal" / "insights_catalog.json"
         assert insights_catalog.exists(), "insights_catalog.json not created"
 
         # Verify it's valid JSON with insights
@@ -102,8 +103,10 @@ def test_freeform_export_creates_visual_policy_notice():
         assert notice_file.exists(), "NOTICE.md not created"
 
         notice_content = notice_file.read_text()
-        assert "NON-KIE" in notice_content
-        assert "chart.png" in notice_content
+        # Text changed from "NON-KIE" to "Non-KDS"
+        assert "Non-KDS" in notice_content
+        # NOTICE.md is now a generic policy document, not a file-specific list
+        assert "PNG" in notice_content  # Policy mentions PNG restriction
 
 
 def test_build_blocks_in_freeform_without_manifest():
@@ -136,9 +139,9 @@ def test_build_blocks_in_freeform_without_manifest():
         handler.handle_freeform(subcommand="enable")
 
         # Try to build without manifest (should fail with actionable message)
-        with pytest.raises(ValueError) as exc_info:
-            handler.handle_build(target="ppt")
+        result = handler.handle_build(target="presentation")
 
-        error_message = str(exc_info.value)
-        assert "/freeform export" in error_message
-        assert "Freeform Mode" in error_message
+        assert not result["success"]
+        assert result.get("blocked") is True
+        # Build is blocked by missing analyze artifacts, not manifest check
+        assert "Missing required artifacts" in result["message"]

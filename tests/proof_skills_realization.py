@@ -81,7 +81,8 @@ def demo_skills_realization():
 
         # Setup workspace
         outputs_dir = tmp_path / "outputs"
-        outputs_dir.mkdir()
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
 
         # Create minimal catalog
         catalog_data = {
@@ -105,14 +106,14 @@ def demo_skills_realization():
             "data_summary": {"row_count": 1500},
         }
 
-        (outputs_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
+        (internal_dir / "insights_catalog.json").write_text(json.dumps(catalog_data))
 
         # Execute InsightBriefSkill
         skill = InsightBriefSkill()
         context = SkillContext(
             project_root=tmp_path,
             current_stage="analyze",
-            artifacts={"insights_catalog": outputs_dir / "insights_catalog.json"},
+            artifacts={"insights_catalog": internal_dir / "insights_catalog.json"},
         )
 
         result = skill.execute(context)
@@ -173,8 +174,9 @@ def demo_skills_realization():
 
         # Create minimal workspace
         outputs_dir = tmp_path / "outputs"
-        outputs_dir.mkdir()
-        (outputs_dir / "insights_catalog.json").write_text(json.dumps({
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+        (internal_dir / "insights_catalog.json").write_text(json.dumps({
             "generated_at": datetime.now().isoformat(),
             "business_question": "Test",
             "insights": [],
@@ -186,7 +188,7 @@ def demo_skills_realization():
         context = SkillContext(
             project_root=tmp_path,
             current_stage="analyze",
-            artifacts={"insights_catalog": outputs_dir / "insights_catalog.json"},
+            artifacts={"insights_catalog": internal_dir / "insights_catalog.json"},
         )
 
         skill.execute(context)
@@ -252,8 +254,9 @@ def demo_skills_realization():
 
         # Setup
         outputs_dir = tmp_path / "outputs"
-        outputs_dir.mkdir()
-        (outputs_dir / "insights_catalog.json").write_text(json.dumps({
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+        (internal_dir / "insights_catalog.json").write_text(json.dumps({
             "generated_at": datetime.now().isoformat(),
             "business_question": "Test",
             "insights": [],
@@ -263,7 +266,7 @@ def demo_skills_realization():
         context = SkillContext(
             project_root=tmp_path,
             current_stage="analyze",
-            artifacts={"insights_catalog": outputs_dir / "insights_catalog.json"},
+            artifacts={"insights_catalog": internal_dir / "insights_catalog.json"},
         )
 
         # Execute via registry (not hardcoded in handler.py)

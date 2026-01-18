@@ -96,7 +96,10 @@ def test_handle_build_intelligence(temp_project):
     analyze_result = handler.handle_analyze()
     assert analyze_result["success"], f"Analyze failed: {analyze_result.get('message')}"
 
-    # Run build
+    # Build charts first (required before dashboard)
+    charts_result = handler.handle_build(target="charts")
+
+    # Run build dashboard
     result = handler.handle_build(target="dashboard")
 
     assert result["success"], f"Build failed: {result.get('message')}"

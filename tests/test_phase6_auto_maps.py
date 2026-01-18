@@ -242,6 +242,9 @@ def test_dashboard_override_god_mode():
         analyze_result = handler.handle_analyze()
         assert analyze_result['success'], f"Analyze failed: {analyze_result.get('message')}"
 
+        # Build charts first (required before dashboard)
+        charts_result = handler.handle_build(target="charts")
+
         result = handler.handle_build(target="dashboard")
 
         assert result['success'], f"Build failed: {result.get('message', 'Unknown error')}"

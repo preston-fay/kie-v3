@@ -38,8 +38,8 @@ class TestBarChartBuilderBasics:
         assert config.chart_type == 'bar'
         assert len(config.data) == 4
         assert config.title == 'Revenue by Region'
-        assert config.data[0]['region'] == 'North'
-        assert config.data[0]['revenue'] == 1200000
+        assert config.data[0]['Region'] == 'North'
+        assert config.data[0]['Revenue'] == 1200000
 
     def test_bar_chart_with_list_of_dicts(self):
         """Test bar chart with list of dicts input."""
@@ -54,7 +54,7 @@ class TestBarChartBuilderBasics:
 
         assert config.chart_type == 'bar'
         assert len(config.data) == 3
-        assert config.data[1]['value'] == 200
+        assert config.data[1]['Value'] == 200
 
     def test_multi_series_bar_chart(self):
         """Test bar chart with multiple series (grouped bars)."""
@@ -69,14 +69,14 @@ class TestBarChartBuilderBasics:
 
         assert config.chart_type == 'bar'
         assert len(config.data) == 4
-        assert 'revenue' in config.data[0]
-        assert 'cost' in config.data[0]
+        assert 'Revenue' in config.data[0]
+        assert 'Cost' in config.data[0]
 
         # Check that two bars are configured
         bars = config.config.get('bars', [])
         assert len(bars) == 2
-        assert bars[0]['dataKey'] == 'revenue'
-        assert bars[1]['dataKey'] == 'cost'
+        assert bars[0]['dataKey'] == 'Revenue'
+        assert bars[1]['dataKey'] == 'Cost'
 
 
 class TestBarChartLayouts:
@@ -436,7 +436,7 @@ class TestEdgeCases:
         config = builder.build(data, x_key='x', y_keys='y')
 
         assert len(config.data) == 1
-        assert config.data[0]['y'] == 100
+        assert config.data[0]['Y'] == 100
 
     def test_missing_column_handled(self):
         """Test that missing columns are handled gracefully."""
@@ -463,7 +463,7 @@ class TestEdgeCases:
         config = builder.build(data, x_key='x', y_keys='y')
 
         assert len(config.data) == 3
-        assert config.data[0]['y'] == 0
+        assert config.data[0]['Y'] == 0
 
     def test_negative_values(self):
         """Test handling of negative values."""
@@ -475,8 +475,8 @@ class TestEdgeCases:
         builder = BarChartBuilder()
         config = builder.build(data, x_key='x', y_keys='y')
 
-        assert config.data[0]['y'] == -10
-        assert config.data[2]['y'] == -5
+        assert config.data[0]['Y'] == -10
+        assert config.data[2]['Y'] == -5
 
     def test_large_dataset(self):
         """Test handling of large dataset."""

@@ -180,13 +180,13 @@ class TestKIEClient:
         should_continue, command_succeeded = client.process_command("/build")
         assert should_continue is True
         assert command_succeeded is True
-        client.handler.handle_build.assert_called_with(target="all")
+        client.handler.handle_build.assert_called_with(target="all", preview=False, interactive=False)
 
         # Test specific target
         should_continue, command_succeeded = client.process_command("/build presentation")
         assert should_continue is True
         assert command_succeeded is True
-        client.handler.handle_build.assert_called_with(target="presentation")
+        client.handler.handle_build.assert_called_with(target="presentation", preview=False, interactive=False)
 
     def test_process_command_preview(self, tmp_path):
         """Test /preview command."""

@@ -71,6 +71,10 @@ def test_dashboard_respects_override():
         analyze_result = handler.handle_analyze()
         assert analyze_result['success'], f"Analyze failed: {analyze_result.get('message')}"
 
+        # Build charts first (required before dashboard)
+        charts_result = handler.handle_build(target="charts")
+        # Charts may succeed or fail depending on viz plan - that's ok for this test
+
         # Build dashboard
         result = handler.handle_build(target="dashboard")
 
@@ -139,6 +143,9 @@ def test_dashboard_uses_intelligence_without_override():
         analyze_result = handler.handle_analyze()
         assert analyze_result['success'], f"Analyze failed: {analyze_result.get('message')}"
 
+        # Build charts first (required before dashboard)
+        charts_result = handler.handle_build(target="charts")
+
         result = handler.handle_build(target="dashboard")
 
         assert result['success'], f"Build failed: {result.get('message')}"
@@ -203,6 +210,9 @@ def test_dashboard_efficiency_objective():
         # Run analyze first
         analyze_result = handler.handle_analyze()
         assert analyze_result['success'], f"Analyze failed: {analyze_result.get('message')}"
+
+        # Build charts first (required before dashboard)
+        charts_result = handler.handle_build(target="charts")
 
         result = handler.handle_build(target="dashboard")
 

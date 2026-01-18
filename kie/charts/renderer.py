@@ -202,7 +202,9 @@ class ChartRenderer:
         chart_config = {
             "insight_id": insight_id,
             "insight_title": spec.get("insight_title", "Untitled"),
-            "visualization_type": viz_type,
+            "chart_type": viz_type,  # CRITICAL: Use 'chart_type' for RechartsConfig compatibility
+            "title": spec.get("insight_title", "Untitled"),  # CRITICAL: Include title for chart rendering
+            "visualization_type": viz_type,  # Keep for backward compatibility
             "purpose": purpose,
             "pattern_role": pattern_role,
             "description": description,
@@ -255,7 +257,11 @@ class ChartRenderer:
 
         # Deterministic filename with pattern role
         filename = f"{insight_id}__{viz_type}__{pattern_role}.json" if pattern_role else f"{insight_id}__{viz_type}.json"
-        output_path = self.charts_dir / filename
+
+        # CRITICAL: Chart JSONs go to internal/chart_configs/ (not consultant-visible)
+        from kie.paths import ArtifactPaths
+        paths = ArtifactPaths(self.project_root)
+        output_path = paths.chart_config(filename, create_dirs=True)
 
         # Save chart config
         with open(output_path, "w") as f:
@@ -366,7 +372,10 @@ class ChartRenderer:
         else:
             filename = f"{insight_id}__{viz_type}__{version_id}.json"
 
-        output_path = self.charts_dir / filename
+        # CRITICAL: Chart JSONs go to internal/chart_configs/ (not consultant-visible)
+        from kie.paths import ArtifactPaths
+        paths = ArtifactPaths(self.project_root)
+        output_path = paths.chart_config(filename, create_dirs=True)
 
         # Save chart config
         with open(output_path, "w") as f:
@@ -436,19 +445,24 @@ class ChartRenderer:
 
         # Deterministic filename
         filename = f"{insight_id}__{viz_type}.json"
-        output_path = self.charts_dir / filename
+
+        # CRITICAL: Chart JSON goes to internal/chart_configs/, SVG stays in charts/
+        from kie.paths import ArtifactPaths
+        paths = ArtifactPaths(self.project_root)
+        json_output_path = paths.chart_config(filename, create_dirs=True)
+        svg_output_path = paths.chart_svg(filename.replace('.json', '.svg'))
 
         # Save JSON (for React rendering)
-        chart_config.to_json(output_path)
+        chart_config.to_json(json_output_path)
 
         # Also save SVG (for static exports)
-        svg_path = chart_config.to_svg(output_path.with_suffix('.svg'))
+        svg_path = chart_config.to_svg(svg_output_path)
 
         return {
             "insight_id": insight_id,
             "visualization_type": viz_type,
             "filename": filename,
-            "path": str(output_path),
+            "path": str(json_output_path),
             "svg_path": str(svg_path),
             "data_points": len(chart_config.data),
         }
@@ -651,6 +665,20 @@ class ChartRenderer:
         if y_col is None:
             numeric_cols = df.select_dtypes(include=["number"]).columns
             y_col = numeric_cols[0] if len(numeric_cols) > 0 else df.columns[1] if len(df.columns) > 1 else df.columns[0]
+
+        # Handle edge case: x_col == y_col (would cause "cannot insert" error on reset_index)
+        if x_col == y_col:
+            # Find a different column to use for x (prefer categorical, then any other column)
+            available_cols = [c for c in df.columns if c != y_col]
+            if available_cols:
+                categorical_cols = df[available_cols].select_dtypes(include=["object", "category"]).columns
+                if len(categorical_cols) > 0:
+                    x_col = categorical_cols[0]
+                else:
+                    x_col = available_cols[0]
+            else:
+                # Single column dataset - return distribution instead
+                return [{"category": str(i), "value": float(v)} for i, v in enumerate(df[y_col].dropna())]
 
         # Group by x_col and aggregate y_col
         grouped = df.groupby(x_col)[y_col].sum().reset_index()
@@ -866,6 +894,31 @@ class ChartRenderer:
         if y_col is None:
             numeric_cols = df.select_dtypes(include=["number"]).columns
             y_col = numeric_cols[0] if len(numeric_cols) > 0 else df.columns[1] if len(df.columns) > 1 else df.columns[0]
+
+        # Handle edge case: x_col == y_col (would cause "cannot insert" error on reset_index)
+        if x_col == y_col:
+            # Find a different column to use for x (prefer categorical, then any other column)
+            available_cols = [c for c in df.columns if c != y_col]
+            if available_cols:
+                categorical_cols = df[available_cols].select_dtypes(include=["object", "category"]).columns
+                if len(categorical_cols) > 0:
+                    x_col = categorical_cols[0]
+                else:
+                    x_col = available_cols[0]
+            else:
+                # Single column dataset - return as-is
+                values = df[y_col].dropna().sort_values(ascending=False).head(10)
+                total = values.sum()
+                cumulative = 0
+                chart_data = []
+                for i, v in enumerate(values):
+                    cumulative += v
+                    chart_data.append({
+                        "category": str(i + 1),
+                        "value": float(v),
+                        "cumulative_pct": round(cumulative / total * 100, 1) if total > 0 else 0,
+                    })
+                return chart_data
 
         # Group by x_col and aggregate y_col
         grouped = df.groupby(x_col)[y_col].sum().reset_index()

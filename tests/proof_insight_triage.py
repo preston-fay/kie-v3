@@ -54,7 +54,8 @@ def main() -> int:
 
         # Setup directories
         outputs_dir = project_root / "outputs"
-        outputs_dir.mkdir()
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
 
         project_state = project_root / "project_state"
         project_state.mkdir()
@@ -221,7 +222,7 @@ def main() -> int:
             data_summary={"row_count": 2840, "columns": 12, "project_name": "Acme Corp Operations Analysis"},
         )
 
-        catalog_path = outputs_dir / "insights_catalog.json"
+        catalog_path = internal_dir / "insights_catalog.json"
         catalog_path.write_text(json.dumps(catalog.to_dict(), indent=2))
 
         print(f"✓ Insights Catalog created: {catalog_path}")

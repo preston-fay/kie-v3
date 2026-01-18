@@ -124,8 +124,13 @@ class EDASynthesisSkill(Skill):
         warnings = []
         errors = []
 
-        # Load EDA profile
-        eda_profile_path = context.project_root / "outputs" / "eda_profile.json"
+        # Load EDA profile (check internal/ directory first)
+        eda_profile_path = context.project_root / "outputs" / "internal" / "eda_profile.json"
+        use_yaml = False
+        if not eda_profile_path.exists():
+            # Try YAML fallback
+            eda_profile_path = context.project_root / "outputs" / "internal" / "eda_profile.yaml"
+            use_yaml = True
         if not eda_profile_path.exists():
             return SkillResult(
                 success=False,
@@ -133,7 +138,10 @@ class EDASynthesisSkill(Skill):
             )
 
         with open(eda_profile_path) as f:
-            eda_profile = json.load(f)
+            if use_yaml:
+                eda_profile = yaml.safe_load(f)
+            else:
+                eda_profile = json.load(f)
 
         # Load data file path
         data_file_path = self._load_data_file_path(context.project_root)

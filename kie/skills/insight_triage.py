@@ -76,9 +76,11 @@ class InsightTriageSkill(Skill):
         outputs_dir = context.project_root / "outputs"
         evidence_dir = context.project_root / "project_state" / "evidence_ledger"
 
-        # Load artifacts - check both JSON and YAML formats
-        insights_catalog_json = outputs_dir / "insights_catalog.json"
-        insights_catalog_yaml = outputs_dir / "insights.yaml"
+        # CRITICAL: Load artifacts using centralized paths (supports old + new locations)
+        from kie.paths import ArtifactPaths
+        paths = ArtifactPaths(context.project_root)
+        insights_catalog_json = paths.insights_catalog()
+        insights_catalog_yaml = paths.insights_yaml()
 
         if insights_catalog_json.exists():
             # Load JSON format
@@ -90,6 +92,7 @@ class InsightTriageSkill(Skill):
             catalog = InsightCatalog.load(str(insights_catalog_yaml))
             # Also save as JSON for consistency
             catalog_data = catalog.to_dict()
+            insights_catalog_json = paths.insights_catalog(create_dirs=True)
             insights_catalog_json.write_text(json.dumps(catalog_data, indent=2))
         else:
             # Graceful failure - produce valid artifact stating no insights
@@ -111,12 +114,15 @@ class InsightTriageSkill(Skill):
         triage_result = self._triage_insights(catalog, artifact_hashes, build_context)
 
         # Generate markdown output
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+
         markdown_content = self._generate_markdown(triage_result)
-        markdown_path = outputs_dir / "internal" / "insight_triage.md"
+        markdown_path = internal_dir / "insight_triage.md"
         markdown_path.write_text(markdown_content)
 
         # Generate JSON output
-        json_path = outputs_dir / "internal" / "insight_triage.json"
+        json_path = internal_dir / "insight_triage.json"
         json_path.write_text(json.dumps(triage_result, indent=2))
 
         return SkillResult(
@@ -164,7 +170,10 @@ This may indicate:
 *Generated: {}*
 """.format(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-        markdown_path = outputs_dir / "internal" / "insight_triage.md"
+        internal_dir = outputs_dir / "internal"
+        internal_dir.mkdir(parents=True, exist_ok=True)
+
+        markdown_path = internal_dir / "insight_triage.md"
         markdown_path.write_text(markdown_content)
 
         json_data = {
@@ -180,7 +189,7 @@ This may indicate:
             }
         }
 
-        json_path = outputs_dir / "internal" / "insight_triage.json"
+        json_path = internal_dir / "insight_triage.json"
         json_path.write_text(json.dumps(json_data, indent=2))
 
         return SkillResult(
